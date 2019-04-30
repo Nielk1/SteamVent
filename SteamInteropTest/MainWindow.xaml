@@ -1,0 +1,82 @@
+﻿<Window x:Class="SteamInteropTest.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:SteamInteropTest"
+        mc:Ignorable="d"
+        Title="MainWindow" Height="450" Width="800" Closing="Window_Closing">
+    <Window.Resources>
+        <Style x:Key="placeHolder" TargetType="{x:Type TextBox}" BasedOn="{StaticResource {x:Type TextBox}}">
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="{x:Type TextBox}">
+                        <Grid>
+                            <TextBox Text="{Binding Path=Text,
+                                                RelativeSource={RelativeSource TemplatedParent}, 
+                                                Mode=TwoWay,
+                                                UpdateSourceTrigger=PropertyChanged}"
+                                 x:Name="textSource" 
+                                 Background="Transparent" 
+                                 Panel.ZIndex="2" />
+                            <TextBox Text="{TemplateBinding Tag}" Background="{TemplateBinding Background}" Panel.ZIndex="1">
+                                <TextBox.Style>
+                                    <Style TargetType="{x:Type TextBox}">
+                                        <Setter Property="Foreground" Value="Transparent"/>
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding Path=Text, Source={x:Reference textSource}}" Value="">
+                                                <Setter Property="Foreground" Value="Gray"/>
+                                                <Setter Property="HorizontalContentAlignment" Value="Left"/>
+                                                <Setter Property="VerticalContentAlignment" Value="Center"/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </TextBox.Style>
+                            </TextBox>
+                        </Grid>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </Window.Resources>
+    <Grid>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="Auto"/>
+            <ColumnDefinition Width="*"/>
+        </Grid.ColumnDefinitions>
+        <Grid Grid.Column="0" Margin="8">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+            </Grid.RowDefinitions>
+            <Button x:Name="btnInitSteam" Content="Initialize Steam" Margin="0,2" Padding="4,0" Grid.Row="0" Click="BtnInitSteam_Click"/>
+            <Button x:Name="btnInitISteamClient017" Content="Initialize ISteamClient017" Margin="0,2" Padding="4,0" Grid.Row="1" Click="BtnInitISteamClient017_Click"/>
+            <Button x:Name="btnInitISteamApps006" Content="Initialize ISteamApps006" Margin="0,2" Padding="4,0" Grid.Row="2" Click="BtnInitISteamApps006_Click"/>
+            <Button x:Name="btnGetCurrentGameLanguage" Content="GetCurrentGameLanguage" Margin="0,2" Padding="4,0" Grid.Row="3" Click="BtnGetCurrentGameLanguage_Click"/>
+            <Button x:Name="btnGetAvailableGameLanguages" Content="GetAvailableGameLanguages" Margin="0,2" Padding="4,0" Grid.Row="4" Click="BtnGetAvailableGameLanguages_Click"/>
+            <Button x:Name="btnGetIsAppInstalled" Content="GetIsAppInstalled" Margin="0,2" Padding="4,0" Grid.Row="5" Click="BtnGetIsAppInstalled_Click"/>
+            <TextBox x:Name="txtIsAppInstalledAppId" Tag="AppID for GetIsAppInstalled" Style="{StaticResource placeHolder}" Margin="0,2" Padding="4,0" Grid.Row="6" />
+            <Button x:Name="btnTest" Content="Test" Margin="0,2" Padding="4,0" Grid.Row="7" Click="BtnTest_Click"/>
+        </Grid>
+
+        <ListBox x:Name="lstBoxLogOutput" ItemsSource="{Binding}" Grid.Column="1" HorizontalAlignment="Stretch" Margin="0,8,8,8" Height="Auto" VerticalAlignment="Stretch" Width="Auto">
+            <ListBox.ItemTemplate>
+                <DataTemplate>
+                    <TextBlock Text="{Binding}"/>
+                </DataTemplate>
+            </ListBox.ItemTemplate>
+        </ListBox>
+    </Grid>
+</Window>

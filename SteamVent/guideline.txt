@@ -1,0 +1,10 @@
+﻿If the call HAS string arguments:
+    - Use 'UnmanagedFunctionPointer(CallingConvention.ThisCall, CharSet = CharSet.Ansi)'
+    - The argument name inside of 'GetDelegate<>()' should be suffixed with '.ToUtf8()'
+      For example, see 'ISteamClient017:GetISteamApps' ('pchVersion.ToUtf8()')
+
+If the call RETURNS a string: 
+    - You don't need to use 'CharSet = CharSet.Ansi' 
+    - The delegate return type should be IntPtr (not string)
+    - The entire 'GetDelegate<>()' statement should be enclosed in 'DecodeUtf8String()'
+      For example, see 'ISteamApps006:GetCurrentGameLanguage' ('DecodeUtf8String(GetDelegate<GetCurrentGameLanguageDelegate>()(InterfacePtr))')
