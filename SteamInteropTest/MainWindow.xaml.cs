@@ -112,18 +112,26 @@ namespace SteamInteropTest
                 return;
             }
 
-            var interfaceVersionString = ((InterfaceVersion)typeof(ISteamApps006).GetCustomAttribute(typeof(InterfaceVersion))).Version;
-            var steamApps006InterfacePtr = SteamClient017.GetISteamApps(User, Pipe, interfaceVersionString);
-            if (steamApps006InterfacePtr == IntPtr.Zero)
+            //var interfaceVersionString = ((InterfaceVersion)typeof(ISteamApps006).GetCustomAttribute(typeof(InterfaceVersion))).Version;
+            //var steamApps006InterfacePtr = SteamClient017.GetISteamApps(User, Pipe, interfaceVersionString);
+            //if (steamApps006InterfacePtr == IntPtr.Zero)
+            //{
+            //    WriteToWindowLog("Failed to initialize ISteamApps006!");
+            //    return;
+            //}
+            //
+            //WriteToWindowLog("Successfully initialized ISteamApps006!");
+
+            //SteamApps006InterfacePtr = steamApps006InterfacePtr;
+            //SteamApps006 = new ISteamApps006(SteamApps006InterfacePtr);
+
+            SteamApps006 = SteamClient017.GetISteamApps<ISteamApps006>(User, Pipe);
+            if (SteamApps006 == null)
             {
                 WriteToWindowLog("Failed to initialize ISteamApps006!");
                 return;
             }
-
             WriteToWindowLog("Successfully initialized ISteamApps006!");
-
-            SteamApps006InterfacePtr = steamApps006InterfacePtr;
-            SteamApps006 = new ISteamApps006(SteamApps006InterfacePtr);
         }
 
         private void GetCurrentGameLanguage()
