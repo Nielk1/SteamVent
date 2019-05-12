@@ -46,7 +46,7 @@ namespace SteamVent.Tests
                 SteamClient = (ISteamClient)typeof(Steam)
                     .GetMethod("CreateInterface")
                     .MakeGenericMethod(new Type[] { _SteamClientVersion })
-                    .Invoke(null, new object[] { IntPtr.Zero });
+                    .Invoke(null, new object[] { });
             }
             Assert.IsNotNull(SteamClient);
             Pipe = SteamClient.CreateSteamPipe();

@@ -124,15 +124,16 @@ namespace SteamVent.SteamClient
         /// <param name="version">A string defining the desired interface and version.</param>
         /// <param name="returnCode">An IntPtr value to return if the call fails.</param>
         /// <returns>A handle to the unmanaged Steam Client interface, or the provided <paramref name="returnCode"/> value upon failure.</returns>
-        public static TInterface CreateInterface<TInterface>(IntPtr returnCode) where TInterface : SteamInterfaceWrapper
+        public static TInterface CreateInterface<TInterface>() where TInterface : SteamInterfaceWrapper
         {
             if (_callCreateInterface == null)
                 throw new InvalidOperationException($"Steam Client library is not initialized ({nameof(CreateInterface)}).");
 
             string version = ((InterfaceVersion)typeof(ISteamClient017).GetCustomAttribute(typeof(InterfaceVersion))).Version;
 
-            IntPtr ptr = _callCreateInterface(version, returnCode);
+            IntPtr ptr = _callCreateInterface(version, IntPtr.Zero);
             if (ptr == null) return null;
+            if (ptr == IntPtr.Zero) return null;
             return (TInterface)Activator.CreateInstance(typeof(TInterface), ptr);
         }
 

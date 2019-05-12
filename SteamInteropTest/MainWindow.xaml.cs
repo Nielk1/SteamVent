@@ -79,7 +79,7 @@ namespace SteamInteropTest
             //     - For steam.dll interfaces use 'Steam.CreateSteamInterface'
             //     - For steamclient.dll/steamclient64.dll interfaces use 'Steam.CreateInterface'
 
-            SteamClient017 = Steam.CreateInterface<ISteamClient017>(IntPtr.Zero);
+            SteamClient017 = Steam.CreateInterface<ISteamClient017>();
 
             if (SteamClient017 == null)
             {
