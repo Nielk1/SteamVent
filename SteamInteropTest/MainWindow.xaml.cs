@@ -172,8 +172,10 @@ namespace SteamInteropTest
                 return;
             }
 
-            var isAppInstalled = SteamApps006.GetIsAppInstalled(appId);
+            var isAppInstalled = SteamApps006.BIsAppInstalled(appId);
+            //var isDlcInstalled = SteamApps006.BIsDlcInstalled(appId);
             WriteToWindowLog($"The AppID '{appId}' is {(isAppInstalled ? "" : "NOT ")}installed.");
+            //WriteToWindowLog($"The DLC '{appId}' is {(isDlcInstalled > 0 ? "" : "NOT ")}installed. {isDlcInstalled}");
         }
 
         private void Cleanup()
@@ -224,6 +226,15 @@ namespace SteamInteropTest
             //}
 
             //WriteToWindowLog($"Success! 0x{interfacePtr.ToInt64():X}");
+
+            //if (!UInt32.TryParse(txtIsAppInstalledAppId.Text, out var appId))
+            //{
+            //    WriteToWindowLog("Invalid AppID!");
+            //    return;
+            //}
+
+            //UInt32 unix = SteamApps006.GetEarliestPurchaseUnixTime(appId);
+            //WriteToWindowLog($"GetEarliestPurchaseUnixTime {unix} {DateTimeOffset.FromUnixTimeSeconds(unix).ToLocalTime()}");
         }
 
         private void BtnGetAvailableGameLanguages_Click(object sender, RoutedEventArgs e)

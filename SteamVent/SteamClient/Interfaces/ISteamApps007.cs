@@ -11,12 +11,12 @@ namespace SteamVent.SteamClient.Interfaces
 {
     /// <inheritdoc />
     /// <summary>
-    /// Contains ISteamApps006 delegates which correspond to their native SteamClient DLL functions.
+    /// Contains ISteamApps007 delegates which correspond to their native SteamClient DLL functions.
     /// </summary>
-    [InterfaceVersion("STEAMAPPS_INTERFACE_VERSION006")]
-    public class ISteamApps006 : SteamInterfaceWrapper
+    [InterfaceVersion("STEAMAPPS_INTERFACE_VERSION007")]
+    public class ISteamApps007 : SteamInterfaceWrapper
     {
-        public ISteamApps006(IntPtr interfacePtr) : base(interfacePtr) { }
+        public ISteamApps007(IntPtr interfacePtr) : base(interfacePtr) { }
 
         #region VTableIndex(0)
         [VTableIndex(0), UnmanagedFunctionPointer(CallingConvention.ThisCall)]
@@ -126,5 +126,8 @@ namespace SteamVent.SteamClient.Interfaces
 
         //GetAppOwner
         //GetLaunchQueryParam
+        //GetDlcDownloadProgress
+        //GetAppBuildId
+        //RequestAllProofOfPurchaseKeys
     }
 }

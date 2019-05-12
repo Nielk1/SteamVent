@@ -11,12 +11,12 @@ namespace SteamVent.SteamClient.Interfaces
 {
     /// <inheritdoc />
     /// <summary>
-    /// Contains ISteamApps006 delegates which correspond to their native SteamClient DLL functions.
+    /// Contains ISteamApps003 delegates which correspond to their native SteamClient DLL functions.
     /// </summary>
-    [InterfaceVersion("STEAMAPPS_INTERFACE_VERSION006")]
-    public class ISteamApps006 : SteamInterfaceWrapper
+    [InterfaceVersion("STEAMAPPS_INTERFACE_VERSION003")]
+    public class ISteamApps003 : SteamInterfaceWrapper
     {
-        public ISteamApps006(IntPtr interfacePtr) : base(interfacePtr) { }
+        public ISteamApps003(IntPtr interfacePtr) : base(interfacePtr) { }
 
         #region VTableIndex(0)
         [VTableIndex(0), UnmanagedFunctionPointer(CallingConvention.ThisCall)]
@@ -73,58 +73,5 @@ namespace SteamVent.SteamClient.Interfaces
         #endregion
         public int BIsDlcInstalled(UInt32 nAppId) =>
             GetDelegate<BIsDlcInstalledDelegate>()(InterfacePtr, nAppId);
-
-        #region VTableIndex(8)
-        [VTableIndex(8), UnmanagedFunctionPointer(CallingConvention.ThisCall)]
-        private delegate UInt32 GetEarliestPurchaseUnixTimeDelegate(IntPtr thisPtr, UInt32 nAppId);
-        #endregion
-        public UInt32 GetEarliestPurchaseUnixTime(UInt32 nAppId) =>
-            GetDelegate<GetEarliestPurchaseUnixTimeDelegate>()(InterfacePtr, nAppId);
-
-        #region VTableIndex(9)
-        [VTableIndex(9), UnmanagedFunctionPointer(CallingConvention.ThisCall)]
-        private delegate bool BIsSubscribedFromFreeWeekendDelegate(IntPtr thisPtr);
-        #endregion
-        public bool BIsSubscribedFromFreeWeekend() =>
-            GetDelegate<BIsSubscribedFromFreeWeekendDelegate>()(InterfacePtr);
-
-        #region VTableIndex(10)
-        [VTableIndex(10), UnmanagedFunctionPointer(CallingConvention.ThisCall)]
-        private delegate int GetDLCCountDelegate(IntPtr thisPtr);
-        #endregion
-        public int GetDLCCount() =>
-            GetDelegate<GetDLCCountDelegate>()(InterfacePtr);
-
-        //BGetDLCDataByIndex
-
-        #region VTableIndex(12)
-        [VTableIndex(12), UnmanagedFunctionPointer(CallingConvention.ThisCall)]
-        private delegate void InstallDLCDelegate(IntPtr thisPtr, UInt32 nAppId);
-        #endregion
-        public void InstallDLC(UInt32 nAppId) =>
-            GetDelegate<InstallDLCDelegate>()(InterfacePtr, nAppId);
-
-        #region VTableIndex(13)
-        [VTableIndex(13), UnmanagedFunctionPointer(CallingConvention.ThisCall)]
-        private delegate void UninstallDLCDelegate(IntPtr thisPtr, UInt32 nAppId);
-        #endregion
-        public void UninstallDLC(UInt32 nAppId) =>
-            GetDelegate<UninstallDLCDelegate>()(InterfacePtr, nAppId);
-
-        //RequestAppProofOfPurchaseKey
-        //GetCurrentBetaName
-        //MarkContentCorrupt
-        //GetInstalledDepots
-        //GetAppInstallDir
-
-        #region VTableIndex(19)
-        [VTableIndex(19), UnmanagedFunctionPointer(CallingConvention.ThisCall)]
-        private delegate bool GetIsAppInstalledDelegate(IntPtr thisPtr, UInt32 nAppId);
-        #endregion
-        public bool BIsAppInstalled(UInt32 nAppId) =>
-            GetDelegate<GetIsAppInstalledDelegate>()(InterfacePtr, nAppId);
-
-        //GetAppOwner
-        //GetLaunchQueryParam
     }
 }

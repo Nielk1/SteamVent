@@ -11,12 +11,12 @@ namespace SteamVent.SteamClient.Interfaces
 {
     /// <inheritdoc />
     /// <summary>
-    /// Contains ISteamApps006 delegates which correspond to their native SteamClient DLL functions.
+    /// Contains ISteamApps004 delegates which correspond to their native SteamClient DLL functions.
     /// </summary>
-    [InterfaceVersion("STEAMAPPS_INTERFACE_VERSION006")]
-    public class ISteamApps006 : SteamInterfaceWrapper
+    [InterfaceVersion("STEAMAPPS_INTERFACE_VERSION004")]
+    public class ISteamApps004 : SteamInterfaceWrapper
     {
-        public ISteamApps006(IntPtr interfacePtr) : base(interfacePtr) { }
+        public ISteamApps004(IntPtr interfacePtr) : base(interfacePtr) { }
 
         #region VTableIndex(0)
         [VTableIndex(0), UnmanagedFunctionPointer(CallingConvention.ThisCall)]
@@ -110,21 +110,5 @@ namespace SteamVent.SteamClient.Interfaces
         #endregion
         public void UninstallDLC(UInt32 nAppId) =>
             GetDelegate<UninstallDLCDelegate>()(InterfacePtr, nAppId);
-
-        //RequestAppProofOfPurchaseKey
-        //GetCurrentBetaName
-        //MarkContentCorrupt
-        //GetInstalledDepots
-        //GetAppInstallDir
-
-        #region VTableIndex(19)
-        [VTableIndex(19), UnmanagedFunctionPointer(CallingConvention.ThisCall)]
-        private delegate bool GetIsAppInstalledDelegate(IntPtr thisPtr, UInt32 nAppId);
-        #endregion
-        public bool BIsAppInstalled(UInt32 nAppId) =>
-            GetDelegate<GetIsAppInstalledDelegate>()(InterfacePtr, nAppId);
-
-        //GetAppOwner
-        //GetLaunchQueryParam
     }
 }
