@@ -57,29 +57,15 @@ namespace SteamVent.SteamClient.Interfaces
         #region VTableIndex(5)
         [VTableIndex(5), UnmanagedFunctionPointer(CallingConvention.ThisCall, CharSet = CharSet.Ansi)]
         private delegate IntPtr GetISteamUserDelegate(IntPtr thisPtr, Int32 hSteamUser, Int32 hSteamPipe, string pchVersion);
-        // For pchVersion, use the string "STEAMUSER_INTERFACE_VERSION" to get the current version of the interface
         #endregion
-        //public IntPtr GetISteamUser(Int32 hSteamUser, Int32 hSteamPipe, string pchVersion = "STEAMUSER_INTERFACE_VERSION") =>
-        //    GetDelegate<GetISteamUserDelegate>()(InterfacePtr, hSteamUser, hSteamPipe, pchVersion.ToUtf8());
-        public T GetISteamUser<T>(Int32 hSteamUser, Int32 hSteamPipe) where T : SteamInterfaceWrapper
-        {
-            IntPtr ptr = GetDelegate<GetISteamUserDelegate>()(InterfacePtr, hSteamUser, hSteamPipe, ((InterfaceVersion)typeof(T).GetCustomAttribute(typeof(InterfaceVersion))).Version.ToUtf8());
-            if (ptr == null) return null;
-            return (T)Activator.CreateInstance(typeof(T), ptr);
-        }
+        public TInterface GetISteamUser<TInterface>(Int32 hSteamUser, Int32 hSteamPipe) where TInterface : SteamInterfaceWrapper =>
+            GetInterface<GetISteamAppsDelegate, TInterface>(InterfacePtr, hSteamUser, hSteamPipe);
 
         #region VTableIndex(15)
         [VTableIndex(15), UnmanagedFunctionPointer(CallingConvention.ThisCall, CharSet = CharSet.Ansi)]
         private delegate IntPtr GetISteamAppsDelegate(IntPtr thisPtr, Int32 hSteamUser, Int32 hSteamPipe, string pchVersion);
-        // For pchVersion, use the string "STEAMAPPS_INTERFACE_VERSION" to get the current version of the interface
         #endregion
-        //public IntPtr GetISteamApps(Int32 hSteamUser, Int32 hSteamPipe, string pchVersion = "STEAMAPPS_INTERFACE_VERSION") =>
-        //    GetDelegate<GetISteamAppsDelegate>()(InterfacePtr, hSteamUser, hSteamPipe, pchVersion.ToUtf8());
-        public T GetISteamApps<T>(Int32 hSteamUser, Int32 hSteamPipe) where T : SteamInterfaceWrapper
-        {
-            IntPtr ptr = GetDelegate<GetISteamAppsDelegate>()(InterfacePtr, hSteamUser, hSteamPipe, ((InterfaceVersion)typeof(T).GetCustomAttribute(typeof(InterfaceVersion))).Version.ToUtf8());
-            if (ptr == null) return null;
-            return (T)Activator.CreateInstance(typeof(T), ptr);
-        }
+        public TInterface GetISteamApps<TInterface>(Int32 hSteamUser, Int32 hSteamPipe) where TInterface : SteamInterfaceWrapper =>
+            GetInterface<GetISteamAppsDelegate, TInterface>(InterfacePtr, hSteamUser, hSteamPipe);
     }
 }

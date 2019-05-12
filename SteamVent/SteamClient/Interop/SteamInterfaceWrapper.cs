@@ -1,6 +1,8 @@
 ﻿using SteamVent.SteamClient.Attributes;
+using SteamVent.Tools;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Text;
@@ -30,7 +32,20 @@ namespace SteamVent.SteamClient.Interop
 
         protected Dictionary<Type, Delegate> DelegateCache { get; } = new Dictionary<Type, Delegate>();
 
-        protected TDelegate GetDelegate<TDelegate>() where TDelegate : class
+        protected TInterface GetInterface<TDelegate, TInterface>(params object[] paramaters)
+            where TDelegate : Delegate
+            where TInterface : SteamInterfaceWrapper
+        {
+            IntPtr ptr = (IntPtr)GetDelegate<TDelegate>()
+                .DynamicInvoke(paramaters.Concat(new object[] {
+                    ((InterfaceVersion)typeof(TInterface).GetCustomAttribute(typeof(InterfaceVersion))).Version.ToUtf8()
+                }).ToArray());
+            if (ptr == null) return null;
+            return (TInterface)Activator.CreateInstance(typeof(TInterface), ptr);
+        }
+
+        protected TDelegate GetDelegate<TDelegate>()
+            where TDelegate : Delegate
         {
             if (!DelegateCache.TryGetValue(typeof(TDelegate), out Delegate func))
             {

@@ -53,8 +53,7 @@ namespace SteamVent.SteamClient.Interfaces
         [VTableIndex(5), UnmanagedFunctionPointer(CallingConvention.ThisCall)]
         private delegate IntPtr GetAvailableGameLanguagesDelegate(IntPtr thisPtr);
         #endregion
-        public string GetAvailableGameLanguages() =>
-            DecodeUtf8String(GetDelegate<GetAvailableGameLanguagesDelegate>()(InterfacePtr));
+        public string GetAvailableGameLanguages() => DecodeUtf8String(GetDelegate<GetAvailableGameLanguagesDelegate>()(InterfacePtr));
 
         #region VTableIndex(6)
         [VTableIndex(6), UnmanagedFunctionPointer(CallingConvention.ThisCall)]
