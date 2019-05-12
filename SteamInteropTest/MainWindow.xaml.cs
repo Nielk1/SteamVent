@@ -29,15 +29,11 @@ namespace SteamInteropTest
 
         private bool IsSteamInitialized { get; set; }
 
-        private IntPtr SteamClient017InterfacePtr { get; set; }
-
         private ISteamClient017 SteamClient017 { get; set; }
 
         private Int32 Pipe { get; set; }
 
         private Int32 User { get; set; }
-
-        private IntPtr SteamApps006InterfacePtr { get; set; }
 
         private ISteamApps006 SteamApps006 { get; set; }
 
@@ -80,25 +76,18 @@ namespace SteamInteropTest
                 return;
             }
 
-            var interfaceVersionString = ((InterfaceVersion)typeof(ISteamClient017).GetCustomAttribute(typeof(InterfaceVersion))).Version;
-
-            // Note for Nielk:
             //     - For steam.dll interfaces use 'Steam.CreateSteamInterface'
             //     - For steamclient.dll/steamclient64.dll interfaces use 'Steam.CreateInterface'
-            //
-            // I'm not sure if I misread what you said or if you were mistaken, but 'ISteamClient017' is a SteamClient interface, not a Steam interface
 
-            var steamClient017InterfacePtr = Steam.CreateInterface(interfaceVersionString, IntPtr.Zero);
-            if (steamClient017InterfacePtr == IntPtr.Zero)
+            SteamClient017 = Steam.CreateInterface<ISteamClient017>(IntPtr.Zero);
+
+            if (SteamClient017 == null)
             {
                 WriteToWindowLog("Failed to initialize ISteamClient017!");
                 return;
             }
 
             WriteToWindowLog("Successfully initialized ISteamClient017!");
-
-            SteamClient017InterfacePtr = steamClient017InterfacePtr;
-            SteamClient017 = new ISteamClient017(SteamClient017InterfacePtr);
 
             Pipe = SteamClient017.CreateSteamPipe();
             User = SteamClient017.ConnectToGlobalUser(Pipe);

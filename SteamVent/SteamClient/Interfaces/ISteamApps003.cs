@@ -14,7 +14,7 @@ namespace SteamVent.SteamClient.Interfaces
     /// Contains ISteamApps003 delegates which correspond to their native SteamClient DLL functions.
     /// </summary>
     [InterfaceVersion("STEAMAPPS_INTERFACE_VERSION003")]
-    public class ISteamApps003 : SteamInterfaceWrapper
+    public class ISteamApps003 : SteamInterfaceWrapper, ISteamApps
     {
         public ISteamApps003(IntPtr interfacePtr) : base(interfacePtr) { }
 
@@ -50,7 +50,7 @@ namespace SteamVent.SteamClient.Interfaces
         [VTableIndex(4), UnmanagedFunctionPointer(CallingConvention.ThisCall)]
         private delegate IntPtr GetCurrentGameLanguageDelegate(IntPtr thisPtr);
         #endregion
-        public string GetCurrentGameLanguage() => 
+        public string GetCurrentGameLanguage() =>
             DecodeUtf8String(GetDelegate<GetCurrentGameLanguageDelegate>()(InterfacePtr));
 
         #region VTableIndex(5)
@@ -73,5 +73,12 @@ namespace SteamVent.SteamClient.Interfaces
         #endregion
         public int BIsDlcInstalled(UInt32 nAppId) =>
             GetDelegate<BIsDlcInstalledDelegate>()(InterfacePtr, nAppId);
+
+        [Obsolete("Not implemented in this version.", true)] public uint GetEarliestPurchaseUnixTime(uint nAppId) { throw new NotImplementedException(); }
+        [Obsolete("Not implemented in this version.", true)] public bool BIsSubscribedFromFreeWeekend() { throw new NotImplementedException(); }
+        [Obsolete("Not implemented in this version.", true)] public int GetDLCCount() { throw new NotImplementedException(); }
+        [Obsolete("Not implemented in this version.", true)] public void InstallDLC(uint nAppId) { throw new NotImplementedException(); }
+        [Obsolete("Not implemented in this version.", true)] public void UninstallDLC(uint nAppId) { throw new NotImplementedException(); }
+        [Obsolete("Not implemented in this version.", true)] public bool BIsAppInstalled(uint nAppId) { throw new NotImplementedException(); }
     }
 }

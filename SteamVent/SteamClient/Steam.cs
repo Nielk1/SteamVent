@@ -2,9 +2,12 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 using System.Text;
 using System.Threading.Tasks;
+using SteamVent.SteamClient.Attributes;
 using SteamVent.SteamClient.Interfaces;
+using SteamVent.SteamClient.Interop;
 using SteamVent.SteamClient.Native;
 
 namespace SteamVent.SteamClient
@@ -121,12 +124,16 @@ namespace SteamVent.SteamClient
         /// <param name="version">A string defining the desired interface and version.</param>
         /// <param name="returnCode">An IntPtr value to return if the call fails.</param>
         /// <returns>A handle to the unmanaged Steam Client interface, or the provided <paramref name="returnCode"/> value upon failure.</returns>
-        public static IntPtr CreateInterface(string version, IntPtr returnCode)
+        public static TInterface CreateInterface<TInterface>(IntPtr returnCode) where TInterface : SteamInterfaceWrapper
         {
             if (_callCreateInterface == null)
                 throw new InvalidOperationException($"Steam Client library is not initialized ({nameof(CreateInterface)}).");
 
-            return _callCreateInterface(version, returnCode);
+            string version = ((InterfaceVersion)typeof(ISteamClient017).GetCustomAttribute(typeof(InterfaceVersion))).Version;
+
+            IntPtr ptr = _callCreateInterface(version, returnCode);
+            if (ptr == null) return null;
+            return (TInterface)Activator.CreateInstance(typeof(TInterface), ptr);
         }
 
         /// <summary>

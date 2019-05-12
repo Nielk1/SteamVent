@@ -14,7 +14,7 @@ namespace SteamVent.SteamClient.Interfaces
     /// Contains ISteamApps004 delegates which correspond to their native SteamClient DLL functions.
     /// </summary>
     [InterfaceVersion("STEAMAPPS_INTERFACE_VERSION004")]
-    public class ISteamApps004 : SteamInterfaceWrapper
+    public class ISteamApps004 : SteamInterfaceWrapper, ISteamApps
     {
         public ISteamApps004(IntPtr interfacePtr) : base(interfacePtr) { }
 
@@ -110,5 +110,7 @@ namespace SteamVent.SteamClient.Interfaces
         #endregion
         public void UninstallDLC(UInt32 nAppId) =>
             GetDelegate<UninstallDLCDelegate>()(InterfacePtr, nAppId);
+
+        [Obsolete("Not implemented in this version.", true)] public bool BIsAppInstalled(uint nAppId) { throw new NotImplementedException(); }
     }
 }

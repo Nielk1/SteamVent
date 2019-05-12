@@ -56,7 +56,14 @@
     <Compile Include="SteamClient\Attributes\InterfaceVersion.cs" />
     <Compile Include="SteamClient\Attributes\VTableIndex.cs" />
     <Compile Include="SteamClient\Interfaces\CSteamID.cs" />
+    <Compile Include="SteamClient\Interfaces\ISteamApps003.cs" />
+    <Compile Include="SteamClient\Interfaces\ISteamApps004.cs" />
+    <Compile Include="SteamClient\Interfaces\ISteamApps005.cs" />
+    <Compile Include="SteamClient\Interfaces\ISteamApps007.cs" />
+    <Compile Include="SteamClient\Interfaces\ISteamApps.cs" />
+    <Compile Include="SteamClient\Interfaces\ISteamApps008.cs" />
     <Compile Include="SteamClient\Interfaces\ISteamApps006.cs" />
+    <Compile Include="SteamClient\Interfaces\ISteamClient.cs" />
     <Compile Include="SteamClient\Interfaces\ISteamClient017.cs" />
     <Compile Include="SteamClient\Interfaces\SteamTypes.cs" />
     <Compile Include="SteamClient\Interop\SteamInterfaceWrapper.cs" />

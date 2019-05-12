@@ -14,7 +14,7 @@ namespace SteamVent.SteamClient.Interfaces
     /// Contains ISteamApps008 delegates which correspond to their native SteamClient DLL functions.
     /// </summary>
     [InterfaceVersion("STEAMAPPS_INTERFACE_VERSION008")]
-    public class ISteamApps008 : SteamInterfaceWrapper
+    public class ISteamApps008 : SteamInterfaceWrapper, ISteamApps
     {
         public ISteamApps008(IntPtr interfacePtr) : base(interfacePtr) { }
 
