@@ -21,6 +21,7 @@ namespace SteamVent.SteamCmd
         private const string badstringShort = "\\src\\common\\contentmanifest.cpp (650) : Assertion Failed: !m_bIsFinalized";
 
         object procLock = new object();
+        public ESteamCmdStatus Status { get; private set; }
 
         public delegate void SteamCmdStatusChangeEventHandler(object sender, SteamCmdStatusChangeEventArgs e);
         public event SteamCmdStatusChangeEventHandler SteamCmdStatusChange;
@@ -74,7 +75,7 @@ namespace SteamVent.SteamCmd
                         FileName = "steamcmdprox.exe",
                         Arguments = $"steamcmd\\steamcmd.exe {command}",
                         UseShellExecute = false,
-                        CreateNoWindow = false,
+                        CreateNoWindow = true,
                         RedirectStandardOutput = true,
                         RedirectStandardInput = true,
                         StandardOutputEncoding = Encoding.Unicode,
@@ -302,7 +303,7 @@ namespace SteamVent.SteamCmd
 
                     return new WorkshopItemStatus()
                     {
-                        WorkshopId = long.Parse(dr.Groups["workshopId"].Value),
+                        WorkshopId = UInt64.Parse(dr.Groups["workshopId"].Value),
                         Status = dr.Groups["status"].Value,
                         Size = long.Parse(dr.Groups["size"].Value),
                         DateTime = DateTime.Parse(datetimeString),
@@ -350,6 +351,7 @@ namespace SteamVent.SteamCmd
 
         protected void OnSteamCmdStatusChange(SteamCmdStatusChangeEventArgs e)
         {
+            Status = e.Status;
             SteamCmdStatusChange?.Invoke(this, e);
         }
     }

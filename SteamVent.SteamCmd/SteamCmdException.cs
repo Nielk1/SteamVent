@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace SteamVent.SteamCmd
 {
-    class SteamCmdException : Exception
+    public class SteamCmdException : Exception
     {
         public SteamCmdException(string message, Exception innerException = null)
             : base(message, innerException)
@@ -14,7 +14,7 @@ namespace SteamVent.SteamCmd
         }
     }
 
-    class SteamCmdMissingException : SteamCmdException
+    public class SteamCmdMissingException : SteamCmdException
     {
         public SteamCmdMissingException(string msg)
             : base(msg)
@@ -22,7 +22,7 @@ namespace SteamVent.SteamCmd
         }
     }
 
-    class SteamCmdWorkshopDownloadException : SteamCmdException
+    public class SteamCmdWorkshopDownloadException : SteamCmdException
     {
         public SteamCmdWorkshopDownloadException(string msg)
             : base(msg)

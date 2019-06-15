@@ -12,7 +12,7 @@ namespace SteamVent.SteamCmd
         {
         }
 
-        public long WorkshopId { get; set; }
+        public UInt64 WorkshopId { get; set; }
         public string Status { get; set; }
         public long Size { get; set; }
         public DateTime DateTime { get; set; }
