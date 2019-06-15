@@ -14,9 +14,9 @@ using System.Windows.Media.Imaging;
 using System.Windows.Navigation;
 using System.Windows.Shapes;
 using SteamInteropTest.Logging;
-using SteamVent.SteamClient;
-using SteamVent.SteamClient.Attributes;
-using SteamVent.SteamClient.Interfaces;
+using SteamVent.InterProc;
+using SteamVent.InterProc.Attributes;
+using SteamVent.InterProc.Interfaces;
 
 namespace SteamInteropTest
 {

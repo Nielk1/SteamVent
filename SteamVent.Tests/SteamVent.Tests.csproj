@@ -56,7 +56,8 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="ISteamAppsTests.cs" />
+    <Compile Include="FileSystem\SteamProcessInfoTests.cs" />
+    <Compile Include="InterProc\ISteamAppsTests.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
   <ItemGroup>
