@@ -1,5 +1,6 @@
 ﻿//#define DEBUG_STEAMCMD_PARSE
 
+using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -26,9 +27,27 @@ namespace SteamVent.SteamCmd
         public delegate void SteamCmdStatusChangeEventHandler(object sender, SteamCmdStatusChangeEventArgs e);
         public event SteamCmdStatusChangeEventHandler SteamCmdStatusChange;
 
+        public delegate void SteamCmdOutputEventHandler(object sender, string msg);
+        public event SteamCmdOutputEventHandler SteamCmdOutput;
+
+        public delegate void SteamCmdOutputFullEventHandler(object sender, string msg);
+        public event SteamCmdOutputEventHandler SteamCmdOutputFull;
+
+        public delegate void SteamCmdArgsEventHandler(object sender, string msg);
+        public event SteamCmdArgsEventHandler SteamCmdArgs;
+
+        public ConfigData Config;
+
         private static object InstanceLock = new object();
         private static SteamCmdContext Instance;
-        private SteamCmdContext() { }
+        private SteamCmdContext()
+        {
+            Config = JsonConvert.DeserializeObject<ConfigData>(File.ReadAllText("steamvent.steamcmd.json"));
+
+            Config.RegWorkshopStatusItem = Config.WorkshopStatusItem.Select(dr => new Regex(dr)).ToArray();
+            Config.RegWorkshopDownloadItemError = Config.WorkshopDownloadItemError.Select(dr => new Regex(dr)).ToArray();
+            Config.RegWorkshopDownloadItemSuccess = Config.WorkshopDownloadItemSuccess.Select(dr => new Regex(dr)).ToArray();
+        }
         public static SteamCmdContext GetInstance()
         {
             lock(InstanceLock)
@@ -84,6 +103,7 @@ namespace SteamVent.SteamCmd
                     }
                 };
 
+                OnSteamCmdArgs($"steamcmd.exe {command}");
                 OnSteamCmdStatusChange(new SteamCmdStatusChangeEventArgs(ESteamCmdStatus.Starting));
                 proc.Start();
                 //proc.BeginErrorReadLine();
@@ -277,8 +297,8 @@ namespace SteamVent.SteamCmd
                         }
                     }
 
-                    //OnSteamCmdOutputFull(charsAll);
-                    //OnSteamCmdOutput(chars);
+                    OnSteamCmdOutputFull(charsAll);
+                    OnSteamCmdOutput(chars);
                     Trace.WriteLine($"return \"{chars.Replace("\\", "\\\\").Replace("\r", "\\r").Replace("\n", "\\n")}\"", "SteamCmdContext");
                     return chars;
                 }
@@ -289,13 +309,12 @@ namespace SteamVent.SteamCmd
             }
         }
 
-        private Regex WorkshopStatusPattern = new Regex(@"^- Item (?<workshopId>\d+) : (?<status>\w+) \( *(?<size>\d+) bytes, (?<dayw>\w{3}) (?<month>\w{3}) (?<day>[ 0-9]{2}) (?<hour>\d{2}):(?<minutes>\d{2}):(?<seconds>\d{2}) (?<year>\d{4})\),( (?<status2>\w+) (?<status3>\w+)\( (?<size2>\d+)/(?<size3>\d+) bytes \),)?", RegexOptions.IgnoreCase);
         public List<WorkshopItemStatus> WorkshopStatus(UInt32 AppId)
         {
             string RawString = StartProc($"+login anonymous +workshop_download_item {AppId} 1 +workshop_status {AppId} +quit");
             return RawString
                 .Split(new char[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries)
-                .Select(dr => WorkshopStatusPattern.Match(dr))
+                .SelectMany(dr => Config.RegWorkshopStatusItem.Select(dx => dx.Match(dr)))
                 .Where(dr => dr.Success)
                 .Select(dr =>
                 {
@@ -315,30 +334,45 @@ namespace SteamVent.SteamCmd
 
         public string WorkshopDownloadItem(UInt32 AppId, UInt64 PublishedFileId)
         {
-            string statusLine = null;
+            string statusMessage = null;
+            string statusType = null;
             string FullOutput = StartProc($"+login anonymous +workshop_download_item {AppId} {PublishedFileId} +quit");
             string[] OutputLines = FullOutput.Split(new string[] { "\r\n", "\n", "\r" }, StringSplitOptions.RemoveEmptyEntries);
             foreach (string OutputLine in OutputLines)
             {
-                if (OutputLine.Contains("ERROR! "))
+                bool found = false;
+                foreach(Regex reg in Config.RegWorkshopDownloadItemError)
                 {
-                    statusLine = OutputLine.Substring(OutputLine.IndexOf("ERROR! "));
-                    break;
+                    if(reg.IsMatch(OutputLine))
+                    {
+                        statusMessage = reg.Match(OutputLine).Groups["message"]?.Value;
+                        statusType = @"ERROR!";
+                        found = true;
+                        break;
+                    }
                 }
-                if (OutputLine.StartsWith("Success. "))
+                if (found) break;
+
+                foreach (Regex reg in Config.RegWorkshopDownloadItemSuccess)
                 {
-                    statusLine = OutputLine;
-                    break;
+                    if (reg.IsMatch(OutputLine))
+                    {
+                        statusMessage = reg.Match(OutputLine).Groups["message"]?.Value;
+                        statusType = @"Success";
+                        found = true;
+                        break;
+                    }
                 }
+                if (found) break;
             }
-            if (statusLine.StartsWith("ERROR! "))
+            if (statusType == @"ERROR!")
             {
-                string errorText = statusLine.Split(new string[] { "ERROR! " }, 2, StringSplitOptions.RemoveEmptyEntries)[0];
+                string errorText = statusMessage;
                 throw new SteamCmdWorkshopDownloadException(errorText);
             }
-            else if (statusLine.StartsWith("Success. "))
+            else if (statusType == "Success")
             {
-                string successText = statusLine.Split(new string[] { "Success. " }, 2, StringSplitOptions.RemoveEmptyEntries)[0];
+                string successText = statusMessage;
                 //string tmp = @"Downloaded item 1325933293 to ""D:\Data\Programming\BZRModManager\BZRModManager\bin\steamcmd\steamapps\workshop\content\624970\1325933293"" (379069888 bytes)";
                 return successText;
             }
@@ -353,6 +387,21 @@ namespace SteamVent.SteamCmd
         {
             Status = e.Status;
             SteamCmdStatusChange?.Invoke(this, e);
+        }
+
+        protected void OnSteamCmdOutput(string msg)
+        {
+            SteamCmdOutput?.Invoke(this, msg);
+        }
+
+        protected void OnSteamCmdOutputFull(string msg)
+        {
+            SteamCmdOutputFull?.Invoke(this, msg);
+        }
+
+        protected void OnSteamCmdArgs(string msg)
+        {
+            SteamCmdArgs?.Invoke(this, msg);
         }
     }
 }

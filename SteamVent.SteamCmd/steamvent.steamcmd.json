@@ -1,0 +1,11 @@
+﻿{
+  "WorkshopStatusItem": [
+    "^- Item (?<workshopId>\\d+) : (?<status>\\w+) \\( *(?<size>\\d+) bytes, (?<dayw>\\w{3}) (?<month>\\w{3}) (?<day>[ 0-9]{2}) (?<hour>\\d{2}):(?<minutes>\\d{2}):(?<seconds>\\d{2}) (?<year>\\d{4})\\),( (?<status2>\\w+) (?<status3>\\w+)\\( (?<size2>\\d+)/(?<size3>\\d+) bytes \\),)?"
+  ],
+  "WorkshopDownloadItemError": [
+    "^.*ERROR! (?<message>.*)$"
+  ],
+  "WorkshopDownloadItemSuccess": [
+    "^Success. (?<message>.*)$"
+  ]
+}
