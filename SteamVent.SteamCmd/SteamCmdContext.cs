@@ -320,15 +320,18 @@ namespace SteamVent.SteamCmd
                 {
                     string datetimeString = $"{dr.Groups["day"].Value} {dr.Groups["month"].Value} {dr.Groups["year"].Value} {dr.Groups["hour"].Value}:{dr.Groups["minutes"].Value}:{dr.Groups["seconds"].Value}";
 
+                    if (dr.Groups["workshopId"].Value == "1") return null;
+
                     return new WorkshopItemStatus()
                     {
                         WorkshopId = UInt64.Parse(dr.Groups["workshopId"].Value),
                         Status = dr.Groups["status"].Value,
                         Size = long.Parse(dr.Groups["size"].Value),
                         DateTime = DateTime.Parse(datetimeString),
-                        HasUpdate = dr.Groups["status2"]?.Value == "updated" && dr.Groups["status3"]?.Value == "required",
+                        HasUpdate = dr.Groups["status2"]?.Value == "updated required",
                     };
                 })
+                .Where(dr => dr != null)
                 .ToList();
         }
 
