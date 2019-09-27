@@ -44,7 +44,7 @@ namespace SteamVent.FileSystem
             string pidRegKey;
             string pidRegName;
 
-            if (SysNative.Is64Bit())
+            if (SysNative.IsSystem64Bit())
             {
                 pidRegKey = @"HKEY_CURRENT_USER\Software\Valve\Steam\ActiveProcess";
                 pidRegName = "pid";
@@ -187,7 +187,7 @@ namespace SteamVent.FileSystem
         private static string GetSteamInstallPath()
         {
             string installPath;
-            if (SysNative.Is64Bit())
+            if (SysNative.IsSystem64Bit())
                 installPath = (string)Registry.GetValue(@"HKEY_CURRENT_USER\Software\Valve\Steam", "SteamPath", null);
             else
                 installPath = (string)Registry.GetValue(@"HKEY_LOCAL_MACHINE\Software\Valve\Steam", "InstallPath", null);

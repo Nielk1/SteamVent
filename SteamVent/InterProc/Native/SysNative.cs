@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Diagnostics;
 using System.Runtime.InteropServices;
 
 namespace SteamVent.InterProc.Native
@@ -24,11 +25,48 @@ namespace SteamVent.InterProc.Native
         [DllImport("user32.dll", SetLastError = true)]
         public static extern IntPtr FindWindowEx(IntPtr hwndParent, IntPtr hwndChildAfter, string lpszClass, string lpszWindow);
 
+        [DllImport("kernel32.dll", SetLastError = true, CallingConvention = CallingConvention.Winapi)]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        private static extern bool IsWow64Process([In] IntPtr hProcess, [Out] out bool wow64Process);
+
+
+
         /// <summary>
         /// Defines whether the application is running in 64-bit mode.
         /// </summary>
         /// <returns>true if the app is running in 64-bit mode; otherwise, false.</returns>
         public static bool Is64Bit() { return IntPtr.Size == 8; }
+
+        /// <summary>
+        /// Defines weather the application is running on a 64bit OS
+        /// </summary>
+        /// <returns>true if the app is 32bit running on 64bit</returns>
+        public static bool IsSystem64Bit() {return Is64Bit() || IsWow64(); }
+
+        /// <summary>
+        /// Defines weather the application is running 32-bit via Wow64
+        /// </summary>
+        /// <returns>true if the app is 32-bit running on 64-bit OS</returns>
+        public static bool IsWow64()
+        {
+            if ((Environment.OSVersion.Version.Major == 5 && Environment.OSVersion.Version.Minor >= 1) ||
+                Environment.OSVersion.Version.Major >= 6)
+            {
+                using (Process p = Process.GetCurrentProcess())
+                {
+                    bool retVal;
+                    if (!IsWow64Process(p.Handle, out retVal))
+                    {
+                        return false;
+                    }
+                    return retVal;
+                }
+            }
+            else
+            {
+                return false;
+            }
+        }
 
         /// <summary>
         /// Gets the specified function from an unmanaged module's export address table and assigns it to the designated delegate.
