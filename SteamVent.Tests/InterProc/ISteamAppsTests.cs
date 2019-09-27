@@ -77,7 +77,7 @@ namespace SteamVent.Tests.InterProc
         public void BIsAppInstalledTest()
         {
             if (Attribute.IsDefined(_SteamAppsVersion.GetMethod("BIsAppInstalled"), typeof(ObsoleteAttribute)))
-                Assert.Ignore();
+                Assert.Pass("Not Implemented"); // Assert.Ignore();
 
             Assert.IsTrue(SteamApps.BIsAppInstalled(InstalledAppID));
             Assert.IsFalse(SteamApps.BIsAppInstalled(UninstalledAppID));
