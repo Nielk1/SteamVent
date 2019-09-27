@@ -43,7 +43,7 @@ namespace SteamVent.Tests.FileSystem
         [Test]
         public void GetSteamPidTest()
         {
-            if (SteamProcessInfo.IsSteamInstalled)
+            if (!SteamProcessInfo.IsSteamInstalled)
                 Assert.Warn("Steam not installed");
             Assert.NotZero(SteamProcessInfo.GetSteamPid(), "Steam PID is Zero, is Steam running?");
         }
