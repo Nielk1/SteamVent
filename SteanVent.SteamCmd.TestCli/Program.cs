@@ -38,7 +38,7 @@ namespace SteanVent.SteamCmd.TestCli
 
             WriteLine(ConsoleColor.Magenta, "Status Check");
             status = steamcmd.WorkshopStatus(624970);
-            WriteLine(status.Count);
+            WriteLine("Count: " + status.Count);
             WriteLine("WorkshopId\tStatus   \tHasUpdate\tSize\tDateTime");
             foreach (var stat in status)
             {

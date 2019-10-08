@@ -40,7 +40,7 @@ namespace SteamVent.InterProc.Native
         /// <summary>
         /// Defines weather the application is running on a 64bit OS
         /// </summary>
-        /// <returns>true if the app is 32bit running on 64bit</returns>
+        /// <returns>true if the app is running on 64-bit OS</returns>
         public static bool IsSystem64Bit() {return Is64Bit() || IsWow64(); }
 
         /// <summary>
