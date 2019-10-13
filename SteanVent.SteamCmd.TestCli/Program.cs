@@ -32,7 +32,7 @@ namespace SteanVent.SteamCmd.TestCli
             WriteLine(new string('-', Console.WindowWidth - 1));
 
             WriteLine(ConsoleColor.Magenta, "Mod Download");
-            string downloadString = steamcmd.WorkshopDownloadItem(624970, 1300825258);
+            string downloadString = steamcmd.WorkshopDownloadItem(624970, 1762479746);
             WriteLine(downloadString);
             WriteLine(new string('-', Console.WindowWidth - 1));
 
