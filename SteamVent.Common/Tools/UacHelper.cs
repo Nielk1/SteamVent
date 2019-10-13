@@ -4,7 +4,7 @@ using System.Runtime.InteropServices;
 using System.Security.Principal;
 using Microsoft.Win32;
 
-namespace SteamVent.Tools
+namespace SteamVent.Common.Tools
 {
     public static class UacHelper
     {

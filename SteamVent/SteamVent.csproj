@@ -9,7 +9,7 @@
     <AppDesignerFolder>Properties</AppDesignerFolder>
     <RootNamespace>SteamVent</RootNamespace>
     <AssemblyName>SteamVent</AssemblyName>
-    <TargetFrameworkVersion>v4.7</TargetFrameworkVersion>
+    <TargetFrameworkVersion>v4.7.2</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
     <Deterministic>true</Deterministic>
     <TargetFrameworkProfile />
@@ -50,8 +50,6 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="Logging\ILogger.cs" />
-    <Compile Include="Logging\Logger.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="InterProc\Attributes\InterfaceVersion.cs" />
     <Compile Include="InterProc\Attributes\VTableIndex.cs" />
@@ -71,14 +69,18 @@
     <Compile Include="InterProc\Native\SysNative.cs" />
     <Compile Include="InterProc\Steam.cs" />
     <Compile Include="FileSystem\SteamProcessInfo.cs" />
-    <Compile Include="Tools\CustomExtensions.cs" />
-    <Compile Include="Tools\UacHelper.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />
   </ItemGroup>
   <ItemGroup>
     <Content Include="guideline.txt" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\SteamVent.Common\SteamVent.Common.csproj">
+      <Project>{f1096e3a-c50a-43a3-9a46-6112d4bbae38}</Project>
+      <Name>SteamVent.Common</Name>
+    </ProjectReference>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>

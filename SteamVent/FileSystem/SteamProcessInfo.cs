@@ -5,8 +5,8 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Text;
-using SteamVent.Logging;
-using SteamVent.Tools;
+using SteamVent.Common.Logging;
+using SteamVent.Common.Tools;
 
 namespace SteamVent.FileSystem
 {

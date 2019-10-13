@@ -6,7 +6,7 @@ using System.Linq;
 //using System.Management;
 using System.Text;
 
-namespace SteamVent.Tools
+namespace SteamVent.Common.Tools
 {
     public static class CustomExtensions
     {
