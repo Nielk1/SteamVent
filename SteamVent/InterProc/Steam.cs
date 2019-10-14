@@ -25,18 +25,6 @@ namespace SteamVent.InterProc
         /// <returns>A value indicating if the load was successful.</returns>
         public static bool Load()
         {
-            return Load(false);
-        }
-        /// <summary>
-        /// Loads the steamclient library and, optionally, the steam library.
-        /// </summary>
-        /// <param name="steam">if set to <c>true</c> the steam library is also loaded.</param>
-        /// <returns>A value indicating if the load was successful.</returns>
-        public static bool Load(bool steam)
-        {
-            if (steam && !LoadSteam())
-                return false;
-
             return LoadSteamClient();
         }
 
@@ -44,7 +32,7 @@ namespace SteamVent.InterProc
         /// Loads the steam library.
         /// </summary>
         /// <returns>A value indicating if the load was successful.</returns>
-        public static bool LoadSteam()
+        /*public static bool LoadSteam()
         {
             if (SteamHandle != IntPtr.Zero)
                 return true;
@@ -57,7 +45,7 @@ namespace SteamVent.InterProc
             path = Path.Combine(path, "steam.dll");
 
             IntPtr module = SysNative.LoadLibraryEx(path, IntPtr.Zero, SysNative.LOAD_WITH_ALTERED_SEARCH_PATH);
-
+            
             if (module == IntPtr.Zero)
                 return false;
 
@@ -68,7 +56,7 @@ namespace SteamVent.InterProc
             SteamHandle = module;
 
             return true;
-        }
+        }*/
 
         /// <summary>
         /// Loads the steamclient library.
@@ -84,7 +72,10 @@ namespace SteamVent.InterProc
             if (!string.IsNullOrEmpty(path))
                 SysNative.SetDllDirectory(path + ";" + Path.Combine(path, "bin"));
 
-            path = Path.Combine(path, "steamclient.dll");
+            if (SysNative.Is64Bit())
+                path = Path.Combine(path, "steamclient64.dll");
+            else
+                path = Path.Combine(path, "steamclient.dll");
 
             IntPtr module = SysNative.LoadLibraryEx(path, IntPtr.Zero, SysNative.LOAD_WITH_ALTERED_SEARCH_PATH);
 

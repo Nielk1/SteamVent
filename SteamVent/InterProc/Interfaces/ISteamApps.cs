@@ -28,7 +28,7 @@ namespace SteamVent.InterProc.Interfaces
         //GetCurrentBetaName
         //MarkContentCorrupt
         //GetInstalledDepots
-        //GetAppInstallDir
+        string GetAppInstallDir(UInt32 nAppId);
         bool BIsAppInstalled(UInt32 nAppId);
         //GetAppOwner
         //GetLaunchQueryParam

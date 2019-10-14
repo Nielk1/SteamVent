@@ -67,6 +67,57 @@ namespace SteamVent.FileSystem
             return pid;
         }
 
+        /// <summary>
+        /// Current active user
+        /// </summary>
+        public static UInt32 CurrentUserID
+        {
+            get
+            {
+                if (!IsSteamInstalled)
+                    return 0;
+
+                string uidRegKey;
+                RegistryKey key;
+                string uidRegName;
+
+                if (SysNative.IsSystem64Bit())
+                {
+                    uidRegKey = @"HKEY_CURRENT_USER\Software\Valve\Steam\ActiveProcess";
+                    key = Registry.CurrentUser.OpenSubKey(@"Software\Valve\Steam\ActiveProcess");
+                    uidRegName = "ActiveUser";
+                }
+                else // TODO confirm this is correct
+                {
+                    uidRegKey = @"HKEY_LOCAL_MACHINE\Software\Valve\Steam";
+                    key = Registry.LocalMachine.OpenSubKey(@"Software\Valve\Steam");
+                    uidRegName = "ActiveUser";
+                }
+
+                Logger.Info($"Attempting to retrieve Steam PID from registry value named '{uidRegName}' inside the key '{uidRegKey}'.");
+                if(key == null)
+                {
+                    Logger.Warning($"The Steam UserID could not be retrieved because the registry value '{uidRegName}' or registry key '{uidRegKey}' was invalid or did not exist.");
+                    return 0;
+                }
+                {
+                    object _possibleValue = key.GetValue(uidRegName);
+                    if (_possibleValue != null)
+                    {
+                        UInt32 possibleValue = (UInt32)(Int32)_possibleValue;
+                        if (possibleValue > 0)
+                        {
+                            Logger.Info($"The Steam UserID value retrieved from the registry is '{possibleValue}'.");
+                            return possibleValue;
+                        }
+                    }
+                }
+
+                return 0;
+            }
+        }
+
+
         private static Process _steamProcess = null;
 
         /// <summary>
@@ -201,6 +252,48 @@ namespace SteamVent.FileSystem
 
             installPath = installPath.Replace("/", @"\");
             Logger.Info($"Setting Steam installation path to: '{installPath}'");
+
+            return installPath;
+        }
+
+        public static string GetGoldSrcModPath()
+        {
+            string installPath;
+            if (SysNative.IsSystem64Bit())
+                installPath = (string)Registry.GetValue(@"HKEY_CURRENT_USER\Software\Valve\Steam", "ModInstallPath", null);
+            else
+                installPath = (string)Registry.GetValue(@"HKEY_LOCAL_MACHINE\Software\Valve\Steam", "ModInstallPath", null);
+
+            if (installPath == null)
+            {
+                const string errorMsg = "No valid Steam ModInstallPath could be found.";
+                Logger.Error(errorMsg);
+                throw new InvalidOperationException(errorMsg);
+            }
+
+            installPath = installPath.Replace("/", @"\");
+            Logger.Info($"Setting Steam ModInstallPath to: '{installPath}'");
+
+            return installPath;
+        }
+
+        public static string GetSourceModPath()
+        {
+            string installPath;
+            if (SysNative.IsSystem64Bit())
+                installPath = (string)Registry.GetValue(@"HKEY_CURRENT_USER\Software\Valve\Steam", "SourceModInstallPath", null);
+            else
+                installPath = (string)Registry.GetValue(@"HKEY_LOCAL_MACHINE\Software\Valve\Steam", "SourceModInstallPath", null);
+
+            if (installPath == null)
+            {
+                const string errorMsg = "No valid Steam ModInstallPath could be found.";
+                Logger.Error(errorMsg);
+                throw new InvalidOperationException(errorMsg);
+            }
+
+            installPath = installPath.Replace("/", @"\");
+            Logger.Info($"Setting Steam ModInstallPath to: '{installPath}'");
 
             return installPath;
         }

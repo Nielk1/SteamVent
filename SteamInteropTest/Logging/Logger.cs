@@ -1,4 +1,4 @@
-﻿using SteamVent.Logging;
+﻿using SteamVent.Common.Logging;
 using System;
 using System.Diagnostics;
 using System.IO;

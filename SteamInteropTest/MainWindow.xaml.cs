@@ -39,7 +39,7 @@ namespace SteamInteropTest
 
         public MainWindow()
         {
-            SteamVent.Logging.Logger.Log = new Logger();
+            SteamVent.Common.Logging.Logger.Log = new Logger();
             InitializeComponent();
             _logOutput = new List<string>();
             lstBoxLogOutput.DataContext = _logOutput;

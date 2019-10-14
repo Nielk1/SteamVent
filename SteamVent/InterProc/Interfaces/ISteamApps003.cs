@@ -79,6 +79,7 @@ namespace SteamVent.InterProc.Interfaces
         [Obsolete("Not implemented in this version.", true)] public int GetDLCCount() { throw new NotImplementedException(); }
         [Obsolete("Not implemented in this version.", true)] public void InstallDLC(uint nAppId) { throw new NotImplementedException(); }
         [Obsolete("Not implemented in this version.", true)] public void UninstallDLC(uint nAppId) { throw new NotImplementedException(); }
+        [Obsolete("Not implemented in this version.", true)] public string GetAppInstallDir(UInt32 nAppId) { throw new NotImplementedException(); }
         [Obsolete("Not implemented in this version.", true)] public bool BIsAppInstalled(uint nAppId) { throw new NotImplementedException(); }
     }
 }

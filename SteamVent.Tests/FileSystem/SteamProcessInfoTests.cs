@@ -49,6 +49,14 @@ namespace SteamVent.Tests.FileSystem
         }
 
         [Test]
+        public void GetSteamUserIdTest()
+        {
+            if (!SteamProcessInfo.IsSteamInstalled)
+                Assert.Warn("Steam not installed");
+            Assert.NotZero(SteamProcessInfo.CurrentUserID, "Steam UserId is Zero, is Steam running?");
+        }
+
+        [Test]
         public void SteamProcessTest()
         {
             Assert.IsNotNull(SteamProcessInfo.SteamProcess, "Steam Process not found");

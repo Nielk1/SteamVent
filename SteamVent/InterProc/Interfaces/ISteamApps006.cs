@@ -115,7 +115,19 @@ namespace SteamVent.InterProc.Interfaces
         //GetCurrentBetaName
         //MarkContentCorrupt
         //GetInstalledDepots
-        //GetAppInstallDir
+
+        #region VTableIndex(18)
+        [VTableIndex(18), UnmanagedFunctionPointer(CallingConvention.ThisCall, CharSet = CharSet.Ansi)]
+        private delegate UInt32 GetAppInstallDirDelegate(IntPtr thisPtr, UInt32 nAppId, IntPtr pchFolder, UInt32 cchFolderBufferSize);
+        #endregion
+        public string GetAppInstallDir(UInt32 nAppId)
+        {
+            UInt32 size = 1024;
+            byte[] _pchFolder = new byte[size];
+            IntPtr pchFolder = Marshal.AllocHGlobal(_pchFolder.Length + 1);
+            UInt32 read = GetDelegate<GetAppInstallDirDelegate>()(InterfacePtr, nAppId, pchFolder, size);
+            return Encoding.UTF8.GetString(_pchFolder, 0, (int)read);
+        }
 
         #region VTableIndex(19)
         [VTableIndex(19), UnmanagedFunctionPointer(CallingConvention.ThisCall)]
