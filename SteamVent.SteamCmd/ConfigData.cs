@@ -10,15 +10,15 @@ namespace SteamVent.SteamCmd
 {
     public class ConfigData
     {
-        public string[] WorkshopStatusItem { get; set; }
-        public string[] WorkshopDownloadItemError { get; set; }
-        public string[] WorkshopDownloadItemSuccess { get; set; }
+        public string WorkshopStatusItem { get; set; }
+        public string WorkshopDownloadItemError { get; set; }
+        public string WorkshopDownloadItemSuccess { get; set; }
 
         [JsonIgnore]
-        public Regex[] RegWorkshopStatusItem { get; set; }
+        public Regex RegWorkshopStatusItem { get; set; }
         [JsonIgnore]
-        public Regex[] RegWorkshopDownloadItemError { get; set; }
+        public Regex RegWorkshopDownloadItemError { get; set; }
         [JsonIgnore]
-        public Regex[] RegWorkshopDownloadItemSuccess { get; set; }
+        public Regex RegWorkshopDownloadItemSuccess { get; set; }
     }
 }

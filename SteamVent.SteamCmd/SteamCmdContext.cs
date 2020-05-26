@@ -44,9 +44,9 @@ namespace SteamVent.SteamCmd
         {
             Config = JsonConvert.DeserializeObject<ConfigData>(File.ReadAllText("steamvent.steamcmd.json"));
 
-            Config.RegWorkshopStatusItem = Config.WorkshopStatusItem.Select(dr => new Regex(dr)).ToArray();
-            Config.RegWorkshopDownloadItemError = Config.WorkshopDownloadItemError.Select(dr => new Regex(dr)).ToArray();
-            Config.RegWorkshopDownloadItemSuccess = Config.WorkshopDownloadItemSuccess.Select(dr => new Regex(dr)).ToArray();
+            Config.RegWorkshopStatusItem = new Regex(Config.WorkshopStatusItem);
+            Config.RegWorkshopDownloadItemError = new Regex(Config.WorkshopDownloadItemError);
+            Config.RegWorkshopDownloadItemSuccess = new Regex(Config.WorkshopDownloadItemSuccess);
         }
         public static SteamCmdContext GetInstance()
         {
@@ -314,7 +314,7 @@ namespace SteamVent.SteamCmd
             string RawString = StartProc($"+login anonymous +workshop_download_item {AppId} 1 +workshop_status {AppId} +quit");
             return RawString
                 .Split(new char[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries)
-                .SelectMany(dr => Config.RegWorkshopStatusItem.Select(dx => dx.Match(dr)))
+                .Select(dr => Config.RegWorkshopStatusItem.Match(dr))
                 .Where(dr => dr.Success)
                 .Select(dr =>
                 {
@@ -344,27 +344,21 @@ namespace SteamVent.SteamCmd
             foreach (string OutputLine in OutputLines)
             {
                 bool found = false;
-                foreach(Regex reg in Config.RegWorkshopDownloadItemError)
+                if(Config.RegWorkshopDownloadItemError.IsMatch(OutputLine))
                 {
-                    if(reg.IsMatch(OutputLine))
-                    {
-                        statusMessage = reg.Match(OutputLine).Groups["message"]?.Value;
-                        statusType = @"ERROR!";
-                        found = true;
-                        break;
-                    }
+                    statusMessage = Config.RegWorkshopDownloadItemError.Match(OutputLine).Groups["message"]?.Value;
+                    statusType = @"ERROR!";
+                    found = true;
+                    break;
                 }
                 if (found) break;
 
-                foreach (Regex reg in Config.RegWorkshopDownloadItemSuccess)
+                if (Config.RegWorkshopDownloadItemSuccess.IsMatch(OutputLine))
                 {
-                    if (reg.IsMatch(OutputLine))
-                    {
-                        statusMessage = reg.Match(OutputLine).Groups["message"]?.Value;
-                        statusType = @"Success";
-                        found = true;
-                        break;
-                    }
+                    statusMessage = Config.RegWorkshopDownloadItemSuccess.Match(OutputLine).Groups["message"]?.Value;
+                    statusType = @"Success";
+                    found = true;
+                    break;
                 }
                 if (found) break;
             }
