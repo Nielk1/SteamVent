@@ -160,6 +160,13 @@ namespace SteamVent
         public string Name { get; set; }
         public string appIcon { get; set; }
         public string appType { get; set; }
+        public string[] extra_developer { get; internal set; }
+        public string[] extra_publisher { get; internal set; }
+        public bool extra_has_library_capsule { get; internal set; }
+        public bool extra_has_library_hero { get; internal set; }
+        public bool extra_has_library_logo { get; internal set; }
+        public DateTime? extra_original_release_date { get; internal set; }
+        public DateTime? extra_steam_release_date { get; internal set; }
 
         // hopefully the base class will use this because the base is virtual rather than not
         public override UInt32 GenerateModID()

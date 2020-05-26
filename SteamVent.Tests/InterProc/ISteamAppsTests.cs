@@ -40,7 +40,7 @@ namespace SteamVent.Tests.InterProc
         [SetUp]
         public void BaseSetUp()
         {
-            Assert.IsTrue(Steam.Load(true));
+            Assert.IsTrue(Steam.Load(/*true*/));
             //SteamClient = Steam.CreateInterface<ISteamClient###>(IntPtr.Zero);
             {
                 SteamClient = (ISteamClient)typeof(Steam)

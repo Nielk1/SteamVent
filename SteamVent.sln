@@ -12,13 +12,24 @@ EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SteamVent.SteamCmd", "SteamVent.SteamCmd\SteamVent.SteamCmd.csproj", "{852B5E00-2423-4D74-8AFF-B38248BA6B36}"
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "steamcmdprox", "steamcmdprox\steamcmdprox.vcxproj", "{1B1CF7C2-DA92-4FFD-BC92-8332947A87BE}"
+	ProjectSection(ProjectDependencies) = postProject
+		{58B7F843-3349-428D-B9A7-EE4BB36B30F4} = {58B7F843-3349-428D-B9A7-EE4BB36B30F4}
+	EndProjectSection
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SteanVent.SteamCmd.TestCli", "SteanVent.SteamCmd.TestCli\SteanVent.SteamCmd.TestCli.csproj", "{6E97347C-1698-4AB6-959C-869989BC96A7}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SteamVent.SteamCmd.TestCli", "SteamVent.SteamCmd.TestCli\SteamVent.SteamCmd.TestCli.csproj", "{6E97347C-1698-4AB6-959C-869989BC96A7}"
 	ProjectSection(ProjectDependencies) = postProject
 		{1B1CF7C2-DA92-4FFD-BC92-8332947A87BE} = {1B1CF7C2-DA92-4FFD-BC92-8332947A87BE}
 	EndProjectSection
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SteamVent.Common", "SteamVent.Common\SteamVent.Common.csproj", "{F1096E3A-C50A-43A3-9A46-6112D4BBAE38}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Tools", "Tools", "{BE01A886-8383-4B3F-9E69-814FBB8CABC0}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Tests", "Tests", "{EF9F2A30-3CD6-42DF-9C86-6A1D1C463791}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AppInfoCacheDump", "AppInfoCacheDump\AppInfoCacheDump.csproj", "{3EF8CD67-7931-4A0B-BA95-C1717982A7C9}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "steamcmdinj", "steamcmdinj\steamcmdinj.vcxproj", "{58B7F843-3349-428D-B9A7-EE4BB36B30F4}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -112,9 +123,36 @@ Global
 		{F1096E3A-C50A-43A3-9A46-6112D4BBAE38}.Release|x64.Build.0 = Release|Any CPU
 		{F1096E3A-C50A-43A3-9A46-6112D4BBAE38}.Release|x86.ActiveCfg = Release|Any CPU
 		{F1096E3A-C50A-43A3-9A46-6112D4BBAE38}.Release|x86.Build.0 = Release|Any CPU
+		{3EF8CD67-7931-4A0B-BA95-C1717982A7C9}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{3EF8CD67-7931-4A0B-BA95-C1717982A7C9}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{3EF8CD67-7931-4A0B-BA95-C1717982A7C9}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{3EF8CD67-7931-4A0B-BA95-C1717982A7C9}.Debug|x64.Build.0 = Debug|Any CPU
+		{3EF8CD67-7931-4A0B-BA95-C1717982A7C9}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{3EF8CD67-7931-4A0B-BA95-C1717982A7C9}.Debug|x86.Build.0 = Debug|Any CPU
+		{3EF8CD67-7931-4A0B-BA95-C1717982A7C9}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{3EF8CD67-7931-4A0B-BA95-C1717982A7C9}.Release|Any CPU.Build.0 = Release|Any CPU
+		{3EF8CD67-7931-4A0B-BA95-C1717982A7C9}.Release|x64.ActiveCfg = Release|Any CPU
+		{3EF8CD67-7931-4A0B-BA95-C1717982A7C9}.Release|x64.Build.0 = Release|Any CPU
+		{3EF8CD67-7931-4A0B-BA95-C1717982A7C9}.Release|x86.ActiveCfg = Release|Any CPU
+		{3EF8CD67-7931-4A0B-BA95-C1717982A7C9}.Release|x86.Build.0 = Release|Any CPU
+		{58B7F843-3349-428D-B9A7-EE4BB36B30F4}.Debug|Any CPU.ActiveCfg = Debug|Win32
+		{58B7F843-3349-428D-B9A7-EE4BB36B30F4}.Debug|x64.ActiveCfg = Debug|x64
+		{58B7F843-3349-428D-B9A7-EE4BB36B30F4}.Debug|x64.Build.0 = Debug|x64
+		{58B7F843-3349-428D-B9A7-EE4BB36B30F4}.Debug|x86.ActiveCfg = Debug|Win32
+		{58B7F843-3349-428D-B9A7-EE4BB36B30F4}.Debug|x86.Build.0 = Debug|Win32
+		{58B7F843-3349-428D-B9A7-EE4BB36B30F4}.Release|Any CPU.ActiveCfg = Release|Win32
+		{58B7F843-3349-428D-B9A7-EE4BB36B30F4}.Release|x64.ActiveCfg = Release|x64
+		{58B7F843-3349-428D-B9A7-EE4BB36B30F4}.Release|x64.Build.0 = Release|x64
+		{58B7F843-3349-428D-B9A7-EE4BB36B30F4}.Release|x86.ActiveCfg = Release|Win32
+		{58B7F843-3349-428D-B9A7-EE4BB36B30F4}.Release|x86.Build.0 = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{7639BD35-29F8-4684-8216-68BED15574A9} = {EF9F2A30-3CD6-42DF-9C86-6A1D1C463791}
+		{6E97347C-1698-4AB6-959C-869989BC96A7} = {EF9F2A30-3CD6-42DF-9C86-6A1D1C463791}
+		{3EF8CD67-7931-4A0B-BA95-C1717982A7C9} = {BE01A886-8383-4B3F-9E69-814FBB8CABC0}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {DC6AC51C-A546-4AAF-9F40-720BC05CD911}

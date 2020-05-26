@@ -362,11 +362,31 @@ namespace SteamVent.Common.BVdf
             }
         }
 
+        private bool _ForceNumericWhenUnsure;
+        private bool _ForceObjectWhenUnsure;
+        public bool ForceNumericWhenUnsure { get { return _ForceNumericWhenUnsure; } set { _ForceNumericWhenUnsure = value; if (value) _ForceObjectWhenUnsure = false; } }
+        public bool ForceObjectWhenUnsure { get { return _ForceObjectWhenUnsure; } set { _ForceObjectWhenUnsure = value; if (value) _ForceNumericWhenUnsure = false; } }
+
         private bool? NumericMemo;
         public bool IsNumeric()
         {
             if (Properties.Count == 0)
-                return true;
+            {
+                if (_ForceNumericWhenUnsure)
+                    return true;
+                if (ForceObjectWhenUnsure)
+                    return false;
+                return false;//return true;
+            }
+
+            if (Properties.Count == 1 && Properties[0].Key == "0")
+            {
+                if (_ForceNumericWhenUnsure)
+                    return true;
+                if (ForceObjectWhenUnsure)
+                    return false;
+                return false;//return true;
+            }
 
             if (NumericMemo.HasValue)
                 return NumericMemo.Value;
@@ -386,6 +406,8 @@ namespace SteamVent.Common.BVdf
                 orderPreserved = orderPreserved && (dr == counter);
                 counter++;
             });
+
+            NumericMemo = orderPreserved;
             return orderPreserved;
         }
 
@@ -407,6 +429,11 @@ namespace SteamVent.Common.BVdf
                     Properties.Add(new BVProperty(key, value));
                 }
             }
+        }
+
+        public List<BVProperty> Children()
+        {
+            return Properties;
         }
 
         public override object GetValue()
