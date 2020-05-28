@@ -7,6 +7,9 @@ using System.Linq;
 using System.Text;
 using SteamVent.Common.Logging;
 using SteamVent.Common.Tools;
+using Gameloop.Vdf.Linq;
+using Gameloop.Vdf;
+using System.Collections.Generic;
 
 namespace SteamVent.FileSystem
 {
@@ -234,7 +237,8 @@ namespace SteamVent.FileSystem
         /// <summary>
         /// Retrieves the Steam installation path from the registry or returns null if not found.
         /// </summary>
-        /// <returns>A string containing the Steam installation path; if not found, returns null.</returns>
+        /// <returns>A string containing the Steam installation path.</returns>
+        /// <exception cref="InvalidOperationException">Thrown when path could not be found.</exception>
         private static string GetSteamInstallPath()
         {
             string installPath;
@@ -256,6 +260,11 @@ namespace SteamVent.FileSystem
             return installPath;
         }
 
+        /// <summary>
+        /// Retrieves the GoldSrc Mod installation path from the registry or returns null if not found.
+        /// </summary>
+        /// <returns>A string containing the GoldSrc Mod installation path.</returns>
+        /// <exception cref="InvalidOperationException">Thrown when path could not be found.</exception>
         public static string GetGoldSrcModPath()
         {
             string installPath;
@@ -277,6 +286,11 @@ namespace SteamVent.FileSystem
             return installPath;
         }
 
+        /// <summary>
+        /// Retrieves the Source Mod installation path from the registry or returns null if not found.
+        /// </summary>
+        /// <returns>A string containing the Source Mod installation path.</returns>
+        /// <exception cref="InvalidOperationException">Thrown when path could not be found.</exception>
         public static string GetSourceModPath()
         {
             string installPath;
@@ -339,6 +353,25 @@ namespace SteamVent.FileSystem
                 return false;
 
             return File.Exists(SteamClientDllPath) && File.Exists(SteamExePath);
+        }
+
+        /// <summary>
+        /// Steam library paths, including SteamInstallPath bath
+        /// </summary>
+        /// <returns>Enumerable set of path strings</returns>
+        public static IEnumerable<string> GetSteamLibraryPaths()
+        {
+            yield return SteamInstallPath;
+            string LibraryFile = Path.Combine(SteamInstallPath, "libraryfolders.vdf");
+            if (File.Exists(LibraryFile))
+            {
+                VProperty data = VdfConvert.Deserialize(File.ReadAllText(LibraryFile));
+                foreach(VProperty child in data.Children())
+                {
+                    if(int.TryParse(child.Key, out _))
+                        yield return child.Value<string>();
+                }
+            }
         }
     }
 }

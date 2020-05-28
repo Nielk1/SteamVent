@@ -17,7 +17,21 @@ namespace SteamVent.Tests.FileSystem
         [Test]
         public void SteamInstallPathTest()
         {
-            Assert.That(SteamProcessInfo.SteamInstallPath, Is.Not.Null.Or.Empty, "Steam install path not found");
+            var SteamInstallPath = SteamProcessInfo.SteamInstallPath;
+            Assert.That(SteamInstallPath, Is.Not.Null.Or.Empty, "Steam install path not found");
+            Assert.That(Directory.Exists(SteamInstallPath), Is.True, "Steam install path does not exist");
+        }
+
+        [Test]
+        public void GetSteamLibraryPathsTest()
+        {
+            List<string> Paths = SteamProcessInfo.GetSteamLibraryPaths().ToList();
+            Assert.That(Paths.Count, Is.GreaterThan(0), "No Steam library paths found");
+            Assert.That(Paths[0], Is.EqualTo(SteamProcessInfo.SteamInstallPath), "First Steam library path is not the default path");
+            foreach (string path in Paths)
+            {
+                Assert.That(Directory.Exists(path), Is.True, "Returned library path does not exist");
+            }
         }
 
         [Test]
