@@ -311,28 +311,49 @@ namespace SteamVent.SteamCmd
 
         public List<WorkshopItemStatus> WorkshopStatus(UInt32 AppId)
         {
-            string RawString = StartProc($"+login anonymous +workshop_download_item {AppId} 1 +workshop_status {AppId} +quit");
-            return RawString
-                .Split(new char[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries)
-                .Select(dr => Config.RegWorkshopStatusItem.Match(dr))
-                .Where(dr => dr.Success)
-                .Select(dr =>
-                {
-                    string datetimeString = $"{dr.Groups["day"].Value} {dr.Groups["month"].Value} {dr.Groups["year"].Value} {dr.Groups["hour"].Value}:{dr.Groups["minutes"].Value}:{dr.Groups["seconds"].Value}";
-
-                    if (dr.Groups["workshopId"].Value == "1") return null;
-
-                    return new WorkshopItemStatus()
+            Trace.WriteLine($"WorkshopStatus({AppId})");
+            try
+            {
+                Trace.Indent();
+                string RawString = StartProc($"+login anonymous +workshop_download_item {AppId} 1 +workshop_status {AppId} +quit");
+                return RawString
+                    .Split(new char[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries)
+                    .Select(dr => Config.RegWorkshopStatusItem.Match(dr))
+                    .Where(dr => dr.Success)
+                    .Select(dr =>
                     {
-                        WorkshopId = UInt64.Parse(dr.Groups["workshopId"].Value),
-                        Status = dr.Groups["status"].Value,
-                        Size = long.Parse(dr.Groups["size"].Value),
-                        DateTime = DateTime.Parse(datetimeString),
-                        HasUpdate = dr.Groups["status2"]?.Value == "updated required",
-                    };
-                })
-                .Where(dr => dr != null)
-                .ToList();
+                        string datetimeString = $"{dr.Groups["day"].Value} {dr.Groups["month"].Value} {dr.Groups["year"].Value} {dr.Groups["hour"].Value}:{dr.Groups["minutes"].Value}:{dr.Groups["seconds"].Value}";
+                        DateTime parsedDateTime;
+
+                        string status = dr.Groups["status"].Value;
+                        if (string.IsNullOrWhiteSpace(status))
+                            status = dr.Groups["status2"].Value;
+
+                        string size = dr.Groups["size"].Value;
+                        if (string.IsNullOrWhiteSpace(size))
+                            size = dr.Groups["size3"].Value;
+
+                        bool foundDateTime = DateTime.TryParse(datetimeString, out parsedDateTime);
+                        if (dr.Groups["workshopId"].Value == "1") return null;
+
+                        Trace.WriteLine($"Found workshop item {dr.Groups["workshopId"].Value}");
+
+                        return new WorkshopItemStatus()
+                        {
+                            WorkshopId = UInt64.Parse(dr.Groups["workshopId"].Value),
+                            Status = status,
+                            Size = long.Parse(size),
+                            DateTime = foundDateTime ? (DateTime?)parsedDateTime : null,
+                            HasUpdate = dr.Groups["status2"]?.Value == "updated required",
+                        };
+                    })
+                    .Where(dr => dr != null)
+                    .ToList();
+            }
+            finally
+            {
+                Trace.Unindent();
+            }
         }
 
         public string WorkshopDownloadItem(UInt32 AppId, UInt64 PublishedFileId)

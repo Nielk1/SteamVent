@@ -15,7 +15,7 @@ namespace SteamVent.SteamCmd
         public UInt64 WorkshopId { get; set; }
         public string Status { get; set; }
         public long Size { get; set; }
-        public DateTime DateTime { get; set; }
+        public DateTime? DateTime { get; set; }
         public bool HasUpdate { get; set; }
     }
 }
