@@ -362,14 +362,15 @@ namespace SteamVent.FileSystem
         public static IEnumerable<string> GetSteamLibraryPaths()
         {
             yield return SteamInstallPath;
-            string LibraryFile = Path.Combine(SteamInstallPath, "libraryfolders.vdf");
+            string LibraryFile = Path.Combine(SteamInstallPath, "steamapps", "libraryfolders.vdf");
             if (File.Exists(LibraryFile))
             {
                 VProperty data = VdfConvert.Deserialize(File.ReadAllText(LibraryFile));
-                foreach(VProperty child in data.Children())
+                VObject data2 = data.Value as VObject;
+                foreach (VProperty child in data2.Children())
                 {
                     if(int.TryParse(child.Key, out _))
-                        yield return child.Value<string>();
+                        yield return child.Value.Value<string>();
                 }
             }
         }
