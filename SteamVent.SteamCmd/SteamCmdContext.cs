@@ -1,5 +1,7 @@
 ﻿//#define DEBUG_STEAMCMD_PARSE
 
+//using Gameloop.Vdf;
+//using Gameloop.Vdf.Linq;
 using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
@@ -315,8 +317,71 @@ namespace SteamVent.SteamCmd
             try
             {
                 Trace.Indent();
+
+                // attempt to download any mods now in our manifest that we have folders for
+                /*try
+                {
+                    HashSet<string> KnownDownloads = new HashSet<string>();
+                    string ManifestPath = Path.Combine("steamcmd", "steamapps", "workshop", $"appworkshop_{AppId}.acf");
+                    if (File.Exists(ManifestPath))
+                    {
+                        VProperty appWorkshop = VdfConvert.Deserialize(File.ReadAllText(ManifestPath));
+                        appWorkshop.Value["WorkshopItemsInstalled"]?.Select(dr => (dr as VProperty)?.Key)?.Where(dr => dr != null)?.ToList()?.ForEach(dr => KnownDownloads.Add(dr));
+                        appWorkshop.Value["WorkshopItemDetails"]?.Select(dr => (dr as VProperty)?.Key)?.Where(dr => dr != null)?.ToList()?.ForEach(dr => KnownDownloads.Add(dr));
+
+                        string ModsPath = Path.Combine("steamcmd", "steamapps", "workshop", "content", AppId.ToString());
+                        List<string> UnknownMods = Directory.EnumerateDirectories(ModsPath, "*", SearchOption.TopDirectoryOnly)
+                            .Select(dr => Path.GetFileName(dr))
+                            .Where(dr => !KnownDownloads.Contains(dr))
+                            .ToList();
+
+                        foreach(string mod in UnknownMods)
+                        {
+                            try
+                            {
+                                WorkshopDownloadItem(AppId, UInt64.Parse(mod));
+                            }
+                            catch { }
+                        }
+                    }
+                }
+                catch { }*/
+
                 string RawString = StartProc($"+login anonymous +workshop_download_item {AppId} 1 +workshop_status {AppId} +quit");
-                return RawString
+
+                /*try
+                {
+                    HashSet<string> KnownDownloads = new HashSet<string>();
+                    string ManifestPath = Path.Combine("steamcmd", "steamapps", "workshop", $"appworkshop_{AppId}.acf");
+                    if (File.Exists(ManifestPath))
+                    {
+                        VProperty appWorkshop = VdfConvert.Deserialize(File.ReadAllText(ManifestPath));
+                        appWorkshop.Value["WorkshopItemsInstalled"]?.Select(dr => (dr as VProperty)?.Key)?.Where(dr => dr != null)?.ToList()?.ForEach(dr => KnownDownloads.Add(dr));
+                        appWorkshop.Value["WorkshopItemDetails"]?.Select(dr => (dr as VProperty)?.Key)?.Where(dr => dr != null)?.ToList()?.ForEach(dr => KnownDownloads.Add(dr));
+
+                        string ModsPath = Path.Combine("steamcmd", "steamapps", "workshop", "content", AppId.ToString());
+                        List<string> UnknownMods = Directory.EnumerateDirectories(ModsPath, "*", SearchOption.TopDirectoryOnly)
+                            .Select(dr => Path.GetFileName(dr))
+                            .Where(dr => !KnownDownloads.Contains(dr))
+                            .ToList();
+
+                        if ((UnknownMods?.Count ?? 0) > 0)
+                        {
+                            string DisabledDir = Path.Combine("steamcmd", "steamapps", "workshop", "content", $"{AppId}_disabled");
+                            if (!Directory.Exists(DisabledDir))
+                                Directory.CreateDirectory(DisabledDir);
+                            foreach (string mod in UnknownMods)
+                            {
+                                Directory.Move(Path.Combine("steamcmd", "steamapps", "workshop", "content", AppId.ToString(), mod), Path.Combine(DisabledDir, mod));
+                            }
+                        }
+                    }
+                }
+                catch(Exception ex)
+                {
+                }*/
+
+                List<WorkshopItemStatus> retVal =  RawString
                     .Split(new char[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries)
                     .Select(dr => Config.RegWorkshopStatusItem.Match(dr))
                     .Where(dr => dr.Success)
@@ -349,6 +414,33 @@ namespace SteamVent.SteamCmd
                     })
                     .Where(dr => dr != null)
                     .ToList();
+
+                {
+                    HashSet<UInt64> KnownIDs = new HashSet<UInt64>();
+                    foreach (var item in retVal)
+                    {
+                        KnownIDs.Add(item.WorkshopId);
+                    }
+
+                    string ModsPath = Path.Combine("steamcmd", "steamapps", "workshop", "content", AppId.ToString());
+                    List<string> UnknownMods = Directory.EnumerateDirectories(ModsPath, "*", SearchOption.TopDirectoryOnly)
+                        .Select(dr => Path.GetFileName(dr))
+                        .Where(dr =>
+                        {
+                            try
+                            {
+                                return !KnownIDs.Contains(UInt64.Parse(dr));
+                            }
+                            catch { }
+                            return false;
+                        }).ToList();
+                    foreach (string UnknownMod in UnknownMods)
+                    {
+                        retVal.Add(new WorkshopItemStatus() { WorkshopId = UInt64.Parse(UnknownMod) });
+                    }
+                }
+
+                return retVal;
             }
             finally
             {
@@ -420,6 +512,65 @@ namespace SteamVent.SteamCmd
         protected void OnSteamCmdArgs(string msg)
         {
             SteamCmdArgs?.Invoke(this, msg);
+        }
+
+
+        private void RecursiveDelete(string path)
+        {
+            foreach (string file in Directory.EnumerateFiles(path, "*", SearchOption.TopDirectoryOnly))
+                File.Delete(file);
+
+            foreach (string dir in Directory.EnumerateDirectories(path, "*", SearchOption.TopDirectoryOnly))
+            {
+                RecursiveDelete(dir);
+            }
+            Directory.Delete(path);
+        }
+
+        public void Purge()
+        {
+            lock (procLock)
+            {
+                if (Directory.Exists("steamcmd"))
+                {
+                    foreach (string file in Directory.EnumerateFiles("steamcmd", "*", SearchOption.TopDirectoryOnly))
+                        File.Delete(file);
+
+                    foreach (string dir in Directory.EnumerateDirectories("steamcmd", "*", SearchOption.TopDirectoryOnly))
+                    {
+                        if (Path.GetFileName(dir) == "steamapps")
+                            continue;
+
+                        RecursiveDelete(dir);
+                    }
+
+                    {
+                        foreach (string file in Directory.EnumerateFiles(Path.Combine("steamcmd", "steamapps"), "*", SearchOption.TopDirectoryOnly))
+                            File.Delete(file);
+
+                        foreach (string dir in Directory.EnumerateDirectories(Path.Combine("steamcmd", "steamapps"), "*", SearchOption.TopDirectoryOnly))
+                        {
+                            if (Path.GetFileName(dir) == "workshop")
+                                continue;
+
+                            RecursiveDelete(dir);
+                        }
+                    }
+
+                    {
+                        foreach (string file in Directory.EnumerateFiles(Path.Combine("steamcmd", "steamapps", "workshop"), "*", SearchOption.TopDirectoryOnly))
+                            File.Delete(file);
+
+                        foreach (string dir in Directory.EnumerateDirectories(Path.Combine("steamcmd", "steamapps", "workshop"), "*", SearchOption.TopDirectoryOnly))
+                        {
+                            if (Path.GetFileName(dir) == "content")
+                                continue;
+
+                            RecursiveDelete(dir);
+                        }
+                    }
+                }
+            }
         }
     }
 }
