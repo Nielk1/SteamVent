@@ -17,5 +17,6 @@ namespace SteamVent.SteamCmd
         public long Size { get; set; }
         public DateTime? DateTime { get; set; }
         public bool HasUpdate { get; set; }
+        public bool FolderOnlyDetection { get; set; }
     }
 }

@@ -436,7 +436,11 @@ namespace SteamVent.SteamCmd
                         }).ToList();
                     foreach (string UnknownMod in UnknownMods)
                     {
-                        retVal.Add(new WorkshopItemStatus() { WorkshopId = UInt64.Parse(UnknownMod) });
+                        retVal.Add(new WorkshopItemStatus()
+                        {
+                            WorkshopId = UInt64.Parse(UnknownMod),
+                            FolderOnlyDetection = true,
+                        });
                     }
                 }
 
