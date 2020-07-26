@@ -10,6 +10,7 @@ using System.IO;
 using System.IO.Compression;
 using System.Linq;
 using System.Net;
+using System.Reflection;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
@@ -44,7 +45,8 @@ namespace SteamVent.SteamCmd
         private static SteamCmdContext Instance;
         private SteamCmdContext()
         {
-            Config = JsonConvert.DeserializeObject<ConfigData>(File.ReadAllText("steamvent.steamcmd.json"));
+            //Config = JsonConvert.DeserializeObject<ConfigData>(File.ReadAllText("steamvent.steamcmd.json"));
+            Config = JsonConvert.DeserializeObject<ConfigData>(File.ReadAllText(Path.Combine(AssemblyDirectory, "steamvent.steamcmd.json")));
 
             Config.RegWorkshopStatusItem = new Regex(Config.WorkshopStatusItem);
             Config.RegWorkshopDownloadItemError = new Regex(Config.WorkshopDownloadItemError);
@@ -60,21 +62,32 @@ namespace SteamVent.SteamCmd
             return Instance;
         }
 
+        public static string AssemblyDirectory
+        {
+            get
+            {
+                string codeBase = Assembly.GetExecutingAssembly().CodeBase;
+                UriBuilder uri = new UriBuilder(codeBase);
+                string path = Uri.UnescapeDataString(uri.Path);
+                return Path.GetDirectoryName(path);
+            }
+        }
+
         public void Download()
         {
             lock (procLock)
             {
-                if (File.Exists("steamcmd\\steamcmd.exe")) return;
+                if (File.Exists(Path.Combine(AssemblyDirectory, "steamcmd\\steamcmd.exe"))) return;
                 string steamcmdzip = Path.GetFileName(SteamCmdDownloadURL);
                 if (!File.Exists(steamcmdzip))
                 {
                     OnSteamCmdStatusChange(new SteamCmdStatusChangeEventArgs(ESteamCmdStatus.Downloading));
                     WebClient client = new WebClient();
-                    client.DownloadFile(SteamCmdDownloadURL, steamcmdzip);
+                    client.DownloadFile(SteamCmdDownloadURL, Path.Combine(AssemblyDirectory, steamcmdzip));
                 }
-                if (!Directory.Exists("steamcmd")) Directory.CreateDirectory("steamcmd");
+                if (!Directory.Exists(Path.Combine(AssemblyDirectory, "steamcmd"))) Directory.CreateDirectory(Path.Combine(AssemblyDirectory, "steamcmd"));
                 OnSteamCmdStatusChange(new SteamCmdStatusChangeEventArgs(ESteamCmdStatus.Extracting));
-                ZipFile.ExtractToDirectory(steamcmdzip, "steamcmd");
+                ZipFile.ExtractToDirectory(Path.Combine(AssemblyDirectory, steamcmdzip), Path.Combine(AssemblyDirectory, "steamcmd"));
                 OnSteamCmdStatusChange(new SteamCmdStatusChangeEventArgs(ESteamCmdStatus.Installed));
             }
 
@@ -85,15 +98,15 @@ namespace SteamVent.SteamCmd
         {
             lock (procLock)
             {
-                if (!Directory.Exists("steamcmd")) throw new SteamCmdMissingException("steamcmd directory missing");
-                if (!File.Exists("steamcmd\\steamcmd.exe")) throw new SteamCmdMissingException("steamcmd.exe missing");
+                if (!Directory.Exists(Path.Combine(AssemblyDirectory, "steamcmd"))) throw new SteamCmdMissingException("steamcmd directory missing");
+                if (!File.Exists(Path.Combine(AssemblyDirectory, "steamcmd\\steamcmd.exe"))) throw new SteamCmdMissingException("steamcmd.exe missing");
 
                 Process proc = new Process()
                 {
                     StartInfo = new ProcessStartInfo()
                     {
-                        //WorkingDirectory = "steamcmd",
-                        FileName = "steamcmdprox.exe",
+                        WorkingDirectory = AssemblyDirectory,
+                        FileName = Path.Combine(AssemblyDirectory, "steamcmdprox.exe"),
                         Arguments = $"steamcmd\\steamcmd.exe {command}",
                         UseShellExecute = false,
                         CreateNoWindow = true,
@@ -422,7 +435,7 @@ namespace SteamVent.SteamCmd
                         KnownIDs.Add(item.WorkshopId);
                     }
 
-                    string ModsPath = Path.Combine("steamcmd", "steamapps", "workshop", "content", AppId.ToString());
+                    string ModsPath = Path.Combine(SteamCmdContext.AssemblyDirectory, "steamcmd", "steamapps", "workshop", "content", AppId.ToString());
                     List<string> UnknownMods = Directory.EnumerateDirectories(ModsPath, "*", SearchOption.TopDirectoryOnly)
                         .Select(dr => Path.GetFileName(dr))
                         .Where(dr =>

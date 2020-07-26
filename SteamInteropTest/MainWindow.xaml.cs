@@ -58,7 +58,7 @@ namespace SteamInteropTest
                 return;
             }
 
-            if (!Steam.Load(true))
+            if (!Steam.Load())
             {
                 WriteToWindowLog("Steam NOT successfully initialized!");
                 return;

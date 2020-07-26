@@ -106,10 +106,14 @@
     <PostBuildEvent>
       <Command>copy /Y "$(SolutionDir)packages\EasyHookNativePackage.redist.2.7.7097\build\native\bin\Win32\v141\Debug\EasyHook32.dll" $(TargetDir)EasyHook32.dll
 copy /Y "$(SolutionDir)steamcmdinj\bin\steamcmdinj.dll" "$(TargetDir)steamcmdinj.dll"
-copy /Y "$(TargetDir)$(ProjectName).exe" "$(SolutionDir)SteamVent.SteamCmd.TestCli\bin\Release\$(ProjectName).exe"
-copy /Y "$(TargetDir)$(ProjectName).pdb" "$(SolutionDir)SteamVent.SteamCmd.TestCli\bin\Release\$(ProjectName).pdb"
-copy /Y $(TargetDir)EasyHook32.dll "$(SolutionDir)SteamVent.SteamCmd.TestCli\bin\EasyHook32.dll"
-copy /Y $(TargetDir)steamcmdinj.dll "$(SolutionDir)SteamVent.SteamCmd.TestCli\bin\steamcmdinj.dll"</Command>
+copy /Y "$(TargetDir)$(ProjectName).exe" "$(SolutionDir)SteamVent.SteamCmd.TestCli\bin\Debug\$(ProjectName).exe"
+copy /Y "$(TargetDir)$(ProjectName).pdb" "$(SolutionDir)SteamVent.SteamCmd.TestCli\bin\Debug\$(ProjectName).pdb"
+copy /Y $(TargetDir)EasyHook32.dll "$(SolutionDir)SteamVent.SteamCmd.TestCli\bin\Debug\EasyHook32.dll"
+copy /Y $(TargetDir)steamcmdinj.dll "$(SolutionDir)SteamVent.SteamCmd.TestCli\bin\Debug\steamcmdinj.dll"
+copy /Y "$(TargetDir)$(ProjectName).exe" "$(SolutionDir)SteamVent.Tests\bin\Debug\$(ProjectName).exe"
+copy /Y "$(TargetDir)$(ProjectName).pdb" "$(SolutionDir)SteamVent.Tests\bin\Debug\$(ProjectName).pdb"
+copy /Y $(TargetDir)EasyHook32.dll "$(SolutionDir)SteamVent.Tests\bin\Debug\EasyHook32.dll"
+copy /Y $(TargetDir)steamcmdinj.dll "$(SolutionDir)SteamVent.Tests\bin\Debug\steamcmdinj.dll"</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
@@ -151,8 +155,12 @@ copy /Y $(TargetDir)steamcmdinj.dll "$(SolutionDir)SteamVent.SteamCmd.TestCli\bi
 copy /Y "$(SolutionDir)steamcmdinj\bin\steamcmdinj.dll" "$(TargetDir)steamcmdinj.dll"
 copy /Y "$(TargetDir)$(ProjectName).exe" "$(SolutionDir)SteamVent.SteamCmd.TestCli\bin\Release\$(ProjectName).exe"
 copy /Y "$(TargetDir)$(ProjectName).pdb" "$(SolutionDir)SteamVent.SteamCmd.TestCli\bin\Release\$(ProjectName).pdb"
-copy /Y $(TargetDir)EasyHook32.dll "$(SolutionDir)SteamVent.SteamCmd.TestCli\bin\EasyHook32.dll"
-copy /Y $(TargetDir)steamcmdinj.dll "$(SolutionDir)SteamVent.SteamCmd.TestCli\bin\steamcmdinj.dll"</Command>
+copy /Y $(TargetDir)EasyHook32.dll "$(SolutionDir)SteamVent.SteamCmd.TestCli\bin\Release\EasyHook32.dll"
+copy /Y $(TargetDir)steamcmdinj.dll "$(SolutionDir)SteamVent.SteamCmd.TestCli\bin\Release\steamcmdinj.dll"
+copy /Y "$(TargetDir)$(ProjectName).exe" "$(SolutionDir)SteamVent.Tests\bin\Release\$(ProjectName).exe"
+copy /Y "$(TargetDir)$(ProjectName).pdb" "$(SolutionDir)SteamVent.Tests\bin\Release\$(ProjectName).pdb"
+copy /Y $(TargetDir)EasyHook32.dll "$(SolutionDir)SteamVent.Tests\bin\Release\EasyHook32.dll"
+copy /Y $(TargetDir)steamcmdinj.dll "$(SolutionDir)SteamVent.Tests\bin\Release\steamcmdinj.dll"</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
