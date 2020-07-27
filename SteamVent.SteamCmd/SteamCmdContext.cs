@@ -101,7 +101,7 @@ namespace SteamVent.SteamCmd
             do
             {
                 retVal = StartProc(command);
-            } while (retVal?.Trim().Split(new char[] { '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries).LastOrDefault() == @"[  0%] Checking for available updates...");
+            } while (retVal?.Trim().Split(new string[] { "\r\n", "\n", "\r" }, StringSplitOptions.RemoveEmptyEntries).LastOrDefault() == @"[  0%] Checking for available updates...");
 
             return retVal;
         }
