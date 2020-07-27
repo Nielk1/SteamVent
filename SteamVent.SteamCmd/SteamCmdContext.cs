@@ -91,10 +91,22 @@ namespace SteamVent.SteamCmd
                 OnSteamCmdStatusChange(new SteamCmdStatusChangeEventArgs(ESteamCmdStatus.Installed));
             }
 
-            StartProc($"+login anonymous +status +quit");
+            StartProcWithRetry($"+login anonymous +status +quit");
         }
 
-        private string StartProc(string command, Action<string> LineOutput = null)
+        private string StartProcWithRetry(string command)
+        {
+            string retVal = null;
+
+            do
+            {
+                retVal = StartProc(command);
+            } while (retVal?.Trim().Split(new char[] { '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries).LastOrDefault() == @"[  0%] Checking for available updates...");
+
+            return retVal;
+        }
+
+        private string StartProc(string command)//, Action<string> LineOutput = null)
         {
             lock (procLock)
             {
@@ -129,7 +141,7 @@ namespace SteamVent.SteamCmd
                 while (!proc.StandardOutput.EndOfStream)// && !proc.HasExited) // note stream can still have data when proc is closed
                 {
                     string line = ReadLine(proc);
-                    LineOutput?.Invoke(line);
+                    //LineOutput?.Invoke(line);
                     AllOutput.AppendLine(line);
                     // do something with line
                 }
@@ -360,7 +372,7 @@ namespace SteamVent.SteamCmd
                 }
                 catch { }*/
 
-                string RawString = StartProc($"+login anonymous +workshop_download_item {AppId} 1 +workshop_status {AppId} +quit");
+                string RawString = StartProcWithRetry($"+login anonymous +workshop_download_item {AppId} 1 +workshop_status {AppId} +quit");
 
                 /*try
                 {
@@ -469,7 +481,7 @@ namespace SteamVent.SteamCmd
         {
             string statusMessage = null;
             string statusType = null;
-            string FullOutput = StartProc($"+login anonymous +workshop_download_item {AppId} {PublishedFileId} +quit");
+            string FullOutput = StartProcWithRetry($"+login anonymous +workshop_download_item {AppId} {PublishedFileId} +quit");
             string[] OutputLines = FullOutput.Split(new string[] { "\r\n", "\n", "\r" }, StringSplitOptions.RemoveEmptyEntries);
             foreach (string OutputLine in OutputLines)
             {
