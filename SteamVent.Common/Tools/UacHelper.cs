@@ -81,11 +81,20 @@ namespace SteamVent.Common.Tools
             }
         }
 
+        /// <summary>
+        /// Is current process running as admin
+        /// </summary>
+        /// <returns>bool</returns>
         public static bool IsCurrentProcessElevated()
         {
             return IsProcessElevated(Process.GetCurrentProcess());
         }
 
+        /// <summary>
+        /// Is passed in process running as admin
+        /// </summary>
+        /// <param name="process"></param>
+        /// <returns>bool</returns>
         public static bool IsProcessElevated(Process process)
         {
             if (!IsUacEnabled)

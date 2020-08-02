@@ -132,20 +132,20 @@ namespace SteamVent.InterProc
         /// <summary>
         /// An instance of the <see cref="SteamNative._f"/> delegate.
         /// </summary>
-        private static SteamNative._f _callCreateSteamInterface;
+        //private static SteamNative._f _callCreateSteamInterface;
 
         /// <summary>
         /// Gets an unmanaged handle to an instance of the specified Steam interface.
         /// </summary>
         /// <param name="version">A string defining the desired interface and version.</param>
         /// <returns>A handle to the unmanaged Steam interface, or null upon failure.</returns>
-        public static IntPtr CreateSteamInterface(string version)
+        /*public static IntPtr CreateSteamInterface(string version)
         {
             if (_callCreateSteamInterface == null)
                 throw new InvalidOperationException($"Steam library is not initialized ({nameof(CreateSteamInterface)}).");
 
             return _callCreateSteamInterface(version);
-        }
+        }*/
 
         private static SteamNative.SteamBGetCallback _callSteamBGetCallback;
         /// <summary>

@@ -1,6 +1,5 @@
 ﻿using SteamVent.Common.Tools;
 using SteamVent.InterProc.Attributes;
-//using SteamVent.Tools;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -92,7 +91,5 @@ namespace SteamVent.InterProc.Interop
 
             return unencodedString == null ? null : Encoding.UTF8.GetString(Encoding.Default.GetBytes(unencodedString));
         }
-
-
     }
 }

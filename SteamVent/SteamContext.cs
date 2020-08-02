@@ -24,6 +24,10 @@ namespace SteamVent
         {
         }
     }
+
+    /// <summary>
+    /// General context wrapper for entire SteamVent system utilizing what sub-libraries are available
+    /// </summary>
     public class SteamContext : IDisposable
     {
         private static readonly object CoreInstanceMutex = new object();
