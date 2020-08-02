@@ -14,6 +14,8 @@ namespace SteamVent.SteamCmd
         public string WorkshopDownloadItemError { get; set; }
         public string WorkshopDownloadItemSuccess { get; set; }
 
+        public string[] BadStrings { get; set; }
+
         [JsonIgnore]
         public Regex RegWorkshopStatusItem { get; set; }
         [JsonIgnore]

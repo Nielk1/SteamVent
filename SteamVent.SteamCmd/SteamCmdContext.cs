@@ -21,8 +21,6 @@ namespace SteamVent.SteamCmd
     public class SteamCmdContext
     {
         private const string SteamCmdDownloadURL = @"https://steamcdn-a.akamaihd.net/client/installer/steamcmd.zip";
-        private const string badstring = "\\src\\common\\contentmanifest.cpp (650) : Assertion Failed: !m_bIsFinalized\r\n";
-        private const string badstringShort = "\\src\\common\\contentmanifest.cpp (650) : Assertion Failed: !m_bIsFinalized";
 
         object procLock = new object();
         public ESteamCmdStatus Status { get; private set; }
@@ -237,14 +235,17 @@ namespace SteamVent.SteamCmd
                                 while (proc.StandardOutput.Peek() > -1)
                                 {
                                     // this should only happen if we have more badstrings
-                                    if (proc.StandardOutput.Peek() == badstring[0])
+                                    foreach (string badstring in Config.BadStrings)
                                     {
-#if DEBUG_STEAMCMD_PARSE
-                                        Trace.WriteLine($"chew off badstring", "SteamCmdContext");
-#endif
-                                        for (int i = 0; i < badstring.Length; i++)
+                                        if (proc.StandardOutput.Peek() == badstring[0])
                                         {
-                                            proc.StandardOutput.Read();
+#if DEBUG_STEAMCMD_PARSE
+                                            Trace.WriteLine($"chew off badstring", "SteamCmdContext");
+#endif
+                                            for (int i = 0; i < (badstring.Length + 2); i++) // +2 for CRLF
+                                            {
+                                                proc.StandardOutput.Read();
+                                            }
                                         }
                                     }
                                 }
@@ -270,28 +271,38 @@ namespace SteamVent.SteamCmd
 #endif
                                     // the only way this should happen is if we had a "bad string" get in the middle of a CRLF
                                     t = '\r'; // pretend we just read the pre-"bad string" character
-                                    chars = chars.Replace(badstring, string.Empty);
+                                    foreach (string badstring in Config.BadStrings)
+                                    {
+                                        chars = chars.Replace(badstring + "\r\n", string.Empty);
+                                    }
                                 }
                                 else
                                 {
-                                    if (chars.EndsWith(badstring))
+                                    bool foundBadString = false;
+                                    foreach (string badstring in Config.BadStrings)
                                     {
+                                        if (chars.EndsWith(badstring + "\r\n"))
+                                        {
 #if DEBUG_STEAMCMD_PARSE
-                                        Trace.WriteLine($"removing badstring", "SteamCmdContext");
+                                            Trace.WriteLine($"removing badstring", "SteamCmdContext");
 #endif
-                                        // we have the bad string, so let's remove it as it's the real cause of our CRLF
-                                        chars = chars.Replace(badstring, string.Empty);
-                                        t = (char)0;
-                                        SawCrCounter--; // our \r was caused by this badline, so lets drop back to 0
+                                            // we have the bad string, so let's remove it as it's the real cause of our CRLF
+                                            chars = chars.Replace(badstring + "\r\n", string.Empty);
+                                            t = (char)0;
+                                            SawCrCounter--; // our \r was caused by this badline, so lets drop back to 0
+                                        }
+                                        else
+                                        {
+#if DEBUG_STEAMCMD_PARSE
+                                            Trace.WriteLine($"terminate read due to newline", "SteamCmdContext");
+#endif
+                                            // this is a normal end of line, we are good now
+                                            foundBadString = true;
+                                            break;
+                                        }
                                     }
-                                    else
-                                    {
-#if DEBUG_STEAMCMD_PARSE
-                                        Trace.WriteLine($"terminate read due to newline", "SteamCmdContext");
-#endif
-                                        // this is a normal end of line, we are good now
+                                    if (foundBadString)
                                         break;
-                                    }
                                 }
                             }
                         }
@@ -300,21 +311,28 @@ namespace SteamVent.SteamCmd
                             // we are null, which means it's time to timeout
                             if (timer >= timeout || proc.HasExited)
                             {
-                                if (chars.EndsWith(badstringShort))
+                                bool foundBadString = false;
+                                foreach (string badstring in Config.BadStrings)
                                 {
-                                    // we have a wierd case here of a partial bad string
-                                    forceOnce = true;
+                                    if (chars.EndsWith(badstring))
+                                    {
+                                        // we have a wierd case here of a partial bad string
+                                        forceOnce = true;
 #if DEBUG_STEAMCMD_PARSE
-                                    Trace.WriteLine($"timeout but in badstring missing newline, force parse continue", "SteamCmdContext");
+                                        Trace.WriteLine($"timeout but in badstring missing newline, force parse continue", "SteamCmdContext");
 #endif
+                                    }
+                                    else
+                                    {
+#if DEBUG_STEAMCMD_PARSE
+                                        Trace.WriteLine($"terminate read due to timeout", "SteamCmdContext");
+#endif
+                                        foundBadString = true;
+                                        break;
+                                    }
                                 }
-                                else
-                                {
-#if DEBUG_STEAMCMD_PARSE
-                                    Trace.WriteLine($"terminate read due to timeout", "SteamCmdContext");
-#endif
+                                if (foundBadString)
                                     break;
-                                }
                             }
                             else
                             {
