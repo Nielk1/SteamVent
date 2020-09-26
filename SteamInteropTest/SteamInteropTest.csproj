@@ -98,11 +98,11 @@
     <None Include="App.config" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\SteamVent.Common\SteamVent.Common.csproj">
+    <ProjectReference Include="$(SolutionDir)\SteamVent.Common\SteamVent.Common.csproj">
       <Project>{f1096e3a-c50a-43a3-9a46-6112d4bbae38}</Project>
       <Name>SteamVent.Common</Name>
     </ProjectReference>
-    <ProjectReference Include="..\SteamVent\SteamVent.csproj">
+    <ProjectReference Include="$(SolutionDir)\SteamVent\SteamVent.csproj">
       <Project>{b78bb558-69d0-4d28-991a-261903988d1a}</Project>
       <Name>SteamVent</Name>
     </ProjectReference>
