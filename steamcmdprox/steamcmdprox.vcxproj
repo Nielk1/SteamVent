@@ -72,21 +72,21 @@
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <LinkIncremental>true</LinkIncremental>
-    <OutDir>$(ProjectDir)bin\</OutDir>
-    <LibraryPath>..\packages\EasyHookNativePackage.2.7.7097\build\native\lib\Win32\v141\Debug;$(LibraryPath)</LibraryPath>
+    <OutDir>$(ProjectDir)bin\$(Configuration)\</OutDir>
+    <LibraryPath>$(SolutionDir)\packages\EasyHookNativePackage.2.7.7097\build\native\lib\Win32\v141\Debug;$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <LinkIncremental>true</LinkIncremental>
-    <LibraryPath>..\packages\EasyHookNativePackage.2.7.7097\build\native\lib\Win32\v141\Release;$(LibraryPath)</LibraryPath>
+    <LibraryPath>$(SolutionDir)\packages\EasyHookNativePackage.2.7.7097\build\native\lib\Win32\v141\Release;$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <LinkIncremental>false</LinkIncremental>
-    <OutDir>$(ProjectDir)bin\</OutDir>
-    <LibraryPath>..\packages\EasyHookNativePackage.2.7.7097\build\native\lib\Win32\v141\Release;$(LibraryPath)</LibraryPath>
+    <OutDir>$(ProjectDir)bin\$(Configuration)\</OutDir>
+    <LibraryPath>$(SolutionDir)\packages\EasyHookNativePackage.2.7.7097\build\native\lib\Win32\v141\Release;$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <LinkIncremental>false</LinkIncremental>
-    <LibraryPath>..\packages\EasyHookNativePackage.2.7.7097\build\native\lib\Win32\v141\Release;$(LibraryPath)</LibraryPath>
+    <LibraryPath>$(SolutionDir)\packages\EasyHookNativePackage.2.7.7097\build\native\lib\Win32\v141\Release;$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
@@ -104,16 +104,8 @@
       <AdditionalDependencies>EasyHook32.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <PostBuildEvent>
-      <Command>copy /Y "$(SolutionDir)packages\EasyHookNativePackage.redist.2.7.7097\build\native\bin\Win32\v141\Debug\EasyHook32.dll" $(TargetDir)EasyHook32.dll
-copy /Y "$(SolutionDir)steamcmdinj\bin\steamcmdinj.dll" "$(TargetDir)steamcmdinj.dll"
-copy /Y "$(TargetDir)$(ProjectName).exe" "$(SolutionDir)SteamVent.SteamCmd.TestCli\bin\Debug\$(ProjectName).exe"
-copy /Y "$(TargetDir)$(ProjectName).pdb" "$(SolutionDir)SteamVent.SteamCmd.TestCli\bin\Debug\$(ProjectName).pdb"
-copy /Y $(TargetDir)EasyHook32.dll "$(SolutionDir)SteamVent.SteamCmd.TestCli\bin\Debug\EasyHook32.dll"
-copy /Y $(TargetDir)steamcmdinj.dll "$(SolutionDir)SteamVent.SteamCmd.TestCli\bin\Debug\steamcmdinj.dll"
-copy /Y "$(TargetDir)$(ProjectName).exe" "$(SolutionDir)SteamVent.Tests\bin\Debug\$(ProjectName).exe"
-copy /Y "$(TargetDir)$(ProjectName).pdb" "$(SolutionDir)SteamVent.Tests\bin\Debug\$(ProjectName).pdb"
-copy /Y $(TargetDir)EasyHook32.dll "$(SolutionDir)SteamVent.Tests\bin\Debug\EasyHook32.dll"
-copy /Y $(TargetDir)steamcmdinj.dll "$(SolutionDir)SteamVent.Tests\bin\Debug\steamcmdinj.dll"</Command>
+      <Command>
+      </Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
@@ -151,16 +143,8 @@ copy /Y $(TargetDir)steamcmdinj.dll "$(SolutionDir)SteamVent.Tests\bin\Debug\ste
       <AdditionalDependencies>EasyHook32.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <PostBuildEvent>
-      <Command>copy /Y "$(SolutionDir)packages\EasyHookNativePackage.redist.2.7.7097\build\native\bin\Win32\v141\Release\EasyHook32.dll" $(TargetDir)EasyHook32.dll
-copy /Y "$(SolutionDir)steamcmdinj\bin\steamcmdinj.dll" "$(TargetDir)steamcmdinj.dll"
-copy /Y "$(TargetDir)$(ProjectName).exe" "$(SolutionDir)SteamVent.SteamCmd.TestCli\bin\Release\$(ProjectName).exe"
-copy /Y "$(TargetDir)$(ProjectName).pdb" "$(SolutionDir)SteamVent.SteamCmd.TestCli\bin\Release\$(ProjectName).pdb"
-copy /Y $(TargetDir)EasyHook32.dll "$(SolutionDir)SteamVent.SteamCmd.TestCli\bin\Release\EasyHook32.dll"
-copy /Y $(TargetDir)steamcmdinj.dll "$(SolutionDir)SteamVent.SteamCmd.TestCli\bin\Release\steamcmdinj.dll"
-copy /Y "$(TargetDir)$(ProjectName).exe" "$(SolutionDir)SteamVent.Tests\bin\Release\$(ProjectName).exe"
-copy /Y "$(TargetDir)$(ProjectName).pdb" "$(SolutionDir)SteamVent.Tests\bin\Release\$(ProjectName).pdb"
-copy /Y $(TargetDir)EasyHook32.dll "$(SolutionDir)SteamVent.Tests\bin\Release\EasyHook32.dll"
-copy /Y $(TargetDir)steamcmdinj.dll "$(SolutionDir)SteamVent.Tests\bin\Release\steamcmdinj.dll"</Command>
+      <Command>
+      </Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -200,14 +184,14 @@ copy /Y $(TargetDir)steamcmdinj.dll "$(SolutionDir)SteamVent.Tests\bin\Release\s
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
-    <Import Project="..\packages\EasyHookNativePackage.redist.2.7.7097\build\native\EasyHookNativePackage.redist.targets" Condition="Exists('..\packages\EasyHookNativePackage.redist.2.7.7097\build\native\EasyHookNativePackage.redist.targets')" />
-    <Import Project="..\packages\EasyHookNativePackage.2.7.7097\build\native\EasyHookNativePackage.targets" Condition="Exists('..\packages\EasyHookNativePackage.2.7.7097\build\native\EasyHookNativePackage.targets')" />
+    <Import Project="$(SolutionDir)\packages\EasyHookNativePackage.redist.2.7.7097\build\native\EasyHookNativePackage.redist.targets" Condition="Exists('$(SolutionDir)\packages\EasyHookNativePackage.redist.2.7.7097\build\native\EasyHookNativePackage.redist.targets')" />
+    <Import Project="$(SolutionDir)\packages\EasyHookNativePackage.2.7.7097\build\native\EasyHookNativePackage.targets" Condition="Exists('$(SolutionDir)\packages\EasyHookNativePackage.2.7.7097\build\native\EasyHookNativePackage.targets')" />
   </ImportGroup>
   <Target Name="EnsureNuGetPackageBuildImports" BeforeTargets="PrepareForBuild">
     <PropertyGroup>
       <ErrorText>This project references NuGet package(s) that are missing on this computer. Use NuGet Package Restore to download them.  For more information, see http://go.microsoft.com/fwlink/?LinkID=322105. The missing file is {0}.</ErrorText>
     </PropertyGroup>
-    <Error Condition="!Exists('..\packages\EasyHookNativePackage.redist.2.7.7097\build\native\EasyHookNativePackage.redist.targets')" Text="$([System.String]::Format('$(ErrorText)', '..\packages\EasyHookNativePackage.redist.2.7.7097\build\native\EasyHookNativePackage.redist.targets'))" />
-    <Error Condition="!Exists('..\packages\EasyHookNativePackage.2.7.7097\build\native\EasyHookNativePackage.targets')" Text="$([System.String]::Format('$(ErrorText)', '..\packages\EasyHookNativePackage.2.7.7097\build\native\EasyHookNativePackage.targets'))" />
+    <Error Condition="!Exists('$(SolutionDir)\packages\EasyHookNativePackage.redist.2.7.7097\build\native\EasyHookNativePackage.redist.targets')" Text="$([System.String]::Format('$(ErrorText)', '$(SolutionDir)\packages\EasyHookNativePackage.redist.2.7.7097\build\native\EasyHookNativePackage.redist.targets'))" />
+    <Error Condition="!Exists('$(SolutionDir)\packages\EasyHookNativePackage.2.7.7097\build\native\EasyHookNativePackage.targets')" Text="$([System.String]::Format('$(ErrorText)', '$(SolutionDir)\packages\EasyHookNativePackage.2.7.7097\build\native\EasyHookNativePackage.targets'))" />
   </Target>
 </Project>

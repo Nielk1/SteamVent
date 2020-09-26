@@ -57,4 +57,10 @@
     </ProjectReference>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+  <PropertyGroup>
+    <PostBuildEvent>copy /Y "$(TargetDir)..\..\..\SteamVent.SteamCmd\bin\$(Configuration)\EasyHook32.dll" "$(TargetDir)EasyHook32.dll"
+copy /Y "$(TargetDir)..\..\..\SteamVent.SteamCmd\bin\$(Configuration)\steamcmdinj.dll" "$(TargetDir)steamcmdinj.dll"
+copy /Y "$(TargetDir)..\..\..\SteamVent.SteamCmd\bin\$(Configuration)\steamcmdprox.exe" "$(TargetDir)\steamcmdprox.exe"
+copy /Y "$(TargetDir)..\..\..\SteamVent.SteamCmd\bin\$(Configuration)\steamcmdprox.pdb" "$(TargetDir)\steamcmdprox.pdb"</PostBuildEvent>
+  </PropertyGroup>
 </Project>
