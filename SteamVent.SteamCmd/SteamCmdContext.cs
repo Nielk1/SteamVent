@@ -2,6 +2,8 @@
 
 //using Gameloop.Vdf;
 //using Gameloop.Vdf.Linq;
+using Gameloop.Vdf;
+using Gameloop.Vdf.Linq;
 using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
@@ -424,6 +426,60 @@ namespace SteamVent.SteamCmd
                 {
                 }*/
 
+                string ModsPath = Path.Combine(SteamCmdContext.AssemblyDirectory, "steamcmd", "steamapps", "workshop", "content", AppId.ToString());
+                HashSet<string> ModsInWorkshopFolder = Directory.EnumerateDirectories(ModsPath, "*", SearchOption.TopDirectoryOnly)
+                    .Select(dr => Path.GetFileName(dr))
+                    .Where(dr =>
+                    {
+                        try
+                        {
+                            return UInt64.TryParse(dr, out _);
+                        }
+                        catch { }
+                        return false;
+                    }).ToHashSet();
+
+                try
+                {
+                    string ManifestPath = Path.Combine("steamcmd", "steamapps", "workshop", $"appworkshop_{AppId}.acf");
+                    if (File.Exists(ManifestPath))
+                    {
+                        VProperty appWorkshop = VdfConvert.Deserialize(File.ReadAllText(ManifestPath));
+
+                        bool modificationMade = false;
+
+                        // convert to list so we can safely mutate the underlying collection
+                        foreach (var item in appWorkshop.Value["WorkshopItemsInstalled"].ToList())
+                        {
+                            VProperty prop = item as VProperty;
+                            if (prop != null && prop.Key != "1" && !ModsInWorkshopFolder.Contains(prop.Key))
+                            {
+                                appWorkshop.Value["WorkshopItemsInstalled"][prop.Key] = null;
+                                modificationMade = true;
+                            }
+                        }
+
+                        // convert to list so we can safely mutate the underlying collection
+                        foreach (var item in appWorkshop.Value["WorkshopItemDetails"].ToList())
+                        {
+                            VProperty prop = item as VProperty;
+                            if (prop != null && prop.Key != "1" && !ModsInWorkshopFolder.Contains(prop.Key))
+                            {
+                                appWorkshop.Value["WorkshopItemDetails"][prop.Key] = null;
+                                modificationMade = true;
+                            }
+                        }
+
+                        if(modificationMade)
+                        {
+                            File.WriteAllText(ManifestPath, appWorkshop.ToString());
+                        }
+                    }
+                }
+                catch(Exception ex)
+                {
+                }
+
                 List<WorkshopItemStatus> retVal =  RawString
                     .Split(new char[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries)
                     .Select(dr => Config.RegWorkshopStatusItem.Match(dr))
@@ -465,9 +521,7 @@ namespace SteamVent.SteamCmd
                         KnownIDs.Add(item.WorkshopId);
                     }
 
-                    string ModsPath = Path.Combine(SteamCmdContext.AssemblyDirectory, "steamcmd", "steamapps", "workshop", "content", AppId.ToString());
-                    List<string> UnknownMods = Directory.EnumerateDirectories(ModsPath, "*", SearchOption.TopDirectoryOnly)
-                        .Select(dr => Path.GetFileName(dr))
+                    List<string> UnknownMods = ModsInWorkshopFolder
                         .Where(dr =>
                         {
                             try
