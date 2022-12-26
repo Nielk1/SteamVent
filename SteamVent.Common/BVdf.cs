@@ -9,7 +9,7 @@ namespace SteamVent.Common.BVdf
 {
     public static class BVdfFile
     {
-        private static BVProperty ReadProperty(byte token, BinaryReader reader)
+        public static BVProperty ReadProperty(byte token, BinaryReader reader)
         {
             //byte token = reader.ReadByte();
             string Key = ReadString(reader);

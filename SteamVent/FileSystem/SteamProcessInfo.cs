@@ -370,7 +370,7 @@ namespace SteamVent.FileSystem
                 foreach (VProperty child in data2.Children())
                 {
                     if(int.TryParse(child.Key, out _))
-                        yield return child.Value.Value<string>();
+                        yield return child.Value.Value<string>("path");
                 }
             }
         }

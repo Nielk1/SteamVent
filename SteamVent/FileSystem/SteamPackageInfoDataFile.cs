@@ -95,6 +95,10 @@ namespace SteamVent.FileSystem
                     //UInt64 AccessToken = reader.ReadUInt64();
                     byte[] Checksum = reader.ReadBytes(20);
                     UInt32 LastChangeNumber = reader.ReadUInt32();
+                    if (Version1 >= 0x28)
+                    {
+                        UInt64 AccessToken = reader.ReadUInt64(); // ?
+                    }
 
                     BVPropertyCollection Data = BVdfFile.ReadPropertyArray(reader);
                     //long endPos = reader.BaseStream.Position;

@@ -1,7 +1,5 @@
 ﻿//#define DEBUG_STEAMCMD_PARSE
 
-//using Gameloop.Vdf;
-//using Gameloop.Vdf.Linq;
 using Gameloop.Vdf;
 using Gameloop.Vdf.Linq;
 using Newtonsoft.Json;

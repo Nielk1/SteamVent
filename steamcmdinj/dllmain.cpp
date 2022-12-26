@@ -9,21 +9,24 @@ std::unordered_set<HKEY> Dummies = {};
 
 LSTATUS WINAPI RegOpenKeyExAHook(HKEY hKey, LPCSTR lpSubKey, DWORD ulOptions, REGSAM samDesired, PHKEY phkResult)
 {
-	if (hKey == HKEY_CURRENT_USER && strcmp(lpSubKey, "Software\\Valve\\Steam") == 0)
-	{
-		LSTATUS ret = RegOpenKeyExA(hKey, lpSubKey, ulOptions, samDesired, phkResult);
-		Dummies.insert(*phkResult);
-		return ret;
-	}
+    if (hKey == HKEY_CURRENT_USER && strcmp(lpSubKey, "Software\\Valve\\Steam") == 0)
+    {
+        LSTATUS ret = RegOpenKeyExA(hKey, lpSubKey, ulOptions, samDesired, phkResult);
+        Dummies.insert(*phkResult);
+        return ret;
+    }
 
-	return RegOpenKeyExA(hKey, lpSubKey, ulOptions, samDesired, phkResult);
+#pragma warning( push )
+#pragma warning( disable : 6387)
+    return RegOpenKeyExA(hKey, lpSubKey, ulOptions, samDesired, phkResult);
+#pragma warning( pop )
 }
 LSTATUS WINAPI RegCloseKeyHook(HKEY hKey)
 {
-	std::unordered_set<HKEY>::const_iterator got = Dummies.find(hKey);
-	if (got != Dummies.end())
-		Dummies.erase(got);
-	
+    std::unordered_set<HKEY>::const_iterator got = Dummies.find(hKey);
+    if (got != Dummies.end())
+        Dummies.erase(got);
+
 	return RegCloseKey(hKey);
 }
 
@@ -68,11 +71,14 @@ void __stdcall NativeInjectionEntryPoint(REMOTE_ENTRY_INFO* inRemoteInfo)
 	HOOK_TRACE_INFO hHook1 = { NULL }; // keep track of our hook
 	HOOK_TRACE_INFO hHook2 = { NULL }; // keep track of our hook
 	HOOK_TRACE_INFO hHook3 = { NULL }; // keep track of our hook
-	NTSTATUS result = LhInstallHook(GetProcAddress(GetModuleHandle(TEXT("advapi32")), "RegOpenKeyExA"), RegOpenKeyExAHook, NULL, &hHook1);
+	HMODULE moduleAdvapi32 = GetModuleHandle(TEXT("advapi32"));
+	if (moduleAdvapi32 == 0)
+		return;
+	NTSTATUS result = LhInstallHook(GetProcAddress(moduleAdvapi32, "RegOpenKeyExA"), RegOpenKeyExAHook, NULL, &hHook1);
 	if (FAILED(result)) return; // Hook could not be installed, see RtlGetLastErrorString() for details
-	result = LhInstallHook(GetProcAddress(GetModuleHandle(TEXT("advapi32")), "RegCloseKey"), RegCloseKeyHook, NULL, &hHook2);
+	result = LhInstallHook(GetProcAddress(moduleAdvapi32, "RegCloseKey"), RegCloseKeyHook, NULL, &hHook2);
 	if (FAILED(result)) return; // Hook could not be installed, see RtlGetLastErrorString() for details
-	result = LhInstallHook(GetProcAddress(GetModuleHandle(TEXT("advapi32")), "RegQueryValueExW"), RegQueryValueExWHook, NULL, &hHook3);
+	result = LhInstallHook(GetProcAddress(moduleAdvapi32, "RegQueryValueExW"), RegQueryValueExWHook, NULL, &hHook3);
 	if (FAILED(result)) return; // Hook could not be installed, see RtlGetLastErrorString() for details
 
 	// If the threadId in the ACL is set to 0, 

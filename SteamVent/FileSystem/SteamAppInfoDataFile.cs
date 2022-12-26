@@ -99,7 +99,30 @@ namespace SteamVent.FileSystem
                     byte[] Checksum = reader.ReadBytes(20);
                     UInt32 LastChangeNumber = reader.ReadUInt32();
 
-                    BVPropertyCollection Data = BVdfFile.ReadPropertyArray(reader);
+                    BVPropertyCollection Data;
+                    if (Version1 <= 0x26)
+                    {
+                        BVPropertyCollection AppInfoWrapperNodeData = new BVPropertyCollection();
+                        AppInfoWrapperNodeData.Add(new BVProperty("appid", AppID));
+
+                        byte ReadByte = 0x00;
+                        while ((ReadByte = reader.ReadByte()) != 0x08)
+                        {
+                             if (ReadByte == 0x00)
+                                break; // while 0x08 means end of section, 0x00 means no section started at all
+                            ReadByte = reader.ReadByte(); // chew off the 0x00 for the property set we started, TODO: move this into
+                            AppInfoWrapperNodeData.Add(BVdfFile.ReadProperty(ReadByte, reader));
+                            reader.ReadByte(); // chew off the 0x08 for the section set we started
+                        }
+
+                        BVProperty AppInfoWrapperNode = new BVProperty("appinfo", AppInfoWrapperNodeData);
+                        Data = new BVPropertyCollection();
+                        Data.Add(AppInfoWrapperNode);
+                    }
+                    else
+                    {
+                        Data = BVdfFile.ReadPropertyArray(reader);
+                    }
                     //long endPos = reader.BaseStream.Position;
                     if (reader.BaseStream.Position != (startPos + DataSize))
                     {

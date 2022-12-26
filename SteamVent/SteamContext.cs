@@ -375,8 +375,8 @@ namespace SteamVent
 
                 // Mod Steam App
                 case CGameID.EGameID.k_EGameIDTypeGameMod:
-                    return true;
-
+                    return true; // just assume a mod is installed for now, might need change later
+#if false
                     // If the base game isn't installed, just say no
                     if (!SteamApps.BIsAppInstalled(gameID.AppID)) return false;
                     //if (!SteamApps.BIsAppInstalled(gameID.AppID().m_AppId)) return false;
@@ -403,6 +403,8 @@ namespace SteamVent
                     }
 
                     return false;
+#endif
+
                 case CGameID.EGameID.k_EGameIDTypeShortcut:
                     break;
             }
