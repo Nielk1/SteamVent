@@ -73,9 +73,12 @@
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <PropertyGroup>
-    <PostBuildEvent>copy /Y "$(SolutionDir)packages\EasyHookNativePackage.redist.2.7.7097\build\native\bin\Win32\v141\$(Configuration)\EasyHook32.dll" "$(TargetDir)EasyHook32.dll"
-copy /Y "$(TargetDir)..\..\..\steamcmdinj\bin\$(Configuration)\steamcmdinj.dll" "$(TargetDir)steamcmdinj.dll"
-copy /Y "$(TargetDir)..\..\..\steamcmdprox\bin\$(Configuration)\steamcmdprox.exe" "$(TargetDir)\steamcmdprox.exe"
-copy /Y "$(TargetDir)..\..\..\steamcmdprox\bin\$(Configuration)\steamcmdprox.pdb" "$(TargetDir)\steamcmdprox.pdb"</PostBuildEvent>
+    <PostBuildEvent>pushd $(SolutionDir)packages
+cd EasyHookNativePackage.redist.*
+copy /Y ".\build\native\bin\Win32\v141\$(Configuration)\EasyHook32.dll" "$(TargetDir)EasyHook32.dll"
+popd
+copy /Y "$(SolutionDir)steamcmdinj\bin\$(Configuration)\steamcmdinj.dll" "$(TargetDir)steamcmdinj.dll"
+copy /Y "$(SolutionDir)steamcmdprox\bin\$(Configuration)\steamcmdprox.exe" "$(TargetDir)\steamcmdprox.exe"
+copy /Y "$(SolutionDir)steamcmdprox\bin\$(Configuration)\steamcmdprox.pdb" "$(TargetDir)\steamcmdprox.pdb"</PostBuildEvent>
   </PropertyGroup>
 </Project>

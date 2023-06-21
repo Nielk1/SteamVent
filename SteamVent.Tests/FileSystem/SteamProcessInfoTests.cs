@@ -38,7 +38,9 @@ namespace SteamVent.Tests.FileSystem
         public void SteamClientDllPathTest()
         {
             string SteamClientDllPath = SteamProcessInfo.SteamClientDllPath;
-            Assert.AreEqual(Path.GetFileName(SteamClientDllPath), Is64Bit() ? "steamclient64.dll" : "steamclient.dll", "Unexpected SteamClientDllPath, got \"{0}\" expected \"{1}\"", Path.GetFileName(SteamClientDllPath), Is64Bit() ? "steamclient64.dll" : "steamclient.dll");
+            string DllName = Is64Bit() ? "steamclient64.dll" : "steamclient.dll";
+            Assert.AreEqual(Path.GetFileName(SteamClientDllPath), DllName, "Unexpected SteamClientDllPath, got \"{0}\" expected \"{1}\"", Path.GetFileName(SteamClientDllPath), DllName);
+            Assert.Pass(DllName);
         }
 
         [Test]
