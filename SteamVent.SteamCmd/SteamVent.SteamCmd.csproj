@@ -10,6 +10,7 @@
     <RootNamespace>SteamVent.SteamCmd</RootNamespace>
     <AssemblyName>SteamVent.SteamCmd</AssemblyName>
     <TargetFrameworkVersion>v4.8</TargetFrameworkVersion>
+    <LangVersion>8.0</LangVersion>
     <FileAlignment>512</FileAlignment>
     <Deterministic>true</Deterministic>
     <TargetFrameworkProfile />
@@ -36,7 +37,7 @@
       <HintPath>..\packages\Gameloop.Vdf.0.6.2\lib\net45\Gameloop.Vdf.dll</HintPath>
     </Reference>
     <Reference Include="Newtonsoft.Json, Version=13.0.0.0, Culture=neutral, PublicKeyToken=30ad4fe6b2a6aeed, processorArchitecture=MSIL">
-      <HintPath>..\packages\Newtonsoft.Json.13.0.3\lib\net45\Newtonsoft.Json.dll</HintPath>
+      <HintPath>$(SolutionDir)\packages\Newtonsoft.Json.13.0.3\lib\net45\Newtonsoft.Json.dll</HintPath>
     </Reference>
     <Reference Include="System" />
     <Reference Include="System.Core" />
@@ -77,8 +78,8 @@
 cd EasyHookNativePackage.redist.*
 copy /Y ".\build\native\bin\Win32\v141\$(Configuration)\EasyHook32.dll" "$(TargetDir)EasyHook32.dll"
 popd
-copy /Y "$(SolutionDir)steamcmdinj\bin\$(Configuration)\steamcmdinj.dll" "$(TargetDir)steamcmdinj.dll"
-copy /Y "$(SolutionDir)steamcmdprox\bin\$(Configuration)\steamcmdprox.exe" "$(TargetDir)\steamcmdprox.exe"
-copy /Y "$(SolutionDir)steamcmdprox\bin\$(Configuration)\steamcmdprox.pdb" "$(TargetDir)\steamcmdprox.pdb"</PostBuildEvent>
+copy /Y "$(TargetDir)..\..\..\steamcmdinj\bin\$(Configuration)\steamcmdinj.dll" "$(TargetDir)steamcmdinj.dll"
+copy /Y "$(TargetDir)..\..\..\steamcmdprox\bin\$(Configuration)\steamcmdprox.exe" "$(TargetDir)\steamcmdprox.exe"
+copy /Y "$(TargetDir)..\..\..\steamcmdprox\bin\$(Configuration)\steamcmdprox.pdb" "$(TargetDir)\steamcmdprox.pdb"</PostBuildEvent>
   </PropertyGroup>
 </Project>
