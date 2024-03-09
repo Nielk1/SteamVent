@@ -24,7 +24,8 @@ namespace SteamVent.SteamCmd
     {
         private const string SteamCmdDownloadURL = @"https://steamcdn-a.akamaihd.net/client/installer/steamcmd.zip";
 
-        object procLock = new object();
+        //object procLock = new object();
+        SemaphoreSlim ProcessLock = new SemaphoreSlim(1, 1);
         public ESteamCmdStatus Status { get; private set; }
 
         public delegate void SteamCmdStatusChangeEventHandler(object sender, SteamCmdStatusChangeEventArgs e);
@@ -47,59 +48,78 @@ namespace SteamVent.SteamCmd
         {
             //Config = JsonConvert.DeserializeObject<ConfigData>(File.ReadAllText("steamvent.steamcmd.json"));
             Config = JsonConvert.DeserializeObject<ConfigData>(File.ReadAllText(Path.Combine(AssemblyDirectory, "steamvent.steamcmd.json")));
+            Config ??= new ConfigData();
 
             Config.RegWorkshopStatusItem = new Regex(Config.WorkshopStatusItem);
             Config.RegWorkshopDownloadItemError = new Regex(Config.WorkshopDownloadItemError);
             Config.RegWorkshopDownloadItemSuccess = new Regex(Config.WorkshopDownloadItemSuccess);
+            //Config.SteamCmdDownloadURL ?== DefaultSteamCmdDownloadURL; // enable this later
         }
         public static string AssemblyDirectory
         {
             get
             {
-                string codeBase = Assembly.GetExecutingAssembly().CodeBase;
-                UriBuilder uri = new UriBuilder(codeBase);
-                string path = Uri.UnescapeDataString(uri.Path);
+                //string codeBase = Assembly.GetExecutingAssembly().CodeBase;
+                //UriBuilder uri = new UriBuilder(codeBase);
+                //string path = Uri.UnescapeDataString(uri.Path);
+                //return Path.GetDirectoryName(path);
+                string path = Assembly.GetExecutingAssembly().Location;
                 return Path.GetDirectoryName(path);
             }
         }
 
-        public void Download()
+        public async Task TestRunAsync()
         {
-            lock (procLock)
+            await StartProcWithRetryAsync($"+login anonymous +status +quit");
+        }
+
+        public async Task DownloadAsync()
+        {
+            try
             {
+                await ProcessLock.WaitAsync();
                 if (File.Exists(Path.Combine(AssemblyDirectory, "steamcmd\\steamcmd.exe"))) return;
                 string steamcmdzip = Path.GetFileName(SteamCmdDownloadURL);
                 if (!File.Exists(steamcmdzip))
                 {
                     OnSteamCmdStatusChange(new SteamCmdStatusChangeEventArgs(ESteamCmdStatus.Downloading));
-                    WebClient client = new WebClient();
-                    client.DownloadFile(SteamCmdDownloadURL, Path.Combine(AssemblyDirectory, steamcmdzip));
+                    HttpClient client = new HttpClient();
+                    var response = await client.GetAsync(SteamCmdDownloadURL);
+                    using (var fs = new FileStream(Path.Combine(AssemblyDirectory, steamcmdzip), FileMode.CreateNew))
+                    {
+                        await response.Content.CopyToAsync(fs);
+                    }
                 }
                 if (!Directory.Exists(Path.Combine(AssemblyDirectory, "steamcmd"))) Directory.CreateDirectory(Path.Combine(AssemblyDirectory, "steamcmd"));
                 OnSteamCmdStatusChange(new SteamCmdStatusChangeEventArgs(ESteamCmdStatus.Extracting));
                 ZipFile.ExtractToDirectory(Path.Combine(AssemblyDirectory, steamcmdzip), Path.Combine(AssemblyDirectory, "steamcmd"));
                 OnSteamCmdStatusChange(new SteamCmdStatusChangeEventArgs(ESteamCmdStatus.Installed));
             }
+            finally
+            {
+                ProcessLock.Release();
+            }
 
-            StartProcWithRetry($"+login anonymous +status +quit");
+            await StartProcWithRetryAsync($"+login anonymous +status +quit");
         }
 
-        private string StartProcWithRetry(string command)
+        private async Task<string> StartProcWithRetryAsync(string command)
         {
             string retVal = null;
 
             do
             {
-                retVal = StartProc(command);
+                retVal = await StartProcAsync(command);
             } while (retVal?.Trim().Split(new string[] { "\r\n", "\n", "\r" }, StringSplitOptions.RemoveEmptyEntries).LastOrDefault() == @"[  0%] Checking for available updates...");
 
             return retVal;
         }
 
-        private string StartProc(string command)//, Action<string> LineOutput = null)
+        private async Task<string> StartProcAsync(string command)//, Action<string> LineOutput = null)
         {
-            lock (procLock)
+            try
             {
+                await ProcessLock.WaitAsync();
                 if (!Directory.Exists(Path.Combine(AssemblyDirectory, "steamcmd"))) throw new SteamCmdMissingException("steamcmd directory missing");
                 if (!File.Exists(Path.Combine(AssemblyDirectory, "steamcmd\\steamcmd.exe"))) throw new SteamCmdMissingException("steamcmd.exe missing");
 
@@ -145,6 +165,10 @@ namespace SteamVent.SteamCmd
                 OnSteamCmdStatusChange(new SteamCmdStatusChangeEventArgs(ESteamCmdStatus.Closed));
 
                 return AllOutput.ToString();
+            }
+            finally
+            {
+                ProcessLock.Release();
             }
         }
 
@@ -346,7 +370,7 @@ namespace SteamVent.SteamCmd
             }
         }
 
-        public List<WorkshopItemStatus> WorkshopStatus(UInt32 AppId)
+        public async Task<List<WorkshopItemStatus>> WorkshopStatusAsync(UInt32 AppId)
         {
             Trace.WriteLine($"WorkshopStatus({AppId})");
             try
@@ -382,7 +406,7 @@ namespace SteamVent.SteamCmd
                 }
                 catch { }*/
 
-                string RawString = StartProcWithRetry($"+login anonymous +workshop_download_item {AppId} 1 +workshop_status {AppId} +quit");
+                string RawString = await StartProcWithRetryAsync($"+login anonymous +workshop_download_item {AppId} 1 +workshop_status {AppId} +quit");
 
                 /*try
                 {
@@ -539,11 +563,11 @@ namespace SteamVent.SteamCmd
             }
         }
 
-        public string WorkshopDownloadItem(UInt32 AppId, UInt64 PublishedFileId)
+        public async Task<string> WorkshopDownloadItemAsync(UInt32 AppId, UInt64 PublishedFileId)
         {
             string statusMessage = null;
             string statusType = null;
-            string FullOutput = StartProcWithRetry($"+login anonymous +workshop_download_item {AppId} {PublishedFileId} +quit");
+            string FullOutput = await StartProcWithRetryAsync($"+login anonymous +workshop_download_item {AppId} {PublishedFileId} +quit");
             string[] OutputLines = FullOutput.Split(new string[] { "\r\n", "\n", "\r" }, StringSplitOptions.RemoveEmptyEntries);
             foreach (string OutputLine in OutputLines)
             {
@@ -620,8 +644,10 @@ namespace SteamVent.SteamCmd
 
         public void Purge()
         {
-            lock (procLock)
+            try
             {
+                ProcessLock.Wait();
+
                 if (Directory.Exists("steamcmd"))
                 {
                     foreach (string file in Directory.EnumerateFiles("steamcmd", "*", SearchOption.TopDirectoryOnly))
@@ -661,6 +687,10 @@ namespace SteamVent.SteamCmd
                         }
                     }
                 }
+            }
+            finally
+            {
+                ProcessLock.Release();
             }
         }
     }
