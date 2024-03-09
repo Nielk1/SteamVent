@@ -41,8 +41,8 @@ namespace SteamVent.SteamCmd
 
         public ConfigData Config;
 
-        private static object InstanceLock = new object();
-        private static SteamCmdContext Instance;
+        private static readonly Lazy<SteamCmdContext> lazyInstance = new Lazy<SteamCmdContext>(() => new SteamCmdContext());
+        public static SteamCmdContext Instance = lazyInstance.Value;
         private SteamCmdContext()
         {
             //Config = JsonConvert.DeserializeObject<ConfigData>(File.ReadAllText("steamvent.steamcmd.json"));
@@ -52,16 +52,6 @@ namespace SteamVent.SteamCmd
             Config.RegWorkshopDownloadItemError = new Regex(Config.WorkshopDownloadItemError);
             Config.RegWorkshopDownloadItemSuccess = new Regex(Config.WorkshopDownloadItemSuccess);
         }
-        public static SteamCmdContext GetInstance()
-        {
-            lock(InstanceLock)
-            {
-                if (Instance == null)
-                    Instance = new SteamCmdContext();
-            }
-            return Instance;
-        }
-
         public static string AssemblyDirectory
         {
             get
