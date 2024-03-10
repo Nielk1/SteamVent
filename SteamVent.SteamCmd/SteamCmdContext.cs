@@ -70,7 +70,7 @@ namespace SteamVent.SteamCmd
 
         public async Task TestRunAsync()
         {
-            await StartProcWithRetryAsync($"+login anonymous +status +quit");
+            await StartProcWithRetryAsync($"+login anonymous +info +quit");
         }
 
         public async Task DownloadAsync()
@@ -100,7 +100,7 @@ namespace SteamVent.SteamCmd
                 ProcessLock.Release();
             }
 
-            await StartProcWithRetryAsync($"+login anonymous +status +quit");
+            await StartProcWithRetryAsync($"+login anonymous +info +quit");
         }
 
         private async Task<string> StartProcWithRetryAsync(string command)
