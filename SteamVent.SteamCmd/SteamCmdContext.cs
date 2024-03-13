@@ -8,11 +8,13 @@ using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Drawing;
 using System.IO;
 using System.IO.Compression;
 using System.Linq;
 using System.Net;
 using System.Reflection;
+using System.Runtime.InteropServices;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
@@ -115,30 +117,37 @@ namespace SteamVent.SteamCmd
             return retVal;
         }
 
+        private Process StartProc(string command)
+        {
+            if (!Directory.Exists(Path.Combine(AssemblyDirectory, "steamcmd"))) throw new SteamCmdMissingException("steamcmd directory missing");
+            if (!File.Exists(Path.Combine(AssemblyDirectory, "steamcmd\\steamcmd.exe"))) throw new SteamCmdMissingException("steamcmd.exe missing");
+
+            Process proc = new Process()
+            {
+                StartInfo = new ProcessStartInfo()
+                {
+                    WorkingDirectory = AssemblyDirectory,
+                    FileName = Path.Combine(AssemblyDirectory, "steamcmdprox.exe"),
+                    Arguments = $"steamcmd\\steamcmd.exe {command}",
+                    UseShellExecute = false,
+                    CreateNoWindow = true,
+                    RedirectStandardOutput = true,
+                    RedirectStandardInput = true,
+                    StandardOutputEncoding = Encoding.Unicode,
+                    //RedirectStandardError = true,
+                    //StandardErrorEncoding = Encoding.Unicode,
+                }
+            };
+
+            return proc;
+        }
+
         private async Task<string> StartProcAsync(string command)//, Action<string> LineOutput = null)
         {
             try
             {
                 await ProcessLock.WaitAsync();
-                if (!Directory.Exists(Path.Combine(AssemblyDirectory, "steamcmd"))) throw new SteamCmdMissingException("steamcmd directory missing");
-                if (!File.Exists(Path.Combine(AssemblyDirectory, "steamcmd\\steamcmd.exe"))) throw new SteamCmdMissingException("steamcmd.exe missing");
-
-                Process proc = new Process()
-                {
-                    StartInfo = new ProcessStartInfo()
-                    {
-                        WorkingDirectory = AssemblyDirectory,
-                        FileName = Path.Combine(AssemblyDirectory, "steamcmdprox.exe"),
-                        Arguments = $"steamcmd\\steamcmd.exe {command}",
-                        UseShellExecute = false,
-                        CreateNoWindow = true,
-                        RedirectStandardOutput = true,
-                        RedirectStandardInput = true,
-                        StandardOutputEncoding = Encoding.Unicode,
-                        //RedirectStandardError = true,
-                        //StandardErrorEncoding = Encoding.Unicode,
-                    }
-                };
+                Process proc = StartProc(command);
 
                 OnSteamCmdArgs($"steamcmd.exe {command}");
                 OnSteamCmdStatusChange(new SteamCmdStatusChangeEventArgs(ESteamCmdStatus.Starting));
@@ -148,16 +157,14 @@ namespace SteamVent.SteamCmd
                 OnSteamCmdStatusChange(new SteamCmdStatusChangeEventArgs(ESteamCmdStatus.Active));
 
                 StringBuilder AllOutput = new StringBuilder();
-                while (!proc.StandardOutput.EndOfStream)// && !proc.HasExited) // note stream can still have data when proc is closed
+
+                await foreach(string line in ReadLines(proc))
                 {
-                    string line = ReadLine(proc);
-                    //LineOutput?.Invoke(line);
                     AllOutput.AppendLine(line);
-                    // do something with line
                 }
 
                 // check if we're stuck on a prompt or something wierd
-                if(!proc.HasExited)
+                if (!proc.HasExited)
                 {
                     proc.Close();
                 }
@@ -170,6 +177,96 @@ namespace SteamVent.SteamCmd
             {
                 ProcessLock.Release();
             }
+        }
+
+        private async IAsyncEnumerable<string> ReadLines(Process proc)
+        {
+            string line = string.Empty;
+            char[] buffer = new char[1];
+            do
+            {
+                Task<int> ReadCharTask = proc.StandardOutput.ReadAsync(buffer, 0, 1);
+                if (await Task.WhenAny(ReadCharTask, Task.Delay(10000)) == ReadCharTask)
+                {
+                    if (!ReadCharTask.IsCompleted)
+                    {
+                        // we exited, which means the steamcmdprox detected a failure
+                        if (proc.HasExited)
+                        {
+                            if (line.Length > 0)
+                                foreach (string line2 in line.Split(new string[] { "\r\n" }, StringSplitOptions.RemoveEmptyEntries))
+                                    yield return line2;
+                            yield break;
+                        }
+                    }
+                    else
+                    {
+                        if (ReadCharTask.Result == 0)
+                        {
+                            if (line.Length > 0)
+                            {
+                                OnSteamCmdOutputFull(line);
+
+                                foreach (string badstring in Config.BadStrings)
+                                    while(line.Contains(badstring + "\r\n"))
+                                        line = line.Replace(badstring + "\r\n", string.Empty);
+
+                                OnSteamCmdOutput(line);
+
+                                foreach (string line2 in line.Split(new string[] { "\r\n" }, StringSplitOptions.RemoveEmptyEntries))
+                                    yield return line2;
+                            }
+                            yield break;
+                        }
+                        line += buffer[0];
+                        if (line.EndsWith("\r\n"))
+                        {
+                            OnSteamCmdOutputFull(line);
+
+                            foreach (string badstring in Config.BadStrings)
+                                while (line.Contains(badstring + "\r\n"))
+                                    line = line.Replace(badstring + "\r\n", string.Empty);
+
+                            OnSteamCmdOutput(line);
+
+                            foreach (string line2 in line.Split(new string[] { "\r\n" }, StringSplitOptions.RemoveEmptyEntries))
+                                yield return line2;
+
+                            line = string.Empty;
+                        }
+                        if (line == "Steam>")
+                        {
+                            OnSteamCmdOutputFull(line);
+
+                            foreach (string badstring in Config.BadStrings)
+                                while (line.Contains(badstring + "\r\n"))
+                                    line = line.Replace(badstring + "\r\n", string.Empty);
+
+                            OnSteamCmdOutput(line);
+
+                            foreach (string line2 in line.Split(new string[] { "\r\n" }, StringSplitOptions.RemoveEmptyEntries))
+                                yield return line2;
+
+                            yield break;
+                        }
+                    }
+                }
+                else
+                {
+                    OnSteamCmdOutputFull(line);
+
+                    foreach (string badstring in Config.BadStrings)
+                        while (line.Contains(badstring + "\r\n"))
+                            line = line.Replace(badstring + "\r\n", string.Empty);
+
+                    OnSteamCmdOutput(line);
+
+                    foreach (string line2 in line.Split(new string[] { "\r\n" }, StringSplitOptions.RemoveEmptyEntries))
+                        yield return line2;
+
+                    yield break;
+                }
+            } while (!proc.StandardOutput.EndOfStream);
         }
 
         private string ReadLine(Process proc)
@@ -370,192 +467,210 @@ namespace SteamVent.SteamCmd
             }
         }
 
-        public async Task<List<WorkshopItemStatus>> WorkshopStatusAsync(UInt32 AppId)
+        public async IAsyncEnumerable<WorkshopItemStatus> WorkshopStatusAsync(UInt32 AppId)
         {
             Trace.WriteLine($"WorkshopStatus({AppId})");
             try
             {
                 Trace.Indent();
 
-                // attempt to download any mods now in our manifest that we have folders for
-                /*try
-                {
-                    HashSet<string> KnownDownloads = new HashSet<string>();
-                    string ManifestPath = Path.Combine("steamcmd", "steamapps", "workshop", $"appworkshop_{AppId}.acf");
-                    if (File.Exists(ManifestPath))
-                    {
-                        VProperty appWorkshop = VdfConvert.Deserialize(File.ReadAllText(ManifestPath));
-                        appWorkshop.Value["WorkshopItemsInstalled"]?.Select(dr => (dr as VProperty)?.Key)?.Where(dr => dr != null)?.ToList()?.ForEach(dr => KnownDownloads.Add(dr));
-                        appWorkshop.Value["WorkshopItemDetails"]?.Select(dr => (dr as VProperty)?.Key)?.Where(dr => dr != null)?.ToList()?.ForEach(dr => KnownDownloads.Add(dr));
-
-                        string ModsPath = Path.Combine("steamcmd", "steamapps", "workshop", "content", AppId.ToString());
-                        List<string> UnknownMods = Directory.EnumerateDirectories(ModsPath, "*", SearchOption.TopDirectoryOnly)
-                            .Select(dr => Path.GetFileName(dr))
-                            .Where(dr => !KnownDownloads.Contains(dr))
-                            .ToList();
-
-                        foreach(string mod in UnknownMods)
-                        {
-                            try
-                            {
-                                WorkshopDownloadItem(AppId, UInt64.Parse(mod));
-                            }
-                            catch { }
-                        }
-                    }
-                }
-                catch { }*/
-
-                string RawString = await StartProcWithRetryAsync($"+login anonymous +workshop_download_item {AppId} 1 +workshop_status {AppId} +quit");
-
-                /*try
-                {
-                    HashSet<string> KnownDownloads = new HashSet<string>();
-                    string ManifestPath = Path.Combine("steamcmd", "steamapps", "workshop", $"appworkshop_{AppId}.acf");
-                    if (File.Exists(ManifestPath))
-                    {
-                        VProperty appWorkshop = VdfConvert.Deserialize(File.ReadAllText(ManifestPath));
-                        appWorkshop.Value["WorkshopItemsInstalled"]?.Select(dr => (dr as VProperty)?.Key)?.Where(dr => dr != null)?.ToList()?.ForEach(dr => KnownDownloads.Add(dr));
-                        appWorkshop.Value["WorkshopItemDetails"]?.Select(dr => (dr as VProperty)?.Key)?.Where(dr => dr != null)?.ToList()?.ForEach(dr => KnownDownloads.Add(dr));
-
-                        string ModsPath = Path.Combine("steamcmd", "steamapps", "workshop", "content", AppId.ToString());
-                        List<string> UnknownMods = Directory.EnumerateDirectories(ModsPath, "*", SearchOption.TopDirectoryOnly)
-                            .Select(dr => Path.GetFileName(dr))
-                            .Where(dr => !KnownDownloads.Contains(dr))
-                            .ToList();
-
-                        if ((UnknownMods?.Count ?? 0) > 0)
-                        {
-                            string DisabledDir = Path.Combine("steamcmd", "steamapps", "workshop", "content", $"{AppId}_disabled");
-                            if (!Directory.Exists(DisabledDir))
-                                Directory.CreateDirectory(DisabledDir);
-                            foreach (string mod in UnknownMods)
-                            {
-                                Directory.Move(Path.Combine("steamcmd", "steamapps", "workshop", "content", AppId.ToString(), mod), Path.Combine(DisabledDir, mod));
-                            }
-                        }
-                    }
-                }
-                catch(Exception ex)
-                {
-                }*/
-
+                // get existing mod folders
                 string ModsPath = Path.Combine(SteamCmdContext.AssemblyDirectory, "steamcmd", "steamapps", "workshop", "content", AppId.ToString());
-                HashSet<string> ModsInWorkshopFolder = Directory.EnumerateDirectories(ModsPath, "*", SearchOption.TopDirectoryOnly)
-                    .Select(dr => Path.GetFileName(dr))
-                    .Where(dr =>
-                    {
-                        try
-                        {
-                            return UInt64.TryParse(dr, out _);
-                        }
-                        catch { }
-                        return false;
-                    }).ToHashSet();
-
-                try
-                {
-                    string ManifestPath = Path.Combine("steamcmd", "steamapps", "workshop", $"appworkshop_{AppId}.acf");
-                    if (File.Exists(ManifestPath))
-                    {
-                        VProperty appWorkshop = VdfConvert.Deserialize(File.ReadAllText(ManifestPath));
-
-                        bool modificationMade = false;
-
-                        // convert to list so we can safely mutate the underlying collection
-                        foreach (var item in appWorkshop.Value["WorkshopItemsInstalled"].ToList())
-                        {
-                            VProperty prop = item as VProperty;
-                            if (prop != null && prop.Key != "1" && !ModsInWorkshopFolder.Contains(prop.Key))
-                            {
-                                appWorkshop.Value["WorkshopItemsInstalled"][prop.Key] = null;
-                                modificationMade = true;
-                            }
-                        }
-
-                        // convert to list so we can safely mutate the underlying collection
-                        foreach (var item in appWorkshop.Value["WorkshopItemDetails"].ToList())
-                        {
-                            VProperty prop = item as VProperty;
-                            if (prop != null && prop.Key != "1" && !ModsInWorkshopFolder.Contains(prop.Key))
-                            {
-                                appWorkshop.Value["WorkshopItemDetails"][prop.Key] = null;
-                                modificationMade = true;
-                            }
-                        }
-
-                        if(modificationMade)
-                        {
-                            File.WriteAllText(ManifestPath, appWorkshop.ToString());
-                        }
-                    }
-                }
-                catch(Exception ex)
-                {
-                }
-
-                List<WorkshopItemStatus> retVal =  RawString
-                    .Split(new char[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries)
-                    .Select(dr => Config.RegWorkshopStatusItem.Match(dr))
-                    .Where(dr => dr.Success)
-                    .Select(dr =>
-                    {
-                        string datetimeString = $"{dr.Groups["day"].Value} {dr.Groups["month"].Value} {dr.Groups["year"].Value} {dr.Groups["hour"].Value}:{dr.Groups["minutes"].Value}:{dr.Groups["seconds"].Value}";
-                        DateTime parsedDateTime;
-
-                        string status = dr.Groups["status"].Value;
-                        if (string.IsNullOrWhiteSpace(status))
-                            status = dr.Groups["status2"].Value;
-
-                        string size = dr.Groups["size"].Value;
-                        if (string.IsNullOrWhiteSpace(size))
-                            size = dr.Groups["size3"].Value;
-
-                        bool foundDateTime = DateTime.TryParse(datetimeString, out parsedDateTime);
-                        if (dr.Groups["workshopId"].Value == "1") return null;
-
-                        Trace.WriteLine($"Found workshop item {dr.Groups["workshopId"].Value}");
-
-                        return new WorkshopItemStatus()
-                        {
-                            WorkshopId = UInt64.Parse(dr.Groups["workshopId"].Value),
-                            Status = status,
-                            Size = long.Parse(size),
-                            DateTime = foundDateTime ? (DateTime?)parsedDateTime : null,
-                            HasUpdate = dr.Groups["status2"]?.Value == "updated required",
-                        };
+                HashSet<UInt64> ModsInWorkshopFolder = Directory.EnumerateDirectories(ModsPath, "*", SearchOption.TopDirectoryOnly)
+                    .Select(dr => {
+                        string filename = Path.GetFileName(dr);
+                        UInt64 workshopId;
+                        return UInt64.TryParse(dr, out workshopId) ? (UInt64?)workshopId : null;
                     })
                     .Where(dr => dr != null)
-                    .ToList();
+                    .Select(dr => dr.Value).ToHashSet();
 
+
+                HashSet<UInt64> ReturnedIDs = new HashSet<UInt64>();
+                try
                 {
-                    HashSet<UInt64> KnownIDs = new HashSet<UInt64>();
-                    foreach (var item in retVal)
+                    string command = $"+login anonymous +workshop_download_item {AppId} 1 +workshop_status {AppId} +quit";
+                    await ProcessLock.WaitAsync();
+                    Process proc = StartProc(command);
+
+                    OnSteamCmdArgs($"steamcmd.exe {command}");
+                    OnSteamCmdStatusChange(new SteamCmdStatusChangeEventArgs(ESteamCmdStatus.Starting));
+                    proc.Start();
+                    //proc.BeginErrorReadLine();
+
+                    OnSteamCmdStatusChange(new SteamCmdStatusChangeEventArgs(ESteamCmdStatus.Active));
+
+                    int WorkshopReadStage = 0;
+                    await foreach (string line in ReadLines(proc))
                     {
-                        KnownIDs.Add(item.WorkshopId);
+                        if (WorkshopReadStage == 2)
+                            continue;
+
+                        Match WorkshopStatusItemMatch = Config.RegWorkshopStatusItem.Match(line);
+                        if (WorkshopReadStage == 0)
+                            if (WorkshopStatusItemMatch.Success)
+                                WorkshopReadStage = 1;
+
+
+                        if (WorkshopReadStage == 1)
+                        {
+                            if (WorkshopStatusItemMatch.Success)
+                            {
+                                string datetimeString = $"{WorkshopStatusItemMatch.Groups["day"].Value} {WorkshopStatusItemMatch.Groups["month"].Value} {WorkshopStatusItemMatch.Groups["year"].Value} {WorkshopStatusItemMatch.Groups["hour"].Value}:{WorkshopStatusItemMatch.Groups["minutes"].Value}:{WorkshopStatusItemMatch.Groups["seconds"].Value}";
+                                DateTime parsedDateTime;
+
+                                string status = WorkshopStatusItemMatch.Groups["status"].Value;
+                                if (string.IsNullOrWhiteSpace(status))
+                                    status = WorkshopStatusItemMatch.Groups["status2"].Value;
+
+                                string size = WorkshopStatusItemMatch.Groups["size"].Value;
+                                if (string.IsNullOrWhiteSpace(size))
+                                    size = WorkshopStatusItemMatch.Groups["size3"].Value;
+
+                                bool foundDateTime = DateTime.TryParse(datetimeString, out parsedDateTime);
+                                if (WorkshopStatusItemMatch.Groups["workshopId"].Value == "1")
+                                    continue;
+
+                                Trace.WriteLine($"Found workshop item {WorkshopStatusItemMatch.Groups["workshopId"].Value}");
+
+                                UInt64 workshopId = 0;
+                                if (!UInt64.TryParse(WorkshopStatusItemMatch.Groups["workshopId"].Value, out workshopId))
+                                    continue;
+
+                                ReturnedIDs.Add(workshopId);
+
+                                yield return new WorkshopItemStatus()
+                                {
+                                    WorkshopId = workshopId,
+                                    Status = status,
+                                    Size = long.Parse(size),
+                                    DateTime = foundDateTime ? (DateTime?)TimeZone.CurrentTimeZone.ToUniversalTime(parsedDateTime) : null,
+                                    HasUpdate = WorkshopStatusItemMatch.Groups["status2"]?.Value == "updated required",
+                                    Missing = !ModsInWorkshopFolder.Contains(workshopId),
+                                    Detection = WorkshopItemStatus.WorkshopDetectionType.Direct,
+                                };
+                            }
+                            else
+                            {
+                                WorkshopReadStage = 2;
+                            }
+                        }
                     }
 
-                    List<string> UnknownMods = ModsInWorkshopFolder
-                        .Where(dr =>
-                        {
-                            try
-                            {
-                                return !KnownIDs.Contains(UInt64.Parse(dr));
-                            }
-                            catch { }
-                            return false;
-                        }).ToList();
-                    foreach (string UnknownMod in UnknownMods)
+                    // check if we're stuck on a prompt or something wierd
+                    if (!proc.HasExited)
                     {
-                        retVal.Add(new WorkshopItemStatus()
-                        {
-                            WorkshopId = UInt64.Parse(UnknownMod),
-                            FolderOnlyDetection = true,
-                        });
+                        proc.Close();
                     }
+
+                    OnSteamCmdStatusChange(new SteamCmdStatusChangeEventArgs(ESteamCmdStatus.Closed));
+                }
+                finally
+                {
+                    ProcessLock.Release();
                 }
 
-                return retVal;
+                //try
+                {
+                    string ManifestPath = Path.Combine("steamcmd", "steamapps", "workshop", $"appworkshop_{AppId}.acf");
+                    if (File.Exists(ManifestPath))
+                    {
+                        HashSet<string> AcfKeys = new HashSet<string>();
+
+                        VProperty appWorkshop = VdfConvert.Deserialize(File.ReadAllText(ManifestPath));
+
+                        VObject WorkshopItemsInstalled = appWorkshop.Value["WorkshopItemsInstalled"] as VObject;
+                        foreach (VProperty prop in WorkshopItemsInstalled.Properties())
+                            if (prop != null && prop.Key != "1")
+                                AcfKeys.Add(prop.Key);
+
+                        VObject WorkshopItemDetails = appWorkshop.Value["WorkshopItemDetails"] as VObject;
+                        foreach (VProperty prop in WorkshopItemDetails.Properties())
+                            if (prop != null && prop.Key != "1")
+                                AcfKeys.Add(prop.Key);
+
+                        foreach (string workshopIdString in AcfKeys)
+                        {
+                            UInt64 workshopId = UInt64.Parse(workshopIdString);
+                            if (ReturnedIDs.Contains(workshopId))
+                                continue;
+
+                            VObject? installRecord = WorkshopItemsInstalled[workshopIdString]?.Value<VObject>();
+                            DateTime? timeupdatedInstalled = null;
+                            long? size = null;
+                            if (installRecord != null)
+                            {
+                                //string timeupdatedInstalledString = installRecord["timeupdated"]?.Value<string>();
+                                //if (!string.IsNullOrWhiteSpace(timeupdatedInstalledString))
+                                //{
+                                //    long unix = 0;
+                                //    if (long.TryParse(timeupdatedInstalledString, out unix))
+                                //    {
+                                //        timeupdatedInstalled = DateTimeOffset.FromUnixTimeSeconds(unix).DateTime; // UTC
+                                //    }
+                                //}
+                                long? unix = installRecord["timeupdated"]?.Value<long>();
+                                if(unix != null)
+                                    timeupdatedInstalled = DateTimeOffset.FromUnixTimeSeconds(unix.Value).DateTime; // UTC
+                                size = installRecord["size"]?.Value<long>();
+                            }
+
+                            VObject? detailRecord = WorkshopItemDetails[workshopIdString]?.Value<VObject>();
+                            DateTime? timeupdatedDetail = null;
+                            if (detailRecord != null)
+                            {
+                                //string timeupdatedDetailString = detailRecord["timeupdated"]?.Value<string>();
+                                //if (!string.IsNullOrWhiteSpace(timeupdatedDetailString))
+                                //{
+                                //    long unix = 0;
+                                //    if (long.TryParse(timeupdatedDetailString, out unix))
+                                //    {
+                                //        timeupdatedDetail = DateTimeOffset.FromUnixTimeSeconds(unix).DateTime; // UTC
+                                //    }
+                                //}
+                                long? unix = detailRecord["timeupdated"]?.Value<long>();
+                                if (unix != null)
+                                    timeupdatedDetail = DateTimeOffset.FromUnixTimeSeconds(unix.Value).DateTime; // UTC
+                            }
+
+                            if (ReturnedIDs.Add(workshopId))
+                            {
+                                bool folderExists = ModsInWorkshopFolder.Contains(workshopId);
+                                bool timestampsDisagree = (timeupdatedInstalled != timeupdatedDetail);
+                                yield return new WorkshopItemStatus()
+                                {
+                                    WorkshopId = workshopId,
+                                    Status = !folderExists ? "missing" : timestampsDisagree ? "updated required" : "installed",
+                                    Size = size ?? 0,
+                                    DateTime = timeupdatedInstalled,
+                                    HasUpdate = !folderExists || timestampsDisagree,
+                                    Missing = !folderExists,
+                                    Detection = WorkshopItemStatus.WorkshopDetectionType.Cache,
+                                };
+                            }
+                        }
+
+                        foreach (UInt64 workshopId in ModsInWorkshopFolder)
+                        {
+                            if (ReturnedIDs.Add(workshopId))
+                            {
+                                yield return new WorkshopItemStatus()
+                                {
+                                    WorkshopId = workshopId,
+                                    Status = "installed",
+                                    Size = 0,
+                                    DateTime = null,
+                                    HasUpdate = false,
+                                    Missing = false,
+                                    Detection = WorkshopItemStatus.WorkshopDetectionType.Folder,
+                                };
+                            }
+                        }
+                    }
+                }
+                //catch (Exception ex)
+                //{
+                //}
             }
             finally
             {

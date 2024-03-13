@@ -8,6 +8,13 @@ namespace SteamVent.SteamCmd
 {
     public class WorkshopItemStatus
     {
+        public enum WorkshopDetectionType
+        {
+            Direct,
+            Cache,
+            Folder,
+        }
+
         public WorkshopItemStatus()
         {
         }
@@ -17,6 +24,7 @@ namespace SteamVent.SteamCmd
         public long Size { get; set; }
         public DateTime? DateTime { get; set; }
         public bool HasUpdate { get; set; }
-        public bool FolderOnlyDetection { get; set; }
+        public bool Missing { get; set; }
+        public WorkshopDetectionType Detection { get; set; }
     }
 }
