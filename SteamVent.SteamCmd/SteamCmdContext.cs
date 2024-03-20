@@ -2,6 +2,7 @@
 
 //using Gameloop.Vdf;
 //using Gameloop.Vdf.Linq;
+using AngleSharp.Html.Parser;
 using Gameloop.Vdf;
 using Gameloop.Vdf.Linq;
 using Newtonsoft.Json;
@@ -467,26 +468,174 @@ namespace SteamVent.SteamCmd
             }
         }
 
-        public async IAsyncEnumerable<WorkshopItemStatus> WorkshopStatusAsync(UInt32 AppId)
+        public async Task<List<WorkshopItemStatus>?> WorkshopStatusAsync(UInt32 AppId)
         {
             Trace.WriteLine($"WorkshopStatus({AppId})");
             try
             {
                 Trace.Indent();
 
+                Dictionary<UInt64, WorkshopItemStatus> WorkshopItems = new Dictionary<UInt64, WorkshopItemStatus>();
+                Dictionary<UInt64, SemaphoreSlim> WorkshopItemLocks = new Dictionary<UInt64, SemaphoreSlim>();
+                DateTime? LatestUpdate = null;
+                SemaphoreSlim DictionaryLock = new SemaphoreSlim(1, 1);
+
                 // get existing mod folders
                 string ModsPath = Path.Combine(SteamCmdContext.AssemblyDirectory, "steamcmd", "steamapps", "workshop", "content", AppId.ToString());
-                HashSet<UInt64> ModsInWorkshopFolder = Directory.EnumerateDirectories(ModsPath, "*", SearchOption.TopDirectoryOnly)
-                    .Select(dr => {
-                        string filename = Path.GetFileName(dr);
+                Task DirectoryScanTask = Task.Run(async () =>
+                {
+                    foreach(string path in Directory.EnumerateDirectories(ModsPath, "*", SearchOption.TopDirectoryOnly))
+                    {
+                        string filename = Path.GetFileName(path);
                         UInt64 workshopId;
-                        return UInt64.TryParse(dr, out workshopId) ? (UInt64?)workshopId : null;
-                    })
-                    .Where(dr => dr != null)
-                    .Select(dr => dr.Value).ToHashSet();
+                        if(UInt64.TryParse(filename, out workshopId))
+                        {
+                            WorkshopItemStatus currentItem = null;
+                            SemaphoreSlim itemLock = null;
+                            try
+                            {
+                                await DictionaryLock.WaitAsync();
+                                if (!WorkshopItems.ContainsKey(workshopId))
+                                {
+                                    WorkshopItems[workshopId] = new WorkshopItemStatus
+                                    {
+                                        WorkshopId = workshopId,
+                                        Status = "installed",
+                                        Size = -1,
+                                        DateTime = null,
+                                        HasUpdate = false,
+                                        Missing = false,
+                                        Detection = WorkshopItemStatus.WorkshopDetectionType.Folder,
+                                    };
+                                    WorkshopItemLocks[workshopId] = new SemaphoreSlim(1, 1);
+                                }
+                                else
+                                {
+                                    itemLock =  WorkshopItemLocks[workshopId];
+                                    currentItem = WorkshopItems[workshopId];
+                                }
+                            }
+                            finally
+                            {
+                                DictionaryLock.Release();
+                            }
 
+                            if (currentItem != null && itemLock != null)
+                            {
+                                try
+                                {
+                                    await itemLock.WaitAsync();
+                                    currentItem.Missing = false; // we files files so we can't be missing
+                                    currentItem.Detection |= WorkshopItemStatus.WorkshopDetectionType.Folder; // we have a folder so add detection
+                                }
+                                finally
+                                {
+                                    itemLock.Release();
+                                }
+                            }
+                        }
+                    }
+                });
 
-                HashSet<UInt64> ReturnedIDs = new HashSet<UInt64>();
+                Task CacheScanTask = Task.Run(async () =>
+                {
+                    string ManifestPath = Path.Combine("steamcmd", "steamapps", "workshop", $"appworkshop_{AppId}.acf");
+                    if (File.Exists(ManifestPath))
+                    {
+                        HashSet<string> AcfKeys = new HashSet<string>();
+
+                        VProperty appWorkshop = VdfConvert.Deserialize(File.ReadAllText(ManifestPath));
+
+                        VObject WorkshopItemsInstalled = appWorkshop.Value["WorkshopItemsInstalled"] as VObject;
+                        foreach (VProperty prop in WorkshopItemsInstalled.Properties())
+                            if (prop != null && prop.Key != "1")
+                                AcfKeys.Add(prop.Key);
+
+                        VObject WorkshopItemDetails = appWorkshop.Value["WorkshopItemDetails"] as VObject;
+                        foreach (VProperty prop in WorkshopItemDetails.Properties())
+                            if (prop != null && prop.Key != "1")
+                                AcfKeys.Add(prop.Key);
+
+                        foreach (string workshopIdString in AcfKeys)
+                        {
+                            UInt64 workshopId = 0;
+                            if (!UInt64.TryParse(workshopIdString, out workshopId))
+                                continue;
+
+                            VObject? installRecord = WorkshopItemsInstalled[workshopIdString]?.Value<VObject>();
+                            DateTime? timeupdatedInstalled = null;
+                            long? size = null;
+                            if (installRecord != null)
+                            {
+                                long? unix = installRecord["timeupdated"]?.Value<long>();
+                                if (unix != null)
+                                    timeupdatedInstalled = DateTimeOffset.FromUnixTimeSeconds(unix.Value).DateTime; // UTC
+                                size = installRecord["size"]?.Value<long>();
+                            }
+
+                            VObject? detailRecord = WorkshopItemDetails[workshopIdString]?.Value<VObject>();
+                            DateTime? timeupdatedDetail = null;
+                            if (detailRecord != null)
+                            {
+                                long? unix = detailRecord["timeupdated"]?.Value<long>();
+                                if (unix != null)
+                                    timeupdatedDetail = DateTimeOffset.FromUnixTimeSeconds(unix.Value).DateTime; // UTC
+                            }
+
+                            bool timestampsDisagree = (timeupdatedInstalled != timeupdatedDetail);
+
+                            WorkshopItemStatus currentItem = null;
+                            SemaphoreSlim itemLock = null;
+                            try
+                            {
+                                await DictionaryLock.WaitAsync();
+                                if (!WorkshopItems.ContainsKey(workshopId))
+                                {
+                                    WorkshopItems[workshopId] = new WorkshopItemStatus
+                                    {
+                                        WorkshopId = workshopId,
+                                        Status = timestampsDisagree ? "updated required" : "installed",
+                                        Size = size ?? -1,
+                                        DateTime = timeupdatedInstalled,
+                                        HasUpdate = timestampsDisagree,
+                                        Missing = true, // assume missing till we see the folder
+                                        Detection = WorkshopItemStatus.WorkshopDetectionType.Cache,
+                                    };
+                                    WorkshopItemLocks[workshopId] = new SemaphoreSlim(1, 1);
+                                }
+                                else
+                                {
+                                    itemLock = WorkshopItemLocks[workshopId];
+                                    currentItem = WorkshopItems[workshopId];
+                                }
+                                LatestUpdate = Nullable.Compare(LatestUpdate, timeupdatedInstalled) > 0 ? LatestUpdate : timeupdatedInstalled;
+                            }
+                            finally
+                            {
+                                DictionaryLock.Release();
+                            }
+
+                            if (currentItem != null && itemLock != null)
+                            {
+                                try
+                                {
+                                    await itemLock.WaitAsync();
+                                    currentItem.Status = timestampsDisagree ? "updated required" : "installed";
+                                    if (currentItem.Size == -1 && size.HasValue)
+                                        currentItem.Size = size.Value;
+                                    currentItem.DateTime ??= timeupdatedInstalled;
+                                    currentItem.HasUpdate |= timestampsDisagree;
+                                    currentItem.Detection |= WorkshopItemStatus.WorkshopDetectionType.Cache; // we have a cache so add detection
+                                }
+                                finally
+                                {
+                                    itemLock.Release();
+                                }
+                            }
+                        }
+                    }
+                });
+
                 try
                 {
                     string command = $"+login anonymous +workshop_download_item {AppId} 1 +workshop_status {AppId} +quit";
@@ -537,18 +686,54 @@ namespace SteamVent.SteamCmd
                                 if (!UInt64.TryParse(WorkshopStatusItemMatch.Groups["workshopId"].Value, out workshopId))
                                     continue;
 
-                                ReturnedIDs.Add(workshopId);
-
-                                yield return new WorkshopItemStatus()
+                                WorkshopItemStatus currentItem = null;
+                                SemaphoreSlim itemLock = null;
+                                try
                                 {
-                                    WorkshopId = workshopId,
-                                    Status = status,
-                                    Size = long.Parse(size),
-                                    DateTime = foundDateTime ? (DateTime?)TimeZone.CurrentTimeZone.ToUniversalTime(parsedDateTime) : null,
-                                    HasUpdate = WorkshopStatusItemMatch.Groups["status2"]?.Value == "updated required",
-                                    Missing = !ModsInWorkshopFolder.Contains(workshopId),
-                                    Detection = WorkshopItemStatus.WorkshopDetectionType.Direct,
-                                };
+                                    await DictionaryLock.WaitAsync();
+                                    DateTime? DateTimeSet = foundDateTime ? (DateTime?)TimeZone.CurrentTimeZone.ToUniversalTime(parsedDateTime) : null;
+                                    if (!WorkshopItems.ContainsKey(workshopId))
+                                    {
+                                        WorkshopItems[workshopId] = new WorkshopItemStatus
+                                        {
+                                            WorkshopId = workshopId,
+                                            Status = status,
+                                            Size = long.Parse(size),
+                                            DateTime = DateTimeSet,
+                                            HasUpdate = WorkshopStatusItemMatch.Groups["status2"]?.Value == "updated required",
+                                            Missing = true, // assume missing till we see the folder
+                                            Detection = WorkshopItemStatus.WorkshopDetectionType.Direct,
+                                        };
+                                        WorkshopItemLocks[workshopId] = new SemaphoreSlim(1, 1);
+                                    }
+                                    else
+                                    {
+                                        itemLock = WorkshopItemLocks[workshopId];
+                                        currentItem = WorkshopItems[workshopId];
+                                    }
+                                    LatestUpdate = Nullable.Compare(LatestUpdate, DateTimeSet) > 0 ? LatestUpdate : DateTimeSet;
+                                }
+                                finally
+                                {
+                                    DictionaryLock.Release();
+                                }
+
+                                if (currentItem != null && itemLock != null)
+                                {
+                                    try
+                                    {
+                                        await itemLock.WaitAsync();
+                                        currentItem.Status = status;
+                                        currentItem.Size = long.Parse(size);
+                                        currentItem.DateTime ??= foundDateTime ? (DateTime?)TimeZone.CurrentTimeZone.ToUniversalTime(parsedDateTime) : null;
+                                        currentItem.HasUpdate |= WorkshopStatusItemMatch.Groups["status2"]?.Value == "updated required";
+                                        currentItem.Detection |= WorkshopItemStatus.WorkshopDetectionType.Direct; // we have a direct so add detection
+                                    }
+                                    finally
+                                    {
+                                        itemLock.Release();
+                                    }
+                                }
                             }
                             else
                             {
@@ -570,107 +755,58 @@ namespace SteamVent.SteamCmd
                     ProcessLock.Release();
                 }
 
-                //try
+                await DirectoryScanTask;
+                await CacheScanTask;
+
+                // Read the workshop webpage because we can't get actual update information from steamcmd for anon accounts
+                if (LatestUpdate.HasValue)
                 {
-                    string ManifestPath = Path.Combine("steamcmd", "steamapps", "workshop", $"appworkshop_{AppId}.acf");
-                    if (File.Exists(ManifestPath))
+                    HttpClient client = new HttpClient();
+                    HtmlParser parser = new HtmlParser();
+                    List<UInt64> HtmlWorkshopItems = new List<UInt64>();
+                    for (int page = 1; ; page++)
                     {
-                        HashSet<string> AcfKeys = new HashSet<string>();
-
-                        VProperty appWorkshop = VdfConvert.Deserialize(File.ReadAllText(ManifestPath));
-
-                        VObject WorkshopItemsInstalled = appWorkshop.Value["WorkshopItemsInstalled"] as VObject;
-                        foreach (VProperty prop in WorkshopItemsInstalled.Properties())
-                            if (prop != null && prop.Key != "1")
-                                AcfKeys.Add(prop.Key);
-
-                        VObject WorkshopItemDetails = appWorkshop.Value["WorkshopItemDetails"] as VObject;
-                        foreach (VProperty prop in WorkshopItemDetails.Properties())
-                            if (prop != null && prop.Key != "1")
-                                AcfKeys.Add(prop.Key);
-
-                        foreach (string workshopIdString in AcfKeys)
+                        string workshopUrl = @$"https://steamcommunity.com/workshop/browse/?appid={AppId}&browsesort=lastupdated&section=readytouseitems&updated_date_range_filter_start={((DateTimeOffset)LatestUpdate.Value).ToUnixTimeSeconds() - 1}&actualsort=lastupdated&p={page}";
+                        var response = await client.GetAsync(workshopUrl);
+                        string html = await response.Content.ReadAsStringAsync();
+                        if (!html.Contains(@"No items matching your search criteria were found."))
                         {
-                            UInt64 workshopId = UInt64.Parse(workshopIdString);
-                            if (ReturnedIDs.Contains(workshopId))
-                                continue;
-
-                            VObject? installRecord = WorkshopItemsInstalled[workshopIdString]?.Value<VObject>();
-                            DateTime? timeupdatedInstalled = null;
-                            long? size = null;
-                            if (installRecord != null)
+                            var document = parser.ParseDocument(html);
+                            foreach (var workshopItem in document.QuerySelectorAll(".workshopItem"))
                             {
-                                //string timeupdatedInstalledString = installRecord["timeupdated"]?.Value<string>();
-                                //if (!string.IsNullOrWhiteSpace(timeupdatedInstalledString))
-                                //{
-                                //    long unix = 0;
-                                //    if (long.TryParse(timeupdatedInstalledString, out unix))
-                                //    {
-                                //        timeupdatedInstalled = DateTimeOffset.FromUnixTimeSeconds(unix).DateTime; // UTC
-                                //    }
-                                //}
-                                long? unix = installRecord["timeupdated"]?.Value<long>();
-                                if(unix != null)
-                                    timeupdatedInstalled = DateTimeOffset.FromUnixTimeSeconds(unix.Value).DateTime; // UTC
-                                size = installRecord["size"]?.Value<long>();
+                                var link = workshopItem.QuerySelector("a.ugc");
+                                UInt64 workshopId = UInt64.Parse(link.GetAttribute("data-publishedfileid"));
+                                HtmlWorkshopItems.Add(workshopId);
                             }
-
-                            VObject? detailRecord = WorkshopItemDetails[workshopIdString]?.Value<VObject>();
-                            DateTime? timeupdatedDetail = null;
-                            if (detailRecord != null)
-                            {
-                                //string timeupdatedDetailString = detailRecord["timeupdated"]?.Value<string>();
-                                //if (!string.IsNullOrWhiteSpace(timeupdatedDetailString))
-                                //{
-                                //    long unix = 0;
-                                //    if (long.TryParse(timeupdatedDetailString, out unix))
-                                //    {
-                                //        timeupdatedDetail = DateTimeOffset.FromUnixTimeSeconds(unix).DateTime; // UTC
-                                //    }
-                                //}
-                                long? unix = detailRecord["timeupdated"]?.Value<long>();
-                                if (unix != null)
-                                    timeupdatedDetail = DateTimeOffset.FromUnixTimeSeconds(unix.Value).DateTime; // UTC
-                            }
-
-                            if (ReturnedIDs.Add(workshopId))
-                            {
-                                bool folderExists = ModsInWorkshopFolder.Contains(workshopId);
-                                bool timestampsDisagree = (timeupdatedInstalled != timeupdatedDetail);
-                                yield return new WorkshopItemStatus()
-                                {
-                                    WorkshopId = workshopId,
-                                    Status = !folderExists ? "missing" : timestampsDisagree ? "updated required" : "installed",
-                                    Size = size ?? 0,
-                                    DateTime = timeupdatedInstalled,
-                                    HasUpdate = !folderExists || timestampsDisagree,
-                                    Missing = !folderExists,
-                                    Detection = WorkshopItemStatus.WorkshopDetectionType.Cache,
-                                };
-                            }
+                            var pages = document.QuerySelectorAll(".workshopBrowsePaging .pagebtn");
+                            if (pages.Length < 2 || pages[1].ClassList.Contains("disabled"))
+                                break;
                         }
-
-                        foreach (UInt64 workshopId in ModsInWorkshopFolder)
+                        else
                         {
-                            if (ReturnedIDs.Add(workshopId))
-                            {
-                                yield return new WorkshopItemStatus()
-                                {
-                                    WorkshopId = workshopId,
-                                    Status = "installed",
-                                    Size = 0,
-                                    DateTime = null,
-                                    HasUpdate = false,
-                                    Missing = false,
-                                    Detection = WorkshopItemStatus.WorkshopDetectionType.Folder,
-                                };
-                            }
+                            break;
                         }
                     }
+                    foreach (UInt64 workshopId in HtmlWorkshopItems)
+                    {
+                        if (!WorkshopItems.ContainsKey(workshopId))
+                            continue;
+                        WorkshopItemStatus thisItem = WorkshopItems[workshopId];
+                        thisItem.Status = "updated required";
+                        thisItem.HasUpdate = true;
+                        thisItem.Detection |= WorkshopItemStatus.WorkshopDetectionType.HtmlList;
+                    }
                 }
-                //catch (Exception ex)
-                //{
-                //}
+
+                try
+                {
+                    //await DictionaryLock.WaitAsync();
+                    return WorkshopItems?.OrderBy(dr => dr.Key)?.Select(dr => dr.Value)?.ToList();
+                }
+                finally
+                {
+                    //DictionaryLock.Release();
+                }
             }
             finally
             {

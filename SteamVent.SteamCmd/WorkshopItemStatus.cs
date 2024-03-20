@@ -8,11 +8,13 @@ namespace SteamVent.SteamCmd
 {
     public class WorkshopItemStatus
     {
+        [Flags]
         public enum WorkshopDetectionType
         {
-            Direct,
-            Cache,
-            Folder,
+            Direct = 1,
+            Cache = 2,
+            Folder = 4,
+            HtmlList = 8, // decorated by HTML scanning, normally just the fact it needs an update
         }
 
         public WorkshopItemStatus()
