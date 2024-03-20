@@ -468,7 +468,28 @@ namespace SteamVent.SteamCmd
             }
         }
 
-        public async Task<List<WorkshopItemStatus>?> WorkshopStatusAsync(UInt32 AppId)
+        /*private void UpdateProgress(IProgress<double?> progress, params int[] args)
+        {
+            //lock (progress)
+            {
+                double sum = 0d;
+                for (int i = 0; i < args.Length; i++)
+                    sum += (1d - (1d / (args[i] + 1))) / args.Length;
+                progress.Report(sum);
+            }
+        }*/
+        private void UpdateProgress(IProgress<double?> progress, int p1, int p2, int p3, int p4)
+        {
+            double percent =
+                  (1d - (1d / (p1 + 1))) * 0.1d // folders
+                + (1d - (1d / (p2 + 1))) * 0.1d // cache
+                + (1d - (1d / (p3 + 1))) * 0.7d // steamcmd
+                + (1d - (1d / (p4 + 1))) * 0.1d; // html
+            //Trace.WriteLine($"Progress: {percent}");
+            progress.Report(percent);
+        }
+
+        public async Task<List<WorkshopItemStatus>?> WorkshopStatusAsync(UInt32 AppId, IProgress<double?> Progress)
         {
             Trace.WriteLine($"WorkshopStatus({AppId})");
             try
@@ -479,6 +500,11 @@ namespace SteamVent.SteamCmd
                 Dictionary<UInt64, SemaphoreSlim> WorkshopItemLocks = new Dictionary<UInt64, SemaphoreSlim>();
                 DateTime? LatestUpdate = null;
                 SemaphoreSlim DictionaryLock = new SemaphoreSlim(1, 1);
+
+                int ProgressA = 0;
+                int ProgressB = 0;
+                int ProgressC = 0;
+                int ProgressD = 0;
 
                 // get existing mod folders
                 string ModsPath = Path.Combine(SteamCmdContext.AssemblyDirectory, "steamcmd", "steamapps", "workshop", "content", AppId.ToString());
@@ -533,6 +559,9 @@ namespace SteamVent.SteamCmd
                                     itemLock.Release();
                                 }
                             }
+
+                            ProgressA++;
+                            UpdateProgress(Progress, ProgressA, ProgressB, ProgressC, ProgressD);
                         }
                     }
                 });
@@ -632,6 +661,9 @@ namespace SteamVent.SteamCmd
                                     itemLock.Release();
                                 }
                             }
+
+                            ProgressB++;
+                            UpdateProgress(Progress, ProgressA, ProgressB, ProgressC, ProgressD);
                         }
                     }
                 });
@@ -680,7 +712,7 @@ namespace SteamVent.SteamCmd
                                 if (WorkshopStatusItemMatch.Groups["workshopId"].Value == "1")
                                     continue;
 
-                                Trace.WriteLine($"Found workshop item {WorkshopStatusItemMatch.Groups["workshopId"].Value}");
+                                //Trace.WriteLine($"Found workshop item {WorkshopStatusItemMatch.Groups["workshopId"].Value}");
 
                                 UInt64 workshopId = 0;
                                 if (!UInt64.TryParse(WorkshopStatusItemMatch.Groups["workshopId"].Value, out workshopId))
@@ -734,6 +766,9 @@ namespace SteamVent.SteamCmd
                                         itemLock.Release();
                                     }
                                 }
+
+                                ProgressC++;
+                                UpdateProgress(Progress, ProgressA, ProgressB, ProgressC, ProgressD);
                             }
                             else
                             {
@@ -781,6 +816,9 @@ namespace SteamVent.SteamCmd
                             var pages = document.QuerySelectorAll(".workshopBrowsePaging .pagebtn");
                             if (pages.Length < 2 || pages[1].ClassList.Contains("disabled"))
                                 break;
+
+                            ProgressD++;
+                            UpdateProgress(Progress, ProgressA, ProgressB, ProgressC, ProgressD);
                         }
                         else
                         {
@@ -800,6 +838,7 @@ namespace SteamVent.SteamCmd
 
                 try
                 {
+                    Progress.Report(1d);
                     //await DictionaryLock.WaitAsync();
                     return WorkshopItems?.OrderBy(dr => dr.Key)?.Select(dr => dr.Value)?.ToList();
                 }
