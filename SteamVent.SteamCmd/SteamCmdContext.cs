@@ -480,6 +480,8 @@ namespace SteamVent.SteamCmd
         }*/
         private void UpdateProgress(IProgress<double?> progress, int p1, int p2, int p3, int p4)
         {
+            if (progress == null)
+                return;
             double percent =
                   (1d - (1d / (p1 + 1))) * 0.1d // folders
                 + (1d - (1d / (p2 + 1))) * 0.1d // cache
@@ -489,8 +491,9 @@ namespace SteamVent.SteamCmd
             progress.Report(percent);
         }
 
-        public async Task<List<WorkshopItemStatus>?> WorkshopStatusAsync(UInt32 AppId, IProgress<double?> Progress)
+        public async Task<List<WorkshopItemStatus>?> WorkshopStatusAsync(UInt32 AppId, IProgress<double?>? Progress = null, IObserver<ESteamCmdTaskStatus>? Observer = null)
         {
+            Observer?.OnNext(ESteamCmdTaskStatus.WaitingToStart);
             Trace.WriteLine($"WorkshopStatus({AppId})");
             try
             {
@@ -671,7 +674,15 @@ namespace SteamVent.SteamCmd
                 try
                 {
                     string command = $"+login anonymous +workshop_download_item {AppId} 1 +workshop_status {AppId} +quit";
-                    await ProcessLock.WaitAsync();
+
+                    // if it takes over a second to get the lock, status us as paused
+                    Task lockTask = ProcessLock.WaitAsync();
+                    CancellationTokenSource waitStatusCancel = new CancellationTokenSource();
+                    await Task.WhenAny(lockTask, Task.Run(() => { Task.Delay(1000); Observer?.OnNext(ESteamCmdTaskStatus.Waiting); }, waitStatusCancel.Token));
+                    await lockTask;
+                    waitStatusCancel.Cancel();
+                    Observer?.OnNext(ESteamCmdTaskStatus.Running);
+
                     Process proc = StartProc(command);
 
                     OnSteamCmdArgs($"steamcmd.exe {command}");
@@ -789,6 +800,7 @@ namespace SteamVent.SteamCmd
                 {
                     ProcessLock.Release();
                 }
+                Observer?.OnNext(ESteamCmdTaskStatus.Running);
 
                 await DirectoryScanTask;
                 await CacheScanTask;
