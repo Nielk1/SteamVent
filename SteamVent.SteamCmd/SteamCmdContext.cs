@@ -810,7 +810,7 @@ namespace SteamVent.SteamCmd
                 {
                     HttpClient client = new HttpClient();
                     HtmlParser parser = new HtmlParser();
-                    List<UInt64> HtmlWorkshopItems = new List<UInt64>();
+                    List<(UInt64 workshopId, string workshopTitle, string workshopImage)> HtmlWorkshopItems = new List<(UInt64, string, string)>();
                     for (int page = 1; ; page++)
                     {
                         string workshopUrl = @$"https://steamcommunity.com/workshop/browse/?appid={AppId}&browsesort=lastupdated&section=readytouseitems&updated_date_range_filter_start={((DateTimeOffset)LatestUpdate.Value).ToUnixTimeSeconds() - 1}&actualsort=lastupdated&p={page}";
@@ -823,7 +823,14 @@ namespace SteamVent.SteamCmd
                             {
                                 var link = workshopItem.QuerySelector("a.ugc");
                                 UInt64 workshopId = UInt64.Parse(link.GetAttribute("data-publishedfileid"));
-                                HtmlWorkshopItems.Add(workshopId);
+
+                                string workshopTitle = workshopItem.QuerySelector(".workshopItemTitle")?.TextContent?.Trim();
+
+                                string workshopImage = workshopItem.QuerySelector(".workshopItemPreviewImage")?.Attributes["src"]?.Value;
+                                if (!string.IsNullOrWhiteSpace(workshopImage) && workshopImage.Contains("?"))
+                                    workshopImage = workshopImage.Substring(0, workshopImage.IndexOf("?"));
+
+                                HtmlWorkshopItems.Add((workshopId, workshopTitle, workshopImage));
                             }
                             var pages = document.QuerySelectorAll(".workshopBrowsePaging .pagebtn");
                             if (pages.Length < 2 || pages[1].ClassList.Contains("disabled"))
@@ -837,14 +844,16 @@ namespace SteamVent.SteamCmd
                             break;
                         }
                     }
-                    foreach (UInt64 workshopId in HtmlWorkshopItems)
+                    foreach (var workshopData in HtmlWorkshopItems)
                     {
-                        if (!WorkshopItems.ContainsKey(workshopId))
+                        if (!WorkshopItems.ContainsKey(workshopData.workshopId))
                             continue;
-                        WorkshopItemStatus thisItem = WorkshopItems[workshopId];
+                        WorkshopItemStatus thisItem = WorkshopItems[workshopData.workshopId];
                         thisItem.Status = "updated required";
                         thisItem.HasUpdate = true;
                         thisItem.Detection |= WorkshopItemStatus.WorkshopDetectionType.HtmlList;
+                        thisItem.Title = workshopData.workshopTitle;
+                        thisItem.Image = workshopData.workshopImage;
                     }
                 }
 

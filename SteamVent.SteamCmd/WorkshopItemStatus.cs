@@ -8,6 +8,8 @@ namespace SteamVent.SteamCmd
 {
     public class WorkshopItemStatus
     {
+        private string key;
+
         [Flags]
         public enum WorkshopDetectionType
         {
@@ -28,5 +30,9 @@ namespace SteamVent.SteamCmd
         public bool HasUpdate { get; set; }
         public bool Missing { get; set; }
         public WorkshopDetectionType Detection { get; set; }
+
+        // Rare data from HTTP
+        public string Title { get; set; }
+        public string Image { get; set; }
     }
 }
