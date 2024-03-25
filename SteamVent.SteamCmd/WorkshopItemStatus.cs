@@ -1,12 +1,13 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
 namespace SteamVent.SteamCmd
 {
-    public class WorkshopItemStatus
+    public class WorkshopItemStatus : IEquatable<WorkshopItemStatus>
     {
         private string key;
 
@@ -34,5 +35,18 @@ namespace SteamVent.SteamCmd
         // Rare data from HTTP
         public string Title { get; set; }
         public string Image { get; set; }
+
+        public bool Equals(WorkshopItemStatus? other)
+        {
+            return this?.WorkshopId == other?.WorkshopId
+                && this?.Status == other?.Status
+                && this?.Size == other?.Size
+                && this?.DateTime == other?.DateTime
+                && this?.HasUpdate == other?.HasUpdate
+                && this?.Missing == other?.Missing
+                && this?.Detection == other?.Detection
+                && this?.Title == other?.Title
+                && this?.Image == other?.Image;
+        }
     }
 }
