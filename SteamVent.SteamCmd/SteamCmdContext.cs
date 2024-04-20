@@ -118,7 +118,13 @@ namespace SteamVent.SteamCmd
             return retVal;
         }
 
-        private Process StartProc(string command)
+        /// <summary>
+        /// Get a wrapped steamcmd process but don't start it yet.
+        /// </summary>
+        /// <param name="command"></param>
+        /// <returns></returns>
+        /// <exception cref="SteamCmdMissingException"></exception>
+        private Process GetProc(string command)
         {
             if (!Directory.Exists(Path.Combine(AssemblyDirectory, "steamcmd"))) throw new SteamCmdMissingException("steamcmd directory missing");
             if (!File.Exists(Path.Combine(AssemblyDirectory, "steamcmd\\steamcmd.exe"))) throw new SteamCmdMissingException("steamcmd.exe missing");
@@ -148,7 +154,7 @@ namespace SteamVent.SteamCmd
             try
             {
                 await ProcessLock.WaitAsync();
-                Process proc = StartProc(command);
+                Process proc = GetProc(command);
 
                 OnSteamCmdArgs($"steamcmd.exe {command}");
                 OnSteamCmdStatusChange(new SteamCmdStatusChangeEventArgs(ESteamCmdStatus.Starting));
@@ -683,7 +689,7 @@ namespace SteamVent.SteamCmd
                     waitStatusCancel.Cancel();
                     Observer?.OnNext(ESteamCmdTaskStatus.Running);
 
-                    Process proc = StartProc(command);
+                    Process proc = GetProc(command);
 
                     OnSteamCmdArgs($"steamcmd.exe {command}");
                     OnSteamCmdStatusChange(new SteamCmdStatusChangeEventArgs(ESteamCmdStatus.Starting));

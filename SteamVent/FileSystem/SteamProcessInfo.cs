@@ -369,8 +369,12 @@ namespace SteamVent.FileSystem
                 VObject data2 = data.Value as VObject;
                 foreach (VProperty child in data2.Children())
                 {
-                    if(int.TryParse(child.Key, out _))
-                        yield return child.Value.Value<string>();
+                    if (int.TryParse(child.Key, out _))
+                    {
+                        string? retVal = child.Value.Value<string>("path");
+                        if (retVal != null)
+                            yield return retVal;
+                    }
                 }
             }
         }

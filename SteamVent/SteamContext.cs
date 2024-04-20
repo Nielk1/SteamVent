@@ -145,7 +145,7 @@ namespace SteamVent
                                     Name = name?.TrimEnd(),
                                     appIcon = string.IsNullOrWhiteSpace(clienticon) ? null : Path.Combine(SteamProcessInfo.SteamInstallPath, "steam", "games", clienticon + ".ico"),
                                     appType = type,
-                                });;
+                                });
                             }
                         }
                     }

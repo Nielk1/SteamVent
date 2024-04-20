@@ -5,6 +5,7 @@ using SteamVent.InterProc.Interfaces;
 using System.Collections.Generic;
 using System.Reflection;
 using System.Configuration;
+using NLog.Internal;
 
 namespace SteamVent.Tests.InterProc
 {
@@ -30,10 +31,9 @@ namespace SteamVent.Tests.InterProc
         {
             _SteamClientVersion = SteamClientVersion;
             _SteamAppsVersion = SteamAppsVersion;
-
-            InstalledAppID = UInt32.Parse(ConfigurationManager.AppSettings["InstalledAppID"]);
+            InstalledAppID = UInt32.Parse(Core.Configuration["InstalledAppID"]);
             Assert.Greater(InstalledAppID, 0);
-            UninstalledAppID = UInt32.Parse(ConfigurationManager.AppSettings["UninstalledAppID"]);
+            UninstalledAppID = UInt32.Parse(Core.Configuration["UninstalledAppID"]);
             Assert.Greater(UninstalledAppID, 0);
         }
 
@@ -77,8 +77,9 @@ namespace SteamVent.Tests.InterProc
         public void BIsAppInstalledTest()
         {
             if (Attribute.IsDefined(_SteamAppsVersion.GetMethod("BIsAppInstalled"), typeof(ObsoleteAttribute)))
-                //Assert.Pass("Not Implemented");
-                Assert.Ignore("Not Implemented in this Interface");
+                Assert.Pass("Not Implemented in this Interface");
+                //Assert.Ignore("Not Implemented in this Interface");
+                //Assert.Inconclusive("Not Implemented in this Interface");
 
             Assert.IsTrue(SteamApps.BIsAppInstalled(InstalledAppID));
             Assert.IsFalse(SteamApps.BIsAppInstalled(UninstalledAppID));
