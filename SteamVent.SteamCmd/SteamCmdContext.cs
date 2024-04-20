@@ -816,6 +816,8 @@ namespace SteamVent.SteamCmd
                         string workshopUrl = @$"https://steamcommunity.com/workshop/browse/?appid={AppId}&browsesort=lastupdated&section=readytouseitems&updated_date_range_filter_start={((DateTimeOffset)LatestUpdate.Value).ToUnixTimeSeconds() - 1}&actualsort=lastupdated&p={page}";
                         var response = await client.GetAsync(workshopUrl);
                         string html = await response.Content.ReadAsStringAsync();
+                        //byte[] bytes = await response.Content.ReadAsByteArrayAsync(); // this might fix 712270362, odd we can't just trust the headers, unless we can?
+                        //string html = Encoding.UTF8.GetString(bytes);
                         if (!html.Contains(@"No items matching your search criteria were found."))
                         {
                             var document = parser.ParseDocument(html);
