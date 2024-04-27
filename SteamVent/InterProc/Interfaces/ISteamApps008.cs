@@ -126,6 +126,7 @@ namespace SteamVent.InterProc.Interfaces
             byte[] _pchFolder = new byte[size];
             IntPtr pchFolder = Marshal.AllocHGlobal(_pchFolder.Length + 1);
             UInt32 read = GetDelegate<GetAppInstallDirDelegate>()(InterfacePtr, nAppId, pchFolder, size);
+            Marshal.Copy(pchFolder, _pchFolder, 0, (int)read);
             return Encoding.UTF8.GetString(_pchFolder, 0, (int)read);
         }
 

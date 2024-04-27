@@ -67,5 +67,12 @@ namespace SteamVent.InterProc.Interfaces
         #endregion
         public TInterface GetISteamApps<TInterface>(Int32 hSteamUser, Int32 hSteamPipe) where TInterface : SteamInterfaceWrapper =>
             GetInterface<GetISteamAppsDelegate, TInterface>(InterfacePtr, hSteamUser, hSteamPipe);
+
+        #region VTableIndex(26)
+        [VTableIndex(26), UnmanagedFunctionPointer(CallingConvention.ThisCall, CharSet = CharSet.Ansi)]
+        private delegate IntPtr GetISteamUGCDelegate(IntPtr thisPtr, Int32 hSteamUser, Int32 hSteamPipe, string pchVersion);
+        #endregion
+        public TInterface GetISteamUGC<TInterface>(Int32 hSteamUser, Int32 hSteamPipe) where TInterface : SteamInterfaceWrapper =>
+            GetInterface<GetISteamUGCDelegate, TInterface>(InterfacePtr, hSteamUser, hSteamPipe);
     }
 }

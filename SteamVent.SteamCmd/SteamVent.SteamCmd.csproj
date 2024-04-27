@@ -13,6 +13,10 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\SteamVent.Common\SteamVent.Common.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
     <None Update="steamvent.steamcmd.json">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>

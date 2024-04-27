@@ -485,6 +485,13 @@ namespace SteamVent
             return WrappedContext.BigPicturePID > 0;
         }*/
 
+        public string? GetAppInstalledPath(UInt32 appID)
+        {
+            if(SteamApps.BIsAppInstalled(appID))
+                return SteamApps.GetAppInstallDir(appID);
+            return null;
+        }
+
         public void Init(string ProxyServerPath = null, bool SearchSubfolders = false)
         {
             Steam.Load();

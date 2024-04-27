@@ -47,14 +47,17 @@ namespace SteamVent.InterProc.Interop
         protected TDelegate GetDelegate<TDelegate>()
             where TDelegate : Delegate
         {
-            if (!DelegateCache.TryGetValue(typeof(TDelegate), out Delegate func))
+            lock (DelegateCache)
             {
-                func = GetFunction(typeof(TDelegate));
-                if (func != null)
-                    DelegateCache.Add(typeof(TDelegate), func);
-            }
+                if (!DelegateCache.TryGetValue(typeof(TDelegate), out Delegate func))
+                {
+                    func = GetFunction(typeof(TDelegate));
+                    if (func != null)
+                        DelegateCache.Add(typeof(TDelegate), func);
+                }
 
-            return func as TDelegate; // returns null if type conversion fails
+                return func as TDelegate; // returns null if type conversion fails
+            }
         }
 
         /// <summary>

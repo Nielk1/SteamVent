@@ -5,7 +5,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace SteamVent.SteamCmd
+namespace SteamVent.Common
 {
     public class WorkshopItemStatus : IEquatable<WorkshopItemStatus>
     {

@@ -10,31 +10,26 @@ using NLog.Internal;
 namespace SteamVent.Tests.InterProc
 {
     //[TestFixture(typeof(ISteamClient016))]
-    [TestFixture(typeof(ISteamClient017), typeof(ISteamApps003))]
-    [TestFixture(typeof(ISteamClient017), typeof(ISteamApps004))]
-    [TestFixture(typeof(ISteamClient017), typeof(ISteamApps005))]
-    [TestFixture(typeof(ISteamClient017), typeof(ISteamApps006))]
-    [TestFixture(typeof(ISteamClient017), typeof(ISteamApps007))]
-    [TestFixture(typeof(ISteamClient017), typeof(ISteamApps008))]
-    public class ISteamAppsTests
+    [TestFixture(typeof(ISteamClient017), typeof(ISteamUGC001))]
+    [TestFixture(typeof(ISteamClient017), typeof(ISteamUGC002))]
+    [TestFixture(typeof(ISteamClient017), typeof(ISteamUGC003))]
+    [TestFixture(typeof(ISteamClient017), typeof(ISteamUGC005))]
+    public class ISteamUGCTests
     {
         private ISteamClient? SteamClient { get; set; }
         Type _SteamClientVersion { get; set; }
         private Int32 Pipe { get; set; }
         private Int32 User { get; set; }
-        private ISteamApps? SteamApps { get; set; }
-        Type _SteamAppsVersion { get; set; }
+        private ISteamUGC? SteamUGC { get; set; }
+        Type _SteamUGCVersion { get; set; }
 
-        UInt32 InstalledAppID;
-        UInt32 UninstalledAppID;
-        public ISteamAppsTests(Type SteamClientVersion, Type SteamAppsVersion)
+        UInt64 PublishedFileID;
+        public ISteamUGCTests(Type SteamClientVersion, Type SteamUGCVersion)
         {
             _SteamClientVersion = SteamClientVersion;
-            _SteamAppsVersion = SteamAppsVersion;
-            InstalledAppID = UInt32.Parse(Core.Configuration["InstalledAppID"]);
-            Assert.Greater(InstalledAppID, 0);
-            UninstalledAppID = UInt32.Parse(Core.Configuration["UninstalledAppID"]);
-            Assert.Greater(UninstalledAppID, 0);
+            _SteamUGCVersion = SteamUGCVersion;
+            PublishedFileID = UInt32.Parse(Core.Configuration["PublishedFileID"]);
+            Assert.Greater(PublishedFileID, 0);
         }
 
         [SetUp]
@@ -53,14 +48,14 @@ namespace SteamVent.Tests.InterProc
             Assert.Greater(Pipe, 0);
             User = SteamClient.ConnectToGlobalUser(Pipe);
             Assert.Greater(User, 0);
-            //SteamApps = SteamClient.GetISteamApps<ISteamApps###>(User, Pipe);
+            //SteamUGC = SteamClient.GetISteamUGC<ISteamUGC###>(User, Pipe);
             {
-                SteamApps = (ISteamApps?)SteamClient.GetType()
-                    ?.GetMethod("GetISteamApps")
-                    ?.MakeGenericMethod(new Type[] { _SteamAppsVersion })
+                SteamUGC = (ISteamUGC?)SteamClient.GetType()
+                    ?.GetMethod("GetISteamUGC")
+                    ?.MakeGenericMethod(new Type[] { _SteamUGCVersion })
                     ?.Invoke(SteamClient, new object[] { User, Pipe });
             }
-            Assert.IsNotNull(SteamApps);
+            Assert.IsNotNull(SteamUGC);
         }
 
         [TearDown]
@@ -74,16 +69,19 @@ namespace SteamVent.Tests.InterProc
         }
 
         [Test]
-        public void BIsAppInstalledTest()
+        public void GetItemDownloadInfoTest()
         {
-            if (Attribute.IsDefined(_SteamAppsVersion.GetMethod("BIsAppInstalled"), typeof(ObsoleteAttribute)))
+            if (Attribute.IsDefined(_SteamUGCVersion.GetMethod("GetItemDownloadInfo"), typeof(ObsoleteAttribute)))
                 Assert.Pass("Not Implemented in this Interface");
                 //Assert.Ignore("Not Implemented in this Interface");
                 //Assert.Inconclusive("Not Implemented in this Interface");
 
-            Assert.IsNotNull(SteamApps);
-            Assert.IsTrue(SteamApps.BIsAppInstalled(InstalledAppID));
-            Assert.IsFalse(SteamApps.BIsAppInstalled(UninstalledAppID));
+            Assert.IsNotNull(SteamUGC);
+
+            UInt64 punBytesDownloaded = 0;
+            UInt64 punBytesTotal = 0;
+            bool retVal = SteamUGC.GetItemDownloadInfo(PublishedFileID, ref punBytesDownloaded, ref punBytesTotal);
+            Assert.IsTrue(retVal);
         }
     }
 }

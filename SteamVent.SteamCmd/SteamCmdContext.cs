@@ -6,6 +6,7 @@ using AngleSharp.Html.Parser;
 using Gameloop.Vdf;
 using Gameloop.Vdf.Linq;
 using Newtonsoft.Json;
+using SteamVent.Common;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
