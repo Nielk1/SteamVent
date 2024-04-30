@@ -361,8 +361,12 @@ namespace SteamVent.FileSystem
         /// <returns>Enumerable set of path strings</returns>
         public static IEnumerable<string> GetSteamLibraryPaths()
         {
-            yield return SteamInstallPath;
-            string LibraryFile = Path.Combine(SteamInstallPath, "steamapps", "libraryfolders.vdf");
+            bool didLegacyOutput = false;
+            bool didAnyOutput = false;
+            string steamInstallPath = SteamInstallPath;
+            if (steamInstallPath == null)
+                yield break;
+            string LibraryFile = Path.Combine(steamInstallPath, "steamapps", "libraryfolders.vdf");
             if (File.Exists(LibraryFile))
             {
                 VProperty data = VdfConvert.Deserialize(File.ReadAllText(LibraryFile));
@@ -371,12 +375,42 @@ namespace SteamVent.FileSystem
                 {
                     if (int.TryParse(child.Key, out _))
                     {
-                        string? retVal = child.Value.Value<string>("path");
-                        if (retVal != null)
-                            yield return retVal;
+                        switch (child.Value.Type)
+                        {
+                            case VTokenType.Object:
+                                {
+                                    string? retVal = child.Value.Value<string>("path");
+                                    if (retVal != null)
+                                    {
+                                        didAnyOutput = true;
+                                        yield return retVal;
+                                    }
+                                    break;
+                                }
+                            case VTokenType.Value: // legacy file handling, TODO confirm this actually works
+                                {
+                                    // unsure if this legacy output is needed, but trigger it when we see the legacy format appear
+                                    if (!didLegacyOutput)
+                                    {
+                                        didAnyOutput = true;
+                                        yield return steamInstallPath;
+                                        didLegacyOutput = true;
+                                    }
+
+                                    string? retVal = child.Value.Value<string>();
+                                    if (retVal != null)
+                                    {
+                                        didAnyOutput = true;
+                                        yield return retVal;
+                                    }
+                                    break;
+                                }
+                        }
                     }
                 }
             }
+            if (!didAnyOutput)
+                yield return steamInstallPath;
         }
     }
 }

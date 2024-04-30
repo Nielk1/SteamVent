@@ -36,16 +36,14 @@ namespace SteamVent
 
 
         private ISteamClient SteamClient { get; set; }
-        Type _SteamClientVersion { get; set; }
         private Int32 Pipe { get; set; }
         private Int32 User { get; set; }
         private ISteamApps SteamApps { get; set; }
-        Type _SteamAppsVersion { get; set; }
 
 
         private SteamContext()
         {
-            Init();
+            InitSteamworks();
         }
 
         public static SteamContext GetInstance()
@@ -97,192 +95,173 @@ namespace SteamVent
 
 
         // TODO use a better AppID source, the AppInfo.vtf file only holds data the client has actually seen
-        public List<SteamLaunchableApp> GetOwnedApps()
+        // Requires: Steam is installed and has AppCache data
+        // Requires: Steam is running for SteamApps interface
+        public List<SteamLaunchableApp>? GetOwnedApps()
         {
-            //UInt32[] appIDs = GetClientAppIds();
+            if (!TryStartSteamworks())
+                throw new Exception("Failed to start Steamworks");
+
             List<SteamLaunchableApp> apps = new List<SteamLaunchableApp>();
 
-            //SteamAppInfoDataFile dataFile = SteamAppInfoDataFile.Read(GetAppCacheAppInfoFile());
             SteamAppInfoDataFile dataFile = SteamAppInfoDataFile.GetSteamAppInfoDataFile();
 
-            /*dataFile.chunks
-                .Where(chunk => chunk.data != null && chunk.data.Properties != null && chunk.data.Properties.Count > 0)
-                //.Select(chunk => ((BVStringToken)((BVPropertyCollection)((BVPropertyCollection)chunk.data?["appinfo"])?["common"])?["type"])?.Value?.ToLowerInvariant())
-                .Select(chunk => ((BVStringToken)((BVPropertyCollection)((BVPropertyCollection)chunk.data?["appinfo"])?["common"])?["releasestate"])?.Value?.ToLowerInvariant())
-                .Distinct()
-                .OrderBy(dr => dr)
-                .ToList()
-                .ForEach(dr =>
-                {
-                    Console.WriteLine(dr);
-                });*/
+            if (dataFile == null)
+                return null;
 
-            dataFile.chunks
-                .ForEach(chunk =>
+            foreach (var chunk in dataFile.chunks)
+            {
+                if (chunk.data != null
+                 && chunk.data.Properties != null
+                 && chunk.data.Properties.Count > 0)
                 {
-                    if (chunk.data != null
-                    && chunk.data.Properties != null
-                    && chunk.data.Properties.Count > 0)
+                    BVPropertyCollection? appinfo = ((BVPropertyCollection?)chunk.data?["appinfo"]);
+                    BVPropertyCollection? common = ((BVPropertyCollection?)appinfo?["common"]);
+                    //BVPropertyCollection? extended = ((BVPropertyCollection?)appinfo?["extended"]);
+
+                    string? type = common?["type"]?.GetValue<string>()?.ToLowerInvariant();
+                    //if (type == "demo" || type == "game")
+                    if (!string.IsNullOrWhiteSpace(type) && type != "config")
                     {
-                        BVPropertyCollection appinfo = ((BVPropertyCollection)chunk.data?["appinfo"]);
-                        BVPropertyCollection common = ((BVPropertyCollection)appinfo?["common"]);
-                        BVPropertyCollection extended = ((BVPropertyCollection)appinfo?["extended"]);
+                        //bool isInstalled = SteamApps.BIsAppInstalled(chunk.AppID);
+                        bool isSubscribed = SteamApps.BIsSubscribedApp(chunk.AppID);
 
-                        string type = common?["type"]?.GetValue<string>()?.ToLowerInvariant();
-                        //if (type == "demo" || type == "game")
-                        if (!string.IsNullOrWhiteSpace(type) && type != "config")
+                        string? name = common?["name"]?.GetValue<string?>();
+                        string? clienticon = common?["clienticon"]?.GetValue<string?>();
+
+                        if (isSubscribed && !string.IsNullOrWhiteSpace(name) && !string.IsNullOrWhiteSpace(type))
                         {
-                            bool isInstalled = SteamApps.BIsAppInstalled(chunk.AppID);
-                            bool isSubscribed = SteamApps.BIsSubscribedApp(chunk.AppID);
-
-                            string name = common?["name"]?.GetValue<string>();
-                            string clienticon = common?["clienticon"]?.GetValue<string>();
-
-                            if (isSubscribed && !string.IsNullOrWhiteSpace(name) && !string.IsNullOrWhiteSpace(type))
+                            apps.Add(new SteamLaunchableApp(chunk.AppID)
                             {
-                                apps.Add(new SteamLaunchableApp(chunk.AppID)
-                                {
-                                    Name = name?.TrimEnd(),
-                                    appIcon = string.IsNullOrWhiteSpace(clienticon) ? null : Path.Combine(SteamProcessInfo.SteamInstallPath, "steam", "games", clienticon + ".ico"),
-                                    appType = type,
-                                });
-                            }
+                                Name = name?.TrimEnd(),
+                                appIcon = string.IsNullOrWhiteSpace(clienticon) ? null : Path.Combine(SteamProcessInfo.SteamInstallPath, "steam", "games", clienticon + ".ico"),
+                                appType = type,
+                            });
                         }
                     }
-                });
+                }
+            }
 
             return apps;
         }
 
-        public List<SteamLaunchableApp> GetAppsWithMetadata(UInt64[] AppIDs = null)
+        public List<SteamLaunchableApp> GetAppsWithMetadata(UInt64[]? AppIDs = null)
         {
-            //UInt32[] appIDs = GetClientAppIds();
+            if (!TryStartSteamworks())
+                throw new Exception("Failed to start Steamworks");
+
             List<SteamLaunchableApp> apps = new List<SteamLaunchableApp>();
 
-            //SteamAppInfoDataFile dataFile = SteamAppInfoDataFile.Read(GetAppCacheAppInfoFile());
             SteamAppInfoDataFile dataFile = SteamAppInfoDataFile.GetSteamAppInfoDataFile();
 
-            /*dataFile.chunks
-                .Where(chunk => chunk.data != null && chunk.data.Properties != null && chunk.data.Properties.Count > 0)
-                //.Select(chunk => ((BVStringToken)((BVPropertyCollection)((BVPropertyCollection)chunk.data?["appinfo"])?["common"])?["type"])?.Value?.ToLowerInvariant())
-                .Select(chunk => ((BVStringToken)((BVPropertyCollection)((BVPropertyCollection)chunk.data?["appinfo"])?["common"])?["releasestate"])?.Value?.ToLowerInvariant())
-                .Distinct()
-                .OrderBy(dr => dr)
-                .ToList()
-                .ForEach(dr =>
+            foreach(var chunk in dataFile.chunks)
+            {
+                if (chunk.data != null
+                 && chunk.data.Properties != null
+                 && chunk.data.Properties.Count > 0
+                 && ((AppIDs?.Length ?? 0) == 0 || AppIDs.Contains(chunk.AppID)))
                 {
-                    Console.WriteLine(dr);
-                });*/
+                    BVPropertyCollection? appinfo = ((BVPropertyCollection?)chunk.data?["appinfo"]);
+                    BVPropertyCollection? common = ((BVPropertyCollection?)appinfo?["common"]);
+                    BVPropertyCollection? extended = ((BVPropertyCollection?)appinfo?["extended"]);
 
-            dataFile.chunks
-                .ForEach(chunk =>
-                {
-                    if (chunk.data != null
-                    && chunk.data.Properties != null
-                    && chunk.data.Properties.Count > 0
-                    && ((AppIDs?.Length ?? 0) == 0 || AppIDs.Contains(chunk.AppID)))
+                    string? type = common?["type"]?.GetValue<string>()?.ToLowerInvariant();
+                    //if (type == "demo" || type == "game")
+                    if (!string.IsNullOrWhiteSpace(type) && type != "config")
                     {
-                        BVPropertyCollection appinfo = ((BVPropertyCollection)chunk.data?["appinfo"]);
-                        BVPropertyCollection common = ((BVPropertyCollection)appinfo?["common"]);
-                        BVPropertyCollection extended = ((BVPropertyCollection)appinfo?["extended"]);
+                        bool isInstalled = SteamApps.BIsAppInstalled(chunk.AppID);
+                        bool isSubscribed = SteamApps.BIsSubscribedApp(chunk.AppID);
 
-                        string type = common?["type"]?.GetValue<string>()?.ToLowerInvariant();
-                        //if (type == "demo" || type == "game")
-                        if (!string.IsNullOrWhiteSpace(type) && type != "config")
+                        string? name = common?["name"]?.GetValue<string>();
+                        //string oslist = common?["oslist"]?.GetValue<string>();
+                        //string icon = common?["icon"]?.GetValue<string>();
+                        //string clienttga = common?["clienttga"]?.GetValue<string>();
+                        string? clienticon = common?["clienticon"]?.GetValue<string>();
+                        //string logo = common?["logo"]?.GetValue<string>();
+                        //string logo_small = common?["logo_small"]?.GetValue<string>();
+                        //string releasestate = common?["releasestate"]?.GetValue<string>();
+                        //string linuxclienticon = common?["linuxclienticon"]?.GetValue<string>();
+                        //string controller_support = common?["controller_support"]?.GetValue<string>();
+                        //string clienticns = common?["clienticns"]?.GetValue<string>();
+                        //int metacritic_score = ((BVInt32Token)common?["metacritic_score"])?.Value ?? -1;
+                        //string metacritic_name = common?["metacritic_name"]?.GetValue<string>();
+                        //BVPropertyCollection small_capsule = ((BVPropertyCollection)common?["small_capsule"]);
+                        //BVPropertyCollection header_image = ((BVPropertyCollection)common?["header_image"]);
+                        //BVPropertyCollection languages = ((BVPropertyCollection)common?["languages"]);
+                        //bool community_visible_stats = common?["community_visible_stats"]?.GetValue<string>() == "1";
+                        //bool community_hub_visible = common?["community_hub_visible"]?.GetValue<string>() == "1";
+                        //bool workshop_visible = common?["workshop_visible"]?.GetValue<string>() == "1";
+                        //bool exfgls = common?["exfgls"]?.GetValue<string>() == "1";
+                        //string gamedir = extended?["gamedir"]?.GetValue<string>();
+                        List<string> developer = new List<string>();
+                        List<string> publisher = new List<string>();
+                        //string homepage = extended?["homepage"]?.GetValue<string>();
+                        //string gamemanualurl = extended?["gamemanualurl"]?.GetValue<string>();
+                        //bool showcdkeyonlaunch = extended?["showcdkeyonlaunch"]?.GetValue<string>() == "1";
+                        //bool dlcavailableonstore = extended?["dlcavailableonstore"]?.GetValue<string>() == "1";
+
                         {
-                            bool isInstalled = SteamApps.BIsAppInstalled(chunk.AppID);
-                            bool isSubscribed = SteamApps.BIsSubscribedApp(chunk.AppID);
-
-                            string name = common?["name"]?.GetValue<string>();
-                            //string oslist = common?["oslist"]?.GetValue<string>();
-                            //string icon = common?["icon"]?.GetValue<string>();
-                            //string clienttga = common?["clienttga"]?.GetValue<string>();
-                            string clienticon = common?["clienticon"]?.GetValue<string>();
-                            //string logo = common?["logo"]?.GetValue<string>();
-                            //string logo_small = common?["logo_small"]?.GetValue<string>();
-                            //string releasestate = common?["releasestate"]?.GetValue<string>();
-                            //string linuxclienticon = common?["linuxclienticon"]?.GetValue<string>();
-                            //string controller_support = common?["controller_support"]?.GetValue<string>();
-                            //string clienticns = common?["clienticns"]?.GetValue<string>();
-                            //int metacritic_score = ((BVInt32Token)common?["metacritic_score"])?.Value ?? -1;
-                            //string metacritic_name = common?["metacritic_name"]?.GetValue<string>();
-                            //BVPropertyCollection small_capsule = ((BVPropertyCollection)common?["small_capsule"]);
-                            //BVPropertyCollection header_image = ((BVPropertyCollection)common?["header_image"]);
-                            //BVPropertyCollection languages = ((BVPropertyCollection)common?["languages"]);
-                            //bool community_visible_stats = common?["community_visible_stats"]?.GetValue<string>() == "1";
-                            //bool community_hub_visible = common?["community_hub_visible"]?.GetValue<string>() == "1";
-                            //bool workshop_visible = common?["workshop_visible"]?.GetValue<string>() == "1";
-                            //bool exfgls = common?["exfgls"]?.GetValue<string>() == "1";
-                            //string gamedir = extended?["gamedir"]?.GetValue<string>();
-                            List<string> developer = new List<string>();
-                            List<string> publisher = new List<string>();
-                            //string homepage = extended?["homepage"]?.GetValue<string>();
-                            //string gamemanualurl = extended?["gamemanualurl"]?.GetValue<string>();
-                            //bool showcdkeyonlaunch = extended?["showcdkeyonlaunch"]?.GetValue<string>() == "1";
-                            //bool dlcavailableonstore = extended?["dlcavailableonstore"]?.GetValue<string>() == "1";
-
+                            List<BVProperty> props = (common?["associations"] as BVPropertyCollection)?.Properties;
+                            if (props != null)
                             {
-                                List<BVProperty> props = (common?["associations"] as BVPropertyCollection)?.Properties;
-                                if (props != null)
+                                foreach (BVProperty element in props)
                                 {
-                                    foreach (BVProperty element in props)
+                                    string elemType = (element.Value as BVPropertyCollection)?["type"].GetValue<string>();
+                                    string elemVal = (element.Value as BVPropertyCollection)?["name"].GetValue<string>();
+                                    if (string.IsNullOrWhiteSpace(elemVal))
+                                        continue;
+                                    if (elemType == "developer")// && string.IsNullOrWhiteSpace(developer))
                                     {
-                                        string elemType = (element.Value as BVPropertyCollection)?["type"].GetValue<string>();
-                                        string elemVal = (element.Value as BVPropertyCollection)?["name"].GetValue<string>();
-                                        if (string.IsNullOrWhiteSpace(elemVal))
-                                            continue;
-                                        if (elemType == "developer")// && string.IsNullOrWhiteSpace(developer))
-                                        {
-                                            developer.Add(elemVal);
-                                        }
-                                        if (elemType == "publisher")// && string.IsNullOrWhiteSpace(publisher))
-                                        {
-                                            publisher.Add(elemVal);
-                                        }
+                                        developer.Add(elemVal);
+                                    }
+                                    if (elemType == "publisher")// && string.IsNullOrWhiteSpace(publisher))
+                                    {
+                                        publisher.Add(elemVal);
                                     }
                                 }
-                                string extended_dev = extended?["developer"]?.GetValue<string>();
-                                if (developer.Count == 0 && !string.IsNullOrWhiteSpace(extended_dev))
-                                    developer.Add(extended_dev);
-                                string extended_pub = extended?["publisher"]?.GetValue<string>();
-                                if (publisher.Count == 0 && !string.IsNullOrWhiteSpace(extended_pub))
-                                    publisher.Add(extended_pub);
                             }
+                            string extended_dev = extended?["developer"]?.GetValue<string>();
+                            if (developer.Count == 0 && !string.IsNullOrWhiteSpace(extended_dev))
+                                developer.Add(extended_dev);
+                            string extended_pub = extended?["publisher"]?.GetValue<string>();
+                            if (publisher.Count == 0 && !string.IsNullOrWhiteSpace(extended_pub))
+                                publisher.Add(extended_pub);
+                        }
 
-                            long? _original_release_date = common?["original_release_date"]?.GetValue<long>();
-                            long? _steam_release_date = common?["steam_release_date"]?.GetValue<long>();
-                            DateTime? original_release_date = _original_release_date.HasValue ? DateTimeOffset.FromUnixTimeSeconds(_original_release_date.Value).UtcDateTime : (DateTime?)null;
-                            DateTime? steam_release_date = _steam_release_date.HasValue ? DateTimeOffset.FromUnixTimeSeconds(_steam_release_date.Value).UtcDateTime : (DateTime?)null;
+                        long? _original_release_date = common?["original_release_date"]?.GetValue<long>();
+                        long? _steam_release_date = common?["steam_release_date"]?.GetValue<long>();
+                        DateTime? original_release_date = _original_release_date.HasValue ? DateTimeOffset.FromUnixTimeSeconds(_original_release_date.Value).UtcDateTime : (DateTime?)null;
+                        DateTime? steam_release_date = _steam_release_date.HasValue ? DateTimeOffset.FromUnixTimeSeconds(_steam_release_date.Value).UtcDateTime : (DateTime?)null;
 
-                            BVPropertyCollection library_assets = ((BVPropertyCollection)common?["library_assets"]);
-                            bool has_library_capsule = !string.IsNullOrWhiteSpace(library_assets?["library_capsule"]?.GetValue<string>());
-                            bool has_library_hero = !string.IsNullOrWhiteSpace(library_assets?["library_hero"]?.GetValue<string>());
-                            bool has_library_logo = !string.IsNullOrWhiteSpace(library_assets?["library_logo"]?.GetValue<string>());
+                        BVPropertyCollection library_assets = ((BVPropertyCollection)common?["library_assets"]);
+                        bool has_library_capsule = !string.IsNullOrWhiteSpace(library_assets?["library_capsule"]?.GetValue<string>());
+                        bool has_library_hero = !string.IsNullOrWhiteSpace(library_assets?["library_hero"]?.GetValue<string>());
+                        bool has_library_logo = !string.IsNullOrWhiteSpace(library_assets?["library_logo"]?.GetValue<string>());
 
-                            //Console.WriteLine($"{chunk.AppID}\t{(type ?? string.Empty).PadRight(4)} {(isInstalled ? 1 : 0)} {(isSubscribed ? 1 : 0)} {(releasestate ?? string.Empty).PadRight(11)} {(name ?? string.Empty).PadRight(90)} {(developer ?? string.Empty).PadRight(40)} {(publisher ?? string.Empty)}");
-                            //File.AppendAllText("SteamDump.txt",$"{chunk.appID}\t{(type ?? string.Empty).PadRight(4)} {(isInstalled ? 1 : 0)} {(isSubscribed ? 1 : 0)} {(releasestate ?? string.Empty).PadRight(11)} {(name ?? string.Empty).PadRight(90)} {(developer ?? string.Empty).PadRight(40)} {(publisher ?? string.Empty).PadRight(40)}\r\n");
+                        //Console.WriteLine($"{chunk.AppID}\t{(type ?? string.Empty).PadRight(4)} {(isInstalled ? 1 : 0)} {(isSubscribed ? 1 : 0)} {(releasestate ?? string.Empty).PadRight(11)} {(name ?? string.Empty).PadRight(90)} {(developer ?? string.Empty).PadRight(40)} {(publisher ?? string.Empty)}");
+                        //File.AppendAllText("SteamDump.txt",$"{chunk.appID}\t{(type ?? string.Empty).PadRight(4)} {(isInstalled ? 1 : 0)} {(isSubscribed ? 1 : 0)} {(releasestate ?? string.Empty).PadRight(11)} {(name ?? string.Empty).PadRight(90)} {(developer ?? string.Empty).PadRight(40)} {(publisher ?? string.Empty).PadRight(40)}\r\n");
 
-                            if (isSubscribed && !string.IsNullOrWhiteSpace(name) && !string.IsNullOrWhiteSpace(type))
+                        if (isSubscribed && !string.IsNullOrWhiteSpace(name) && !string.IsNullOrWhiteSpace(type))
+                        {
+                            apps.Add(new SteamLaunchableApp(chunk.AppID)
                             {
-                                apps.Add(new SteamLaunchableApp(chunk.AppID)
-                                {
-                                    Name = name?.TrimEnd(),
-                                    appIcon = string.IsNullOrWhiteSpace(clienticon) ? null : Path.Combine(SteamProcessInfo.SteamInstallPath, "steam", "games", clienticon + ".ico"),
-                                    appType = type,
+                                Name = name?.TrimEnd(),
+                                appIcon = string.IsNullOrWhiteSpace(clienticon) ? null : Path.Combine(SteamProcessInfo.SteamInstallPath, "steam", "games", clienticon + ".ico"),
+                                appType = type,
 
-                                    extra_developer = developer.ToArray(),
-                                    extra_publisher = publisher.ToArray(),
-                                    extra_has_library_capsule = has_library_capsule,
-                                    extra_has_library_hero = has_library_hero,
-                                    extra_has_library_logo = has_library_logo,
+                                extra_developer = developer.ToArray(),
+                                extra_publisher = publisher.ToArray(),
+                                extra_has_library_capsule = has_library_capsule,
+                                extra_has_library_hero = has_library_hero,
+                                extra_has_library_logo = has_library_logo,
 
-                                    extra_original_release_date = original_release_date,
-                                    extra_steam_release_date = steam_release_date,
-                                }); ;
-                            }
+                                extra_original_release_date = original_release_date,
+                                extra_steam_release_date = steam_release_date,
+                            }); ;
                         }
                     }
-                });
+                }
+            }
 
             return apps;
         }
@@ -487,12 +466,32 @@ namespace SteamVent
 
         public string? GetAppInstalledPath(UInt32 appID)
         {
-            if(SteamApps.BIsAppInstalled(appID))
-                return SteamApps.GetAppInstallDir(appID);
+            if (TryStartSteamworks())
+            {
+                // Steamworks is active, ask steam for the install path
+                if (SteamApps.BIsAppInstalled(appID))
+                    return SteamApps.GetAppInstallDir(appID);
+            }
+            else
+            {
+                // Steamworks isn't active, time to slum it in the file system
+                string? retVal = FileSystem.SteamApps.GetAppInstallDir(appID);
+                return retVal;
+            }
             return null;
         }
 
-        public void Init(string ProxyServerPath = null, bool SearchSubfolders = false)
+
+        private bool TryStartSteamworks()
+        {
+            if (SteamIsRunning && SteamClient == null)
+            {
+                InitSteamworks();
+                return SteamClient != null;
+            }
+            return false;
+        }
+        private void InitSteamworks()
         {
             Steam.Load();
             SteamClient = Steam.CreateInterface<ISteamClient017>();
@@ -509,7 +508,7 @@ namespace SteamVent
                 throw new Exception();
         }
 
-        public void Shutdown()
+        private void Shutdown()
         {
             if (SteamClient == null)
                 return;

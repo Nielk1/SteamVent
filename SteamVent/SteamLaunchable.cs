@@ -157,9 +157,9 @@ namespace SteamVent
 
         public override SteamLaunchableType ShortcutType { get { return SteamLaunchableType.App; } }
 
-        public string Name { get; set; }
-        public string appIcon { get; set; }
-        public string appType { get; set; }
+        public string? Name { get; set; }
+        public string? appIcon { get; set; }
+        public string? appType { get; set; }
         public string[] extra_developer { get; internal set; }
         public string[] extra_publisher { get; internal set; }
         public bool extra_has_library_capsule { get; internal set; }

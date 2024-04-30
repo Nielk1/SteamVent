@@ -28,7 +28,7 @@ namespace SteamVent.FileSystem
             return null;
         }
 
-        public static SteamAppInfoDataFile GetSteamAppInfoDataFile(string path = null)
+        public static SteamAppInfoDataFile GetSteamAppInfoDataFile(string? path = null)
         {
             return SteamAppInfoDataFile.Read(path ?? GetAppCacheAppInfoFile());
         }
@@ -74,9 +74,11 @@ namespace SteamVent.FileSystem
             }
         }
 
-        public static SteamAppInfoDataFile Read(string steamShortcutFilePath)
+        public static SteamAppInfoDataFile Read(string steamAppInfoFilePath)
         {
-            using (FileStream stream = File.OpenRead(steamShortcutFilePath))
+            if (!File.Exists(steamAppInfoFilePath))
+                return null;
+            using (FileStream stream = File.OpenRead(steamAppInfoFilePath))
             using (BinaryReader reader = new BinaryReader(stream))
             {
                 List<SteamAppInfoDataFileChunk> Chunks = new List<SteamAppInfoDataFileChunk>();
