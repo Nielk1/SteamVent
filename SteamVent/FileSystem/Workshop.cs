@@ -32,14 +32,14 @@ namespace SteamVent.FileSystem
 
                 Dictionary<UInt64, WorkshopItemStatus> WorkshopItems = new Dictionary<UInt64, WorkshopItemStatus>();
                 Dictionary<UInt64, SemaphoreSlim> WorkshopItemLocks = new Dictionary<UInt64, SemaphoreSlim>();
-                DateTime? LatestUpdate = null;
+                DateTime? LatestUpdate = null; 
                 SemaphoreSlim DictionaryLock = new SemaphoreSlim(1, 1);
 
                 int ProgressA = 0;
                 int ProgressB = 0;
 
                 // get existing mod folders
-                string ModsPath = Path.Combine(LibraryPath, "workshop", "content", AppId.ToString());
+                string ModsPath = Path.Combine(LibraryPath, "steamapps", "workshop", "content", AppId.ToString());
                 Task DirectoryScanTask = Task.Run(async () =>
                 {
                     if (Directory.Exists(ModsPath))
@@ -85,7 +85,7 @@ namespace SteamVent.FileSystem
                                     try
                                     {
                                         await itemLock.WaitAsync();
-                                        currentItem.Missing = false; // we files files so we can't be missing
+                                        currentItem.Missing = false; // we have files so we can't be missing
                                         currentItem.Detection |= WorkshopItemStatus.WorkshopDetectionType.Folder; // we have a folder so add detection
                                     }
                                     finally
@@ -103,7 +103,7 @@ namespace SteamVent.FileSystem
 
                 Task CacheScanTask = Task.Run(async () =>
                 {
-                    string ManifestPath = Path.Combine(LibraryPath, "workshop", $"appworkshop_{AppId}.acf");
+                    string ManifestPath = Path.Combine(LibraryPath, "steamapps", "workshop", $"appworkshop_{AppId}.acf");
                     if (File.Exists(ManifestPath))
                     {
                         HashSet<string> AcfKeys = new HashSet<string>();

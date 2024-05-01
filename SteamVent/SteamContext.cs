@@ -464,7 +464,7 @@ namespace SteamVent
             return WrappedContext.BigPicturePID > 0;
         }*/
 
-        public string? GetAppInstalledPath(UInt32 appID)
+        public string? GetAppInstallDir(UInt32 appID)
         {
             if (TryStartSteamworks())
             {
@@ -480,6 +480,30 @@ namespace SteamVent
             }
             return null;
         }
+
+        public string? GetAppLibrary(UInt32 appId)
+        {
+            string? InstallDir = GetAppInstallDir(appId);
+            if (InstallDir != null)
+            {
+                var Paths = SteamProcessInfo.GetSteamLibraryPaths();
+                foreach (string path in Paths)
+                    if (!Path.GetRelativePath(path, InstallDir).Contains(".."))
+                        return path;
+            }
+            return null;
+        }
+
+        public async Task<List<WorkshopItemStatus>?> WorkshopStatusAsync(UInt32 AppId, IProgress<double?>? Progress = null, string LibraryPathOverride = null)
+        {
+            string? LibraryPath = LibraryPathOverride ?? GetAppLibrary(AppId);
+            if (LibraryPath == null)
+                return null;
+
+            return await Workshop.WorkshopStatusAsync(LibraryPath, AppId, Progress);
+        }
+
+
 
 
         private bool TryStartSteamworks()

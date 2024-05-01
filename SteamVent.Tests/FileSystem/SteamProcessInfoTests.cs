@@ -14,7 +14,7 @@ namespace SteamVent.Tests.FileSystem
     {
         private static bool Is64Bit() { return IntPtr.Size == 8; }
 
-        private static bool checkedOwnAssemblyCase = false;
+        /*private static bool checkedOwnAssemblyCase = false;
         private static bool checkOwnAssemblyUpper = false;
         private static bool checkOwnAssemblyLower = false;
         private static bool ComparePaths(string Path1, string Path2)
@@ -38,7 +38,7 @@ namespace SteamVent.Tests.FileSystem
 
             // we got this far so nothing matched
             return false;
-        }
+        }*/
 
         [Test]
         public void SteamInstallPathTest()
@@ -53,7 +53,8 @@ namespace SteamVent.Tests.FileSystem
         {
             List<string> Paths = SteamProcessInfo.GetSteamLibraryPaths().ToList();
             Assert.That(Paths.Count, Is.GreaterThan(0), "No Steam library paths found");
-            Assert.That(ComparePaths(Paths[0], SteamProcessInfo.SteamInstallPath), "First Steam library path is not the default path");
+            //Assert.That(ComparePaths(Paths[0], SteamProcessInfo.SteamInstallPath), "First Steam library path is not the default path");
+            Assert.That(Path.GetRelativePath(Paths[0], SteamProcessInfo.SteamInstallPath) == ".", "First Steam library path is not the default path");
             foreach (string path in Paths)
             {
                 Assert.That(Directory.Exists(path), Is.True, "Returned library path does not exist");
@@ -72,7 +73,8 @@ namespace SteamVent.Tests.FileSystem
         public void SteamExePathTest()
         {
             string SteamExePath = SteamProcessInfo.SteamExePath;
-            Assert.That(ComparePaths(Path.GetFileName(SteamExePath), "Steam.exe"), "Unexpected Steam EXE Path, got \"{0}\" expected \"Steam.exe\"", Path.GetFileName(SteamExePath));
+            //Assert.That(ComparePaths(Path.GetFileName(SteamExePath), "Steam.exe"), "Unexpected Steam EXE Path, got \"{0}\" expected \"Steam.exe\"", Path.GetFileName(SteamExePath));
+            Assert.That(Path.GetRelativePath(Path.GetFileName(SteamExePath), "Steam.exe") == ".", "Unexpected Steam EXE Path, got \"{0}\" expected \"Steam.exe\"", Path.GetFileName(SteamExePath));
         }
 
         [Test]
