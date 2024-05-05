@@ -500,7 +500,7 @@ namespace SteamVent
             if (LibraryPath == null)
                 return null;
 
-            return await Workshop.WorkshopStatusAsync(LibraryPath, AppId, Progress);
+            return await SteamWorkshop.WorkshopStatusAsync(LibraryPath, AppId, Progress);
         }
 
 

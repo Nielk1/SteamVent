@@ -15,4 +15,10 @@
     <ProjectReference Include="..\SteamVent.Common\SteamVent.Common.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Reference Include="AngleSharp">
+      <HintPath>D:\.nuget\anglesharp\1.1.2\lib\net7.0\AngleSharp.dll</HintPath>
+    </Reference>
+  </ItemGroup>
+
 </Project>

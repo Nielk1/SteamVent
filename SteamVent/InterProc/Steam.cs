@@ -98,6 +98,14 @@ namespace SteamVent.InterProc
             if (CallSteamGetAPICallResult == null)
                 return false;
 
+            //_callSteamBConnected = SysNative.GetExportFunction<SteamNative.SteamBConnected>(module, "Steam_BConnected");
+            //if (_callSteamBConnected == null)
+            //    return false;
+
+            //_callSteamBLoggedOn = SysNative.GetExportFunction<SteamNative.SteamBLoggedOn>(module, "Steam_BLoggedOn");
+            //if (_callSteamBLoggedOn == null)
+            //    return false;
+
             SteamClientHandle = module;
 
             return true;
@@ -263,6 +271,40 @@ namespace SteamVent.InterProc
         //        throw new InvalidOperationException($"Steam Client library is not initialized ({nameof(ReleaseUser)}).");
 
         //    _callReleaseUser(pipe, user);
+        //}
+
+
+        //private static SteamNative.SteamBConnected _callSteamBConnected;
+        //public static bool IsConnected(int user, int pipe)
+        //{
+        //    if (_callSteamBConnected == null)
+        //        throw new InvalidOperationException($"Steam library is not been initialized({nameof(GetCallback)}).");
+        //
+        //    try
+        //    {
+        //        return _callSteamBConnected(user, pipe);
+        //    }
+        //    catch
+        //    {
+        //        return false;
+        //    }
+        //}
+
+
+        //private static SteamNative.SteamBLoggedOn _callSteamBLoggedOn;
+        //public static bool IsLoggedOn(int user, int pipe)
+        //{
+        //    if (_callSteamBLoggedOn == null)
+        //        throw new InvalidOperationException($"Steam library is not been initialized({nameof(GetCallback)}).");
+        //
+        //    try
+        //    {
+        //        return _callSteamBLoggedOn(user, pipe);
+        //    }
+        //    catch
+        //    {
+        //        return false;
+        //    }
         //}
 
         #endregion

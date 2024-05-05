@@ -44,5 +44,13 @@ namespace SteamVent.InterProc.Native
 
         //[UnmanagedFunctionPointer(CallingConvention.ThisCall, CharSet = CharSet.Ansi)]
         //public delegate IntPtr GetISteamClient017(IntPtr thisptr, int user, int pipe, string version);
+
+        //[UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+        //[return: MarshalAs(UnmanagedType.I1)]
+        //public delegate bool SteamBConnected(int user, int pipe);
+
+        //[UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+        //[return: MarshalAs(UnmanagedType.I1)]
+        //public delegate bool SteamBLoggedOn(int user, int pipe);
     }
 }

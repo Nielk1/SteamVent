@@ -485,22 +485,22 @@ namespace SteamVent.SteamCmd
                 progress.Report(sum);
             }
         }*/
-        private void UpdateProgress(IProgress<double?> progress, int p1, int p2, int p3, int p4)
+        private void UpdateProgress(IProgress<double?> progress, double p1, double p2, double p3, double p4)
         {
             if (progress == null)
                 return;
             double percent =
-                  (1d - (1d / (p1 + 1))) * 0.1d // folders
-                + (1d - (1d / (p2 + 1))) * 0.1d // cache
-                + (1d - (1d / (p3 + 1))) * 0.7d // steamcmd
-                + (1d - (1d / (p4 + 1))) * 0.1d; // html
+                  (p1 * 0.1d) // folders
+                + (p2 * 0.1d) // cache
+                + (p3 * 0.7d) // steamcmd
+                + (p4 * 0.1d); // html
             //Trace.WriteLine($"Progress: {percent}");
             progress.Report(percent);
         }
 
-        public async Task<List<WorkshopItemStatus>?> WorkshopStatusAsync(UInt32 AppId, IProgress<double?>? Progress = null, IObserver<ESteamCmdTaskStatus>? Observer = null)
+        public async Task<List<WorkshopItemStatus>?> WorkshopStatusAsync(UInt32 AppId, IProgress<double?>? Progress = null, Action<ESteamCmdTaskStatus>? OnStatus = null)
         {
-            Observer?.OnNext(ESteamCmdTaskStatus.WaitingToStart);
+            OnStatus?.Invoke(ESteamCmdTaskStatus.WaitingToStart);
             Trace.WriteLine($"WorkshopStatus({AppId})");
             try
             {
@@ -511,170 +511,33 @@ namespace SteamVent.SteamCmd
                 DateTime? LatestUpdate = null;
                 SemaphoreSlim DictionaryLock = new SemaphoreSlim(1, 1);
 
-                int ProgressA = 0;
-                int ProgressB = 0;
-                int ProgressC = 0;
-                int ProgressD = 0;
+                double ProgressA = 0;
+                double ProgressB = 0;
+                double ProgressC = 0;
+                double ProgressD = 0;
+
+                string LibraryPath = Path.Combine(SteamCmdContext.AssemblyDirectory, "steamcmd");
 
                 // get existing mod folders
-                string ModsPath = Path.Combine(SteamCmdContext.AssemblyDirectory, "steamcmd", "steamapps", "workshop", "content", AppId.ToString());
                 Task DirectoryScanTask = Task.Run(async () =>
                 {
-                    foreach(string path in Directory.EnumerateDirectories(ModsPath, "*", SearchOption.TopDirectoryOnly))
+                    await foreach (double? d in FileSystem.SteamWorkshop.WorkshopStatusFromFilesAsync(LibraryPath, AppId, DictionaryLock, WorkshopItems, WorkshopItemLocks))
                     {
-                        string filename = Path.GetFileName(path);
-                        UInt64 workshopId;
-                        if(UInt64.TryParse(filename, out workshopId))
-                        {
-                            WorkshopItemStatus currentItem = null;
-                            SemaphoreSlim itemLock = null;
-                            try
-                            {
-                                await DictionaryLock.WaitAsync();
-                                if (!WorkshopItems.ContainsKey(workshopId))
-                                {
-                                    WorkshopItems[workshopId] = new WorkshopItemStatus
-                                    {
-                                        WorkshopId = workshopId,
-                                        Status = "installed",
-                                        Size = -1,
-                                        DateTime = null,
-                                        HasUpdate = false,
-                                        Missing = false,
-                                        Detection = WorkshopItemStatus.WorkshopDetectionType.Folder,
-                                    };
-                                    WorkshopItemLocks[workshopId] = new SemaphoreSlim(1, 1);
-                                }
-                                else
-                                {
-                                    itemLock =  WorkshopItemLocks[workshopId];
-                                    currentItem = WorkshopItems[workshopId];
-                                }
-                            }
-                            finally
-                            {
-                                DictionaryLock.Release();
-                            }
-
-                            if (currentItem != null && itemLock != null)
-                            {
-                                try
-                                {
-                                    await itemLock.WaitAsync();
-                                    currentItem.Missing = false; // we files files so we can't be missing
-                                    currentItem.Detection |= WorkshopItemStatus.WorkshopDetectionType.Folder; // we have a folder so add detection
-                                }
-                                finally
-                                {
-                                    itemLock.Release();
-                                }
-                            }
-
-                            ProgressA++;
+                        ProgressA = d ?? 1d;
+                        if (Progress != null)
                             UpdateProgress(Progress, ProgressA, ProgressB, ProgressC, ProgressD);
-                        }
                     }
                 });
 
+                // get existing cache files
                 Task CacheScanTask = Task.Run(async () =>
                 {
-                    string ManifestPath = Path.Combine("steamcmd", "steamapps", "workshop", $"appworkshop_{AppId}.acf");
-                    if (File.Exists(ManifestPath))
+                    await foreach ((double?, DateTime?) d in FileSystem.SteamWorkshop.WorkshopStatusFromCacheAsync(LibraryPath, AppId, DictionaryLock, WorkshopItems, WorkshopItemLocks))
                     {
-                        HashSet<string> AcfKeys = new HashSet<string>();
-
-                        VProperty appWorkshop = VdfConvert.Deserialize(File.ReadAllText(ManifestPath));
-
-                        VObject WorkshopItemsInstalled = appWorkshop.Value["WorkshopItemsInstalled"] as VObject;
-                        foreach (VProperty prop in WorkshopItemsInstalled.Properties())
-                            if (prop != null && prop.Key != "1")
-                                AcfKeys.Add(prop.Key);
-
-                        VObject WorkshopItemDetails = appWorkshop.Value["WorkshopItemDetails"] as VObject;
-                        foreach (VProperty prop in WorkshopItemDetails.Properties())
-                            if (prop != null && prop.Key != "1")
-                                AcfKeys.Add(prop.Key);
-
-                        foreach (string workshopIdString in AcfKeys)
-                        {
-                            UInt64 workshopId = 0;
-                            if (!UInt64.TryParse(workshopIdString, out workshopId))
-                                continue;
-
-                            VObject? installRecord = WorkshopItemsInstalled[workshopIdString]?.Value<VObject>();
-                            DateTime? timeupdatedInstalled = null;
-                            long? size = null;
-                            if (installRecord != null)
-                            {
-                                long? unix = installRecord["timeupdated"]?.Value<long>();
-                                if (unix != null)
-                                    timeupdatedInstalled = DateTimeOffset.FromUnixTimeSeconds(unix.Value).DateTime; // UTC
-                                size = installRecord["size"]?.Value<long>();
-                            }
-
-                            VObject? detailRecord = WorkshopItemDetails[workshopIdString]?.Value<VObject>();
-                            DateTime? timeupdatedDetail = null;
-                            if (detailRecord != null)
-                            {
-                                long? unix = detailRecord["timeupdated"]?.Value<long>();
-                                if (unix != null)
-                                    timeupdatedDetail = DateTimeOffset.FromUnixTimeSeconds(unix.Value).DateTime; // UTC
-                            }
-
-                            bool timestampsDisagree = (timeupdatedInstalled != timeupdatedDetail);
-
-                            WorkshopItemStatus currentItem = null;
-                            SemaphoreSlim itemLock = null;
-                            try
-                            {
-                                await DictionaryLock.WaitAsync();
-                                if (!WorkshopItems.ContainsKey(workshopId))
-                                {
-                                    WorkshopItems[workshopId] = new WorkshopItemStatus
-                                    {
-                                        WorkshopId = workshopId,
-                                        Status = timestampsDisagree ? "updated required" : "installed",
-                                        Size = size ?? -1,
-                                        DateTime = timeupdatedInstalled,
-                                        HasUpdate = timestampsDisagree,
-                                        Missing = true, // assume missing till we see the folder
-                                        Detection = WorkshopItemStatus.WorkshopDetectionType.Cache,
-                                    };
-                                    WorkshopItemLocks[workshopId] = new SemaphoreSlim(1, 1);
-                                }
-                                else
-                                {
-                                    itemLock = WorkshopItemLocks[workshopId];
-                                    currentItem = WorkshopItems[workshopId];
-                                }
-                                LatestUpdate = Nullable.Compare(LatestUpdate, timeupdatedInstalled) > 0 ? LatestUpdate : timeupdatedInstalled;
-                            }
-                            finally
-                            {
-                                DictionaryLock.Release();
-                            }
-
-                            if (currentItem != null && itemLock != null)
-                            {
-                                try
-                                {
-                                    await itemLock.WaitAsync();
-                                    currentItem.Status = timestampsDisagree ? "updated required" : "installed";
-                                    if (currentItem.Size == -1 && size.HasValue)
-                                        currentItem.Size = size.Value;
-                                    currentItem.DateTime ??= timeupdatedInstalled;
-                                    currentItem.HasUpdate |= timestampsDisagree;
-                                    currentItem.Detection |= WorkshopItemStatus.WorkshopDetectionType.Cache; // we have a cache so add detection
-                                }
-                                finally
-                                {
-                                    itemLock.Release();
-                                }
-                            }
-
-                            ProgressB++;
+                        LatestUpdate = Nullable.Compare(LatestUpdate, d.Item2) > 0 ? LatestUpdate : d.Item2;
+                        ProgressB = d.Item1 ?? 1d;
+                        if (Progress != null)
                             UpdateProgress(Progress, ProgressA, ProgressB, ProgressC, ProgressD);
-                        }
                     }
                 });
 
@@ -685,10 +548,10 @@ namespace SteamVent.SteamCmd
                     // if it takes over a second to get the lock, status us as paused
                     Task lockTask = ProcessLock.WaitAsync();
                     CancellationTokenSource waitStatusCancel = new CancellationTokenSource();
-                    await Task.WhenAny(lockTask, Task.Run(() => { Task.Delay(1000); Observer?.OnNext(ESteamCmdTaskStatus.Waiting); }, waitStatusCancel.Token));
+                    await Task.WhenAny(lockTask, Task.Run(() => { Task.Delay(1000); OnStatus?.Invoke(ESteamCmdTaskStatus.Waiting); }, waitStatusCancel.Token));
                     await lockTask;
                     waitStatusCancel.Cancel();
-                    Observer?.OnNext(ESteamCmdTaskStatus.Running);
+                    OnStatus?.Invoke(ESteamCmdTaskStatus.Running);
 
                     Process proc = GetProc(command);
 
@@ -786,7 +649,8 @@ namespace SteamVent.SteamCmd
                                 }
 
                                 ProgressC++;
-                                UpdateProgress(Progress, ProgressA, ProgressB, ProgressC, ProgressD);
+                                if (Progress != null)
+                                    UpdateProgress(Progress, ProgressA, ProgressB, ProgressC, ProgressD);
                             }
                             else
                             {
@@ -807,7 +671,7 @@ namespace SteamVent.SteamCmd
                 {
                     ProcessLock.Release();
                 }
-                Observer?.OnNext(ESteamCmdTaskStatus.Running);
+                OnStatus?.Invoke(ESteamCmdTaskStatus.Running);
 
                 await DirectoryScanTask;
                 await CacheScanTask;
@@ -815,60 +679,17 @@ namespace SteamVent.SteamCmd
                 // Read the workshop webpage because we can't get actual update information from steamcmd for anon accounts
                 if (LatestUpdate.HasValue)
                 {
-                    HttpClient client = new HttpClient();
-                    HtmlParser parser = new HtmlParser();
-                    List<(UInt64 workshopId, string workshopTitle, string workshopImage)> HtmlWorkshopItems = new List<(UInt64, string, string)>();
-                    for (int page = 1; ; page++)
+                    await foreach (double? d in Web.SteamWorkshop.WorkshopStatusFromWebUpdateOnlyAsync(LibraryPath, AppId, LatestUpdate.Value, DictionaryLock, WorkshopItems, WorkshopItemLocks))
                     {
-                        string workshopUrl = @$"https://steamcommunity.com/workshop/browse/?appid={AppId}&browsesort=lastupdated&section=readytouseitems&updated_date_range_filter_start={((DateTimeOffset)LatestUpdate.Value).ToUnixTimeSeconds() - 1}&actualsort=lastupdated&p={page}";
-                        var response = await client.GetAsync(workshopUrl);
-                        string html = await response.Content.ReadAsStringAsync();
-                        //byte[] bytes = await response.Content.ReadAsByteArrayAsync(); // this might fix 712270362, odd we can't just trust the headers, unless we can?
-                        //string html = Encoding.UTF8.GetString(bytes);
-                        if (!html.Contains(@"No items matching your search criteria were found."))
-                        {
-                            var document = parser.ParseDocument(html);
-                            foreach (var workshopItem in document.QuerySelectorAll(".workshopItem"))
-                            {
-                                var link = workshopItem.QuerySelector("a.ugc");
-                                UInt64 workshopId = UInt64.Parse(link.GetAttribute("data-publishedfileid"));
-
-                                string workshopTitle = workshopItem.QuerySelector(".workshopItemTitle")?.TextContent?.Trim();
-
-                                string workshopImage = workshopItem.QuerySelector(".workshopItemPreviewImage")?.Attributes["src"]?.Value;
-                                if (!string.IsNullOrWhiteSpace(workshopImage) && workshopImage.Contains("?"))
-                                    workshopImage = workshopImage.Substring(0, workshopImage.IndexOf("?"));
-
-                                HtmlWorkshopItems.Add((workshopId, workshopTitle, workshopImage));
-                            }
-                            var pages = document.QuerySelectorAll(".workshopBrowsePaging .pagebtn");
-                            if (pages.Length < 2 || pages[1].ClassList.Contains("disabled"))
-                                break;
-
-                            ProgressD++;
+                        ProgressD = d ?? 1d;
+                        if (Progress != null)
                             UpdateProgress(Progress, ProgressA, ProgressB, ProgressC, ProgressD);
-                        }
-                        else
-                        {
-                            break;
-                        }
-                    }
-                    foreach (var workshopData in HtmlWorkshopItems)
-                    {
-                        if (!WorkshopItems.ContainsKey(workshopData.workshopId))
-                            continue;
-                        WorkshopItemStatus thisItem = WorkshopItems[workshopData.workshopId];
-                        thisItem.Status = "updated required";
-                        thisItem.HasUpdate = true;
-                        thisItem.Detection |= WorkshopItemStatus.WorkshopDetectionType.HtmlList;
-                        thisItem.Title = workshopData.workshopTitle;
-                        thisItem.Image = workshopData.workshopImage;
                     }
                 }
 
                 try
                 {
-                    Progress.Report(1d);
+                    Progress?.Report(1d);
                     //await DictionaryLock.WaitAsync();
                     return WorkshopItems?.OrderBy(dr => dr.Key)?.Select(dr => dr.Value)?.ToList();
                 }
