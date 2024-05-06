@@ -19,7 +19,7 @@ namespace SteamVent.Adaptive
 
         public string? GetAppInstallDir(UInt32 appID)
         {
-            return steamClient.GetAppInstallDir(appID) ?? FileSystem.SteamApps.GetAppInstallDir(appID);
+            return steamClient.GetSteamApps()?.GetAppInstallDir(appID) ?? FileSystem.SteamApps.GetAppInstallDir(appID);
         }
     }
 }

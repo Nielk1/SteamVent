@@ -305,12 +305,17 @@ namespace SteamVent.InterProc.Interfaces
 
         #region VTableIndex(41)
         [VTableIndex(41), UnmanagedFunctionPointer(CallingConvention.ThisCall)]
-        private delegate UInt32 GetSubscribedItemsDelegate(IntPtr thisPtr, ref UInt64 pvecPublishedFileID, UInt32 cMaxEntries);
+        private delegate UInt32 GetSubscribedItemsDelegate(IntPtr thisPtr, [In, Out] UInt64[] pvecPublishedFileID, UInt32 cMaxEntries);
         #endregion
-        public UInt32 GetSubscribedItems(ref UInt64 pvecPublishedFileID, UInt32 cMaxEntries) =>
-            GetDelegate<GetSubscribedItemsDelegate>()(InterfacePtr, ref pvecPublishedFileID, cMaxEntries);
+        public UInt32 GetSubscribedItems(UInt64[] pvecPublishedFileID, UInt32 cMaxEntries) =>
+            GetDelegate<GetSubscribedItemsDelegate>()(InterfacePtr, pvecPublishedFileID, cMaxEntries);
 
-        //GetItemState
+        #region VTableIndex(42)
+        [VTableIndex(42), UnmanagedFunctionPointer(CallingConvention.ThisCall)]
+        private delegate EItemState GetItemStateDelegate(IntPtr thisPtr, UInt64 pvecPublishedFileID);
+        #endregion
+        public EItemState GetItemState(UInt64 nPublishedFileID) =>
+            GetDelegate<GetItemStateDelegate>()(InterfacePtr, nPublishedFileID);
 
         [Obsolete("Not implemented in this version.", true)] public bool GetItemInstallInfo(UInt64 nPublishedFileID, ref UInt64 punSizeOnDisk, StringBuilder pchFolder, UInt32 cchFolderSize) { throw new NotImplementedException(); }
         [Obsolete("Not implemented in this version.", true)] public bool GetItemInstallInfo(UInt64 nPublishedFileID, ref UInt64 punSizeOnDisk, StringBuilder pchFolder, UInt32 cchFolderSize, ref bool pbLegacyItem) { throw new NotImplementedException(); }

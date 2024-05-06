@@ -19,6 +19,8 @@ namespace SteamVent.InterProc.Interfaces
         void CreateLocalUser(ref Int32 phSteamPipe, EAccountType eAccountType);
         void ReleaseUser(Int32 hSteamPipe, Int32 hUser);
         TInterface GetISteamUser<TInterface>(Int32 hSteamUser, Int32 hSteamPipe) where TInterface : SteamInterfaceWrapper;
+        TInterface GetISteamUtils<TInterface>(Int32 hSteamPipe) where TInterface : SteamInterfaceWrapper;
         TInterface GetISteamApps<TInterface>(Int32 hSteamUser, Int32 hSteamPipe) where TInterface : SteamInterfaceWrapper;
+        TInterface GetISteamUGC<TInterface>(Int32 hSteamUser, Int32 hSteamPipe) where TInterface : SteamInterfaceWrapper;
     }
 }

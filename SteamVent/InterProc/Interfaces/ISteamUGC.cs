@@ -56,8 +56,8 @@ namespace SteamVent.InterProc.Interfaces
         UInt64 SubscribeItem(UInt64 nPublishedFileID);
         UInt64 UnsubscribeItem(UInt64 nPublishedFileID);
         UInt32 GetNumSubscribedItems();
-        UInt32 GetSubscribedItems(ref UInt64 pvecPublishedFileID, UInt32 cMaxEntries);
-        //GetItemState
+        UInt32 GetSubscribedItems(UInt64[] pvecPublishedFileID, UInt32 cMaxEntries);
+        EItemState GetItemState(UInt64 nPublishedFileID);
         bool GetItemInstallInfo(UInt64 nPublishedFileID, ref UInt64 punSizeOnDisk, StringBuilder pchFolder, UInt32 cchFolderSize);
         bool GetItemInstallInfo(UInt64 nPublishedFileID, ref UInt64 punSizeOnDisk, StringBuilder pchFolder, UInt32 cchFolderSize, ref bool pbLegacyItem);
         bool GetItemInstallInfo(UInt64 nPublishedFileID, ref UInt64 punSizeOnDisk, StringBuilder pchFolder, UInt32 cchFolderSize, ref UInt32 punTimeStamp);

@@ -237,10 +237,12 @@ namespace SteamVent.InterProc.Interfaces
 
         #region VTableIndex(28)
         [VTableIndex(28), UnmanagedFunctionPointer(CallingConvention.ThisCall)]
-        private delegate UInt32 GetSubscribedItemsDelegate(IntPtr thisPtr, ref UInt64 pvecPublishedFileID, UInt32 cMaxEntries);
+        private delegate UInt32 GetSubscribedItemsDelegate(IntPtr thisPtr, [In, Out] UInt64[] pvecPublishedFileID, UInt32 cMaxEntries);
         #endregion
-        public UInt32 GetSubscribedItems(ref UInt64 pvecPublishedFileID, UInt32 cMaxEntries) =>
-            GetDelegate<GetSubscribedItemsDelegate>()(InterfacePtr, ref pvecPublishedFileID, cMaxEntries);
+        public UInt32 GetSubscribedItems(UInt64[] pvecPublishedFileID, UInt32 cMaxEntries) =>
+            GetDelegate<GetSubscribedItemsDelegate>()(InterfacePtr, pvecPublishedFileID, cMaxEntries);
+
+        [Obsolete("Not implemented in this version.", true)] public EItemState GetItemState(UInt64 nPublishedFileID) { throw new NotImplementedException(); }
 
         #region VTableIndex(29)
         [VTableIndex(29), UnmanagedFunctionPointer(CallingConvention.ThisCall)]

@@ -102,7 +102,7 @@ namespace SteamVent.Steamworks
         /// Inilize Steamworks if not already active
         /// </summary>
         /// <exception cref="Exception"></exception>
-        private bool TryStartSteamworks()
+        internal bool TryStartSteamworks()
         {
             if (SteamIsRunning && InternalSteamClient == null)
             {
@@ -146,17 +146,21 @@ namespace SteamVent.Steamworks
         }
         #endregion Steamworks Lifecycle
 
-        public string? GetAppInstallDir(uint appID)
+
+
+
+
+
+
+        object steamAppsLock = new object();
+        SteamApps? steamApps = null;
+        public SteamApps GetSteamApps()
         {
-            if(TryStartSteamworks())
+            lock (steamAppsLock)
             {
-                var steamApps = InternalSteamClient?.GetISteamApps<ISteamApps008>(User, Pipe);
-                if (steamApps != null)
-                {
-                    return steamApps.GetAppInstallDir(appID);
-                }
+                steamApps ??= new SteamApps(this);
+                return steamApps;
             }
-            return null;
         }
     }
 }
