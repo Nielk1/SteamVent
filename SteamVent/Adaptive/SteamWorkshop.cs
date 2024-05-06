@@ -18,12 +18,12 @@ namespace SteamVent.Adaptive
             this.steamClient = steamClient;
         }
 
-        public async Task<List<WorkshopItemStatus>?> WorkshopStatusAsync(string LibraryPathOverride, UInt32 AppId, IProgress<double?>? Progress = null)
+        public async Task<List<WorkshopItemStatus>?> WorkshopStatusAsync(string LibraryPathOverride, UInt32 AppId, IProgress<double?>? Progress = null, bool AllowBridge = false)
         {
             string? LibraryPath = LibraryPathOverride ?? context.GetSteamApps().GetAppInstallDir(AppId);
             if (LibraryPath == null)
                 return null;
-            return await FileSystem.SteamWorkshop.WorkshopStatusAsync(LibraryPath, AppId, Progress);
+            return await FileSystem.SteamWorkshop.WorkshopStatusAsync(LibraryPath, AppId, Progress, AllowBridge);
         }
     }
 }

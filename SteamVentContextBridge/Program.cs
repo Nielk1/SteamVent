@@ -8,6 +8,8 @@ using System.Runtime.InteropServices;
 using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using System.Text.Json.Serialization;
+using SteamVent.Common.InterProc;
+using SteamVent.Bridge;
 
 namespace SteamVentContextBridge
 {

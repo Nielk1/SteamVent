@@ -12,6 +12,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\SteamVent.Bridge\SteamVent.Bridge.csproj" />
     <ProjectReference Include="..\SteamVent.Common\SteamVent.Common.csproj" />
   </ItemGroup>
 
