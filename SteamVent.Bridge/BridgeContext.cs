@@ -14,14 +14,14 @@ namespace SteamVent.Bridge
 {
     public class BridgeContext : IDisposable
     {
-        private static SemaphoreSlim Lock = new SemaphoreSlim(1, 1);
+        //private static SemaphoreSlim Lock = new SemaphoreSlim(1, 1);
         private static SemaphoreSlim WriteLock = new SemaphoreSlim(1, 1);
         private Process proc;
-        private UInt32 appId;
+        //private UInt32 appId;
         private bool exited;
         public BridgeContext(UInt32 appId)
         {
-            this.appId = appId;
+            //this.appId = appId;
             this.exited = false;
             this.proc = new Process()
             {

@@ -17,9 +17,22 @@ namespace SteamVent.Adaptive
             this.steamClient = steamClient;
         }
 
-        public string? GetAppInstallDir(UInt32 appID)
+        public string? GetAppInstallDir(UInt32 appId)
         {
-            return steamClient.GetSteamApps()?.GetAppInstallDir(appID) ?? FileSystem.SteamApps.GetAppInstallDir(appID);
+            return steamClient.GetSteamApps()?.GetAppInstallDir(appId) ?? FileSystem.SteamApps.GetAppInstallDir(appId);
+        }
+
+        public string? GetAppLibraryDir(UInt32 appId)
+        {
+            string? InstallDir = GetAppInstallDir(appId);
+            if (InstallDir != null)
+            {
+                var Paths = FileSystem.SteamProcessInfo.GetSteamLibraryPaths();
+                foreach (string path in Paths)
+                    if (!Path.GetRelativePath(path, InstallDir).Contains(".."))
+                        return path;
+            }
+            return null;
         }
     }
 }

@@ -19,11 +19,14 @@ namespace SteamVent.FileSystem
         {
             if (progress == null)
                 return;
+            //double percent =
+            //      (p1 * (p3.HasValue ? 0.45d : 0.5d)) // folders
+            //    + (p2 * (p3.HasValue ? 0.45d : 0.5d)) // cache
+            //    //+ (p3 * 0.1d); // html
+            //    + ((p3 ?? 0) * 0.1d); // steam
             double percent =
-                  (p1 * (p3.HasValue ? 0.45d : 0.5d)) // folders
-                + (p2 * (p3.HasValue ? 0.45d : 0.5d)) // cache
-                //+ (p3 * 0.1d); // html
-                + ((p3 ?? 0) * 0.1d); // steam
+                  (p1 * 0.5d) // folders
+                + (p2 * 0.5d); // cache
             //Trace.WriteLine($"Progress: {percent}");
             progress.Report(percent);
         }
@@ -252,7 +255,8 @@ namespace SteamVent.FileSystem
                 //    }
                 //}
 
-                // consider moving this to another location that copies this function or something, or calls this one too
+                // TODO consider moving this to another location that copies this function or something, or calls this one too
+                // If moved this can also check for ownership before the call which would help
                 if (AllowBridge)
                 {
                     ProgressC = 0;
@@ -337,7 +341,7 @@ namespace SteamVent.FileSystem
 
                 try
                 {
-                    Progress.Report(1d);
+                    Progress?.Report(1d);
                     //await DictionaryLock.WaitAsync();
                     return WorkshopItems?.OrderBy(dr => dr.Key)?.Select(dr => dr.Value)?.ToList();
                 }
