@@ -257,6 +257,12 @@ namespace SteamVent.SteamCmd
 
                             yield break;
                         }
+                        // TODO handle this better, but it means it stalled
+                        if (line.Contains(@"Assertion Failed: CSteamEngine::BMainLoop appears to have stalled > 15 seconds without event signalled"))
+                        {
+                            // TODO forced exit of proxy?
+                            yield break;
+                        }
                     }
                 }
                 else

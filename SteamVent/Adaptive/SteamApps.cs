@@ -16,6 +16,12 @@ namespace SteamVent.Adaptive
             this.context = context;
             this.steamClient = steamClient;
         }
+        
+        // TODO improve filesystem install check
+        public bool GetAppInstalled(UInt32 appId)
+        {
+            return steamClient.GetSteamApps()?.GetAppInstalled(appId) ?? ((FileSystem.SteamApps.GetAppInstallDir(appId)?.Length ?? 0) > 0);
+        }
 
         public string? GetAppInstallDir(UInt32 appId)
         {

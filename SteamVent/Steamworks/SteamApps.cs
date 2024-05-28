@@ -27,5 +27,18 @@ namespace SteamVent.Steamworks
             }
             return null;
         }
+
+        public bool? GetAppInstalled(uint appID)
+        {
+            if (steamClient.TryStartSteamworks())
+            {
+                var steamApps = steamClient.GetSteamApps();
+                if (steamApps != null)
+                {
+                    return steamApps.GetAppInstalled(appID);
+                }
+            }
+            return null;
+        }
     }
 }
