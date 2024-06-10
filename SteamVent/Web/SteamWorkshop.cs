@@ -23,11 +23,19 @@ namespace SteamVent.Web
             for (int page = 1; ; page++)
             {
                 string workshopUrl = @$"https://steamcommunity.com/workshop/browse/?appid={AppId}&browsesort=lastupdated&section=readytouseitems&updated_date_range_filter_start={((DateTimeOffset)LatestUpdate).ToUnixTimeSeconds() - 1}&actualsort=lastupdated&p={page}";
-                var response = await client.GetAsync(workshopUrl);
-                string html = await response.Content.ReadAsStringAsync();
+                string? html = null;
+                try
+                {
+                    var response = await client.GetAsync(workshopUrl);
+                    html = await response.Content.ReadAsStringAsync();
+                }
+                catch (System.Net.Http.HttpRequestException ex)
+                {
+                    break;
+                }
                 //byte[] bytes = await response.Content.ReadAsByteArrayAsync(); // this might fix 712270362, odd we can't just trust the headers, unless we can?
                 //string html = Encoding.UTF8.GetString(bytes);
-                if (!html.Contains(@"No items matching your search criteria were found."))
+                if (html != null && !html.Contains(@"No items matching your search criteria were found."))
                 {
                     var document = parser.ParseDocument(html);
                     foreach (var workshopItem in document.QuerySelectorAll(".workshopItem"))
@@ -68,6 +76,41 @@ namespace SteamVent.Web
             }
 
             yield return 1d;
+        }
+
+        // TODO: add cache layer
+        public static async Task<UInt32?> WorkshopAppIdFromWebAsync(UInt64 workshopId)
+        {
+            HttpClient client = new HttpClient();
+            HtmlParser parser = new HtmlParser();
+            {
+                string workshopUrl = @$"https://steamcommunity.com/sharedfiles/filedetails/?id={workshopId}";
+                string? html = null;
+                try
+                {
+                    var response = await client.GetAsync(workshopUrl);
+                    html = await response.Content.ReadAsStringAsync();
+                }
+                catch (System.Net.Http.HttpRequestException ex)
+                {
+                    return null;
+                }
+                //byte[] bytes = await response.Content.ReadAsByteArrayAsync(); // this might fix 712270362, odd we can't just trust the headers, unless we can?
+                //string html = Encoding.UTF8.GetString(bytes);
+                if (html != null && !html.Contains(@"That item does not exist.  It may have been removed by the author."))
+                {
+                    var document = parser.ParseDocument(html);
+
+                    //string? _appId = document.QuerySelector("*[data-ds-appid]")?.Attributes["data-ds-appid"]?.Value;
+                    string? _appId = document?.QuerySelector(".apphub_sectionTab")?.GetAttribute("href")?.Split('/')?.Last();
+                    if (UInt32.TryParse(_appId, out UInt32 appId))
+                    {
+                        return appId;
+                    }
+                }
+            }
+
+            return null;
         }
     }
 }
