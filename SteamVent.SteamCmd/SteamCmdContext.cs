@@ -665,6 +665,8 @@ namespace SteamVent.SteamCmd
                         }
                     }
 
+                    //await foreach (string line in ReadLines(proc)) { }
+
                     // check if we're stuck on a prompt or something wierd
                     if (!proc.HasExited)
                     {
