@@ -24,9 +24,28 @@ using System.Threading.Tasks;
 
 namespace SteamVent.SteamCmd
 {
+    public enum SteamCmdLogType
+    {
+        Normal,
+        Workshop,
+    }
+    public struct SteamCmdRichOutput
+    {
+        public SteamCmdLogType Type;
+        public string Text;
+
+        public SteamCmdRichOutput(SteamCmdLogType Type, string Text) : this()
+        {
+            this.Type = Type;
+            this.Text = Text;
+        }
+    }
+
     public class SteamCmdContext
     {
         private const string SteamCmdDownloadURL = @"https://steamcdn-a.akamaihd.net/client/installer/steamcmd.zip";
+        //private const string ANTI_STALL = $"-- type 'quit' to exit --";
+        private const string ANTI_STALL = $"Loading Steam API...OK";
 
         //object procLock = new object();
         SemaphoreSlim ProcessLock = new SemaphoreSlim(1, 1);
@@ -39,7 +58,10 @@ namespace SteamVent.SteamCmd
         public event SteamCmdOutputEventHandler SteamCmdOutput;
 
         public delegate void SteamCmdOutputFullEventHandler(object sender, string msg);
-        public event SteamCmdOutputEventHandler SteamCmdOutputFull;
+        public event SteamCmdOutputFullEventHandler SteamCmdOutputFull;
+
+        public delegate void SteamCmdRichOutputEventHandler(object sender, SteamCmdRichOutput msg);
+        public event SteamCmdRichOutputEventHandler SteamCmdRichOutput;
 
         public delegate void SteamCmdArgsEventHandler(object sender, string msg);
         public event SteamCmdArgsEventHandler SteamCmdArgs;
@@ -114,6 +136,9 @@ namespace SteamVent.SteamCmd
             do
             {
                 retVal = await StartProcAsync(command);
+
+                OnSteamCmdRichOutput(new SteamCmdRichOutput(SteamCmdLogType.Normal, retVal.TrimEnd('\r', '\n')));
+
             } while (retVal?.Trim().Split(new string[] { "\r\n", "\n", "\r" }, StringSplitOptions.RemoveEmptyEntries).LastOrDefault() == @"[  0%] Checking for available updates...");
 
             return retVal;
@@ -557,123 +582,147 @@ namespace SteamVent.SteamCmd
                     await Task.WhenAny(lockTask, Task.Run(() => { Task.Delay(1000); OnStatus?.Invoke(ESteamCmdTaskStatus.Waiting); }, waitStatusCancel.Token));
                     await lockTask;
                     waitStatusCancel.Cancel();
-                    OnStatus?.Invoke(ESteamCmdTaskStatus.Running);
 
-                    Process proc = GetProc(command);
-
-                    OnSteamCmdArgs($"steamcmd.exe {command}");
-                    OnSteamCmdStatusChange(new SteamCmdStatusChangeEventArgs(ESteamCmdStatus.Starting));
-                    proc.Start();
-                    //proc.BeginErrorReadLine();
-
-                    OnSteamCmdStatusChange(new SteamCmdStatusChangeEventArgs(ESteamCmdStatus.Active));
-
-                    int WorkshopReadStage = 0;
-                    await foreach (string line in ReadLines(proc))
+                    bool sawAntiStall = false;
+                    for (int retries = 0; retries < 10 && !sawAntiStall; retries++)
                     {
-                        if (WorkshopReadStage == 2)
-                            continue;
+                        OnStatus?.Invoke(ESteamCmdTaskStatus.Running);
 
-                        Match WorkshopStatusItemMatch = Config.RegWorkshopStatusItem.Match(line);
-                        if (WorkshopReadStage == 0)
-                            if (WorkshopStatusItemMatch.Success)
-                                WorkshopReadStage = 1;
+                        Process proc = GetProc(command);
 
+                        OnSteamCmdArgs($"steamcmd.exe {command}");
+                        OnSteamCmdStatusChange(new SteamCmdStatusChangeEventArgs(ESteamCmdStatus.Starting));
+                        proc.Start();
+                        //proc.BeginErrorReadLine();
 
-                        if (WorkshopReadStage == 1)
+                        OnSteamCmdStatusChange(new SteamCmdStatusChangeEventArgs(ESteamCmdStatus.Active));
+
+                        int WorkshopReadStage = 0;
+                        await foreach (string line in ReadLines(proc))
                         {
-                            if (WorkshopStatusItemMatch.Success)
+                            if (line.Contains(ANTI_STALL))
+                                sawAntiStall = true;
+
+                            if (WorkshopReadStage == 2)
                             {
-                                string datetimeString = $"{WorkshopStatusItemMatch.Groups["day"].Value} {WorkshopStatusItemMatch.Groups["month"].Value} {WorkshopStatusItemMatch.Groups["year"].Value} {WorkshopStatusItemMatch.Groups["hour"].Value}:{WorkshopStatusItemMatch.Groups["minutes"].Value}:{WorkshopStatusItemMatch.Groups["seconds"].Value}";
-                                DateTime parsedDateTime;
+                                OnSteamCmdRichOutput(new SteamCmdRichOutput(SteamCmdLogType.Normal, line.TrimEnd('\r', '\n')));
+                                continue;
+                            }
 
-                                string status = WorkshopStatusItemMatch.Groups["status"].Value;
-                                if (string.IsNullOrWhiteSpace(status))
-                                    status = WorkshopStatusItemMatch.Groups["status2"].Value;
+                            Match WorkshopStatusItemMatch = Config.RegWorkshopStatusItem.Match(line);
+                            if (WorkshopReadStage == 0)
+                                if (WorkshopStatusItemMatch.Success)
+                                    WorkshopReadStage = 1;
 
-                                string size = WorkshopStatusItemMatch.Groups["size"].Value;
-                                if (string.IsNullOrWhiteSpace(size))
-                                    size = WorkshopStatusItemMatch.Groups["size3"].Value;
 
-                                bool foundDateTime = DateTime.TryParse(datetimeString, out parsedDateTime);
-                                if (WorkshopStatusItemMatch.Groups["workshopId"].Value == "1")
-                                    continue;
-
-                                //Trace.WriteLine($"Found workshop item {WorkshopStatusItemMatch.Groups["workshopId"].Value}");
-
-                                UInt64 workshopId = 0;
-                                if (!UInt64.TryParse(WorkshopStatusItemMatch.Groups["workshopId"].Value, out workshopId))
-                                    continue;
-
-                                WorkshopItemStatus currentItem = null;
-                                SemaphoreSlim itemLock = null;
-                                try
+                            if (WorkshopReadStage == 1)
+                            {
+                                if (WorkshopStatusItemMatch.Success)
                                 {
-                                    await DictionaryLock.WaitAsync();
-                                    DateTime? DateTimeSet = foundDateTime ? (DateTime?)TimeZone.CurrentTimeZone.ToUniversalTime(parsedDateTime) : null;
-                                    if (!WorkshopItems.ContainsKey(workshopId))
+                                    string datetimeString = $"{WorkshopStatusItemMatch.Groups["day"].Value} {WorkshopStatusItemMatch.Groups["month"].Value} {WorkshopStatusItemMatch.Groups["year"].Value} {WorkshopStatusItemMatch.Groups["hour"].Value}:{WorkshopStatusItemMatch.Groups["minutes"].Value}:{WorkshopStatusItemMatch.Groups["seconds"].Value}";
+                                    DateTime parsedDateTime;
+
+                                    string status = WorkshopStatusItemMatch.Groups["status"].Value;
+                                    if (string.IsNullOrWhiteSpace(status))
+                                        status = WorkshopStatusItemMatch.Groups["status2"].Value;
+
+                                    string size = WorkshopStatusItemMatch.Groups["size"].Value;
+                                    if (string.IsNullOrWhiteSpace(size))
+                                        size = WorkshopStatusItemMatch.Groups["size3"].Value;
+
+                                    bool foundDateTime = DateTime.TryParse(datetimeString, out parsedDateTime);
+                                    if (WorkshopStatusItemMatch.Groups["workshopId"].Value == "1")
                                     {
-                                        WorkshopItems[workshopId] = new WorkshopItemStatus
-                                        {
-                                            WorkshopId = workshopId,
-                                            Status = status,
-                                            Size = long.Parse(size),
-                                            DateTime = DateTimeSet,
-                                            HasUpdate = WorkshopStatusItemMatch.Groups["status2"]?.Value == "updated required",
-                                            Missing = true, // assume missing till we see the folder
-                                            Detection = WorkshopItemStatus.WorkshopDetectionType.Direct,
-                                        };
-                                        WorkshopItemLocks[workshopId] = new SemaphoreSlim(1, 1);
+                                        OnSteamCmdRichOutput(new SteamCmdRichOutput(SteamCmdLogType.Normal, line.TrimEnd('\r', '\n')));
+                                        continue;
                                     }
-                                    else
-                                    {
-                                        itemLock = WorkshopItemLocks[workshopId];
-                                        currentItem = WorkshopItems[workshopId];
-                                    }
-                                    LatestUpdate = Nullable.Compare(LatestUpdate, DateTimeSet) > 0 ? LatestUpdate : DateTimeSet;
-                                }
-                                finally
-                                {
-                                    DictionaryLock.Release();
-                                }
 
-                                if (currentItem != null && itemLock != null)
-                                {
+                                    OnSteamCmdRichOutput(new SteamCmdRichOutput(SteamCmdLogType.Workshop, line.TrimEnd('\r', '\n')));
+
+                                    //Trace.WriteLine($"Found workshop item {WorkshopStatusItemMatch.Groups["workshopId"].Value}");
+
+                                    UInt64 workshopId = 0;
+                                    if (!UInt64.TryParse(WorkshopStatusItemMatch.Groups["workshopId"].Value, out workshopId))
+                                        continue;
+
+                                    WorkshopItemStatus currentItem = null;
+                                    SemaphoreSlim itemLock = null;
                                     try
                                     {
-                                        await itemLock.WaitAsync();
-                                        currentItem.Status = status;
-                                        currentItem.Size = long.Parse(size);
-                                        currentItem.DateTime ??= foundDateTime ? (DateTime?)TimeZone.CurrentTimeZone.ToUniversalTime(parsedDateTime) : null;
-                                        currentItem.HasUpdate |= WorkshopStatusItemMatch.Groups["status2"]?.Value == "updated required";
-                                        currentItem.Detection |= WorkshopItemStatus.WorkshopDetectionType.Direct; // we have a direct so add detection
+                                        await DictionaryLock.WaitAsync();
+                                        DateTime? DateTimeSet = foundDateTime ? (DateTime?)TimeZone.CurrentTimeZone.ToUniversalTime(parsedDateTime) : null;
+                                        if (!WorkshopItems.ContainsKey(workshopId))
+                                        {
+                                            WorkshopItems[workshopId] = new WorkshopItemStatus
+                                            {
+                                                WorkshopId = workshopId,
+                                                Status = status,
+                                                Size = long.Parse(size),
+                                                DateTime = DateTimeSet,
+                                                HasUpdate = WorkshopStatusItemMatch.Groups["status2"]?.Value == "updated required",
+                                                Missing = true, // assume missing till we see the folder
+                                                Detection = WorkshopItemStatus.WorkshopDetectionType.Direct,
+                                            };
+                                            WorkshopItemLocks[workshopId] = new SemaphoreSlim(1, 1);
+                                        }
+                                        else
+                                        {
+                                            itemLock = WorkshopItemLocks[workshopId];
+                                            currentItem = WorkshopItems[workshopId];
+                                        }
+                                        LatestUpdate = Nullable.Compare(LatestUpdate, DateTimeSet) > 0 ? LatestUpdate : DateTimeSet;
                                     }
                                     finally
                                     {
-                                        itemLock.Release();
+                                        DictionaryLock.Release();
                                     }
-                                }
 
-                                ProgressC++;
-                                if (Progress != null)
-                                    UpdateProgress(Progress, ProgressA, ProgressB, ProgressC, ProgressD);
+                                    if (currentItem != null && itemLock != null)
+                                    {
+                                        try
+                                        {
+                                            await itemLock.WaitAsync();
+                                            currentItem.Status = status;
+                                            currentItem.Size = long.Parse(size);
+                                            currentItem.DateTime ??= foundDateTime ? (DateTime?)TimeZone.CurrentTimeZone.ToUniversalTime(parsedDateTime) : null;
+                                            currentItem.HasUpdate |= WorkshopStatusItemMatch.Groups["status2"]?.Value == "updated required";
+                                            currentItem.Detection |= WorkshopItemStatus.WorkshopDetectionType.Direct; // we have a direct so add detection
+                                        }
+                                        finally
+                                        {
+                                            itemLock.Release();
+                                        }
+                                    }
+
+                                    ProgressC++;
+                                    if (Progress != null)
+                                        UpdateProgress(Progress, ProgressA, ProgressB, ProgressC, ProgressD);
+                                }
+                                else
+                                {
+                                    WorkshopReadStage = 2;
+                                    OnSteamCmdRichOutput(new SteamCmdRichOutput(SteamCmdLogType.Normal, line.TrimEnd('\r', '\n')));
+                                }
                             }
                             else
                             {
-                                WorkshopReadStage = 2;
+                                OnSteamCmdRichOutput(new SteamCmdRichOutput(SteamCmdLogType.Normal, line.TrimEnd('\r', '\n')));
                             }
                         }
+
+                        //await foreach (string line in ReadLines(proc)) { }
+
+                        // check if we're stuck on a prompt or something wierd
+                        if (!proc.HasExited)
+                        {
+                            proc.Close();
+                        }
+
+                        OnSteamCmdStatusChange(new SteamCmdStatusChangeEventArgs(ESteamCmdStatus.Closed));
+
+                        if (!sawAntiStall)
+                            await Task.Delay(1000);
                     }
-
-                    //await foreach (string line in ReadLines(proc)) { }
-
-                    // check if we're stuck on a prompt or something wierd
-                    if (!proc.HasExited)
-                    {
-                        proc.Close();
-                    }
-
-                    OnSteamCmdStatusChange(new SteamCmdStatusChangeEventArgs(ESteamCmdStatus.Closed));
                 }
                 finally
                 {
@@ -771,6 +820,11 @@ namespace SteamVent.SteamCmd
         protected void OnSteamCmdOutputFull(string msg)
         {
             SteamCmdOutputFull?.Invoke(this, msg);
+        }
+
+        protected void OnSteamCmdRichOutput(SteamCmdRichOutput msg)
+        {
+            SteamCmdRichOutput?.Invoke(this, msg);
         }
 
         protected void OnSteamCmdArgs(string msg)
