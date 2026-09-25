@@ -1,4 +1,5 @@
-﻿using SteamVent.SteamCmd;
+﻿using SteamVent.Common;
+using SteamVent.SteamCmd;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -13,16 +14,16 @@ namespace SteanVent.SteamCmd.TestCli
         static void Main(string[] args)
         {
             WriteLine(ConsoleColor.Magenta, "Start");
-            SteamCmdContext steamcmd = SteamCmdContext.GetInstance();
+            SteamCmdContext steamcmd = SteamCmdContext.Instance;
             steamcmd.SteamCmdStatusChange += Steamcmd_SteamCmdStatusChange;
             WriteLine(new string('-', Console.WindowWidth - 1));
 
             WriteLine(ConsoleColor.Magenta, "Download if needed");
-            steamcmd.Download();
+            steamcmd.DownloadAsync().GetAwaiter().GetResult();
             WriteLine(new string('-', Console.WindowWidth - 1));
 
             WriteLine(ConsoleColor.Magenta, "Status Check");
-            List<WorkshopItemStatus> status = steamcmd.WorkshopStatus(624970);
+            List<WorkshopItemStatus> status = steamcmd.WorkshopStatusAsync(624970).GetAwaiter().GetResult();
             WriteLine("Count: " + status.Count);
             WriteLine("WorkshopId\tStatus   \tHasUpdate\tSize\tDateTime");
             foreach (var stat in status)
@@ -32,12 +33,12 @@ namespace SteanVent.SteamCmd.TestCli
             WriteLine(new string('-', Console.WindowWidth - 1));
 
             WriteLine(ConsoleColor.Magenta, "Mod Download");
-            string downloadString = steamcmd.WorkshopDownloadItem(624970, 1762479746);
+            string downloadString = steamcmd.WorkshopDownloadItemAsync(624970, 1762479746).GetAwaiter().GetResult();
             WriteLine(downloadString);
             WriteLine(new string('-', Console.WindowWidth - 1));
 
             WriteLine(ConsoleColor.Magenta, "Status Check");
-            status = steamcmd.WorkshopStatus(624970);
+            status = steamcmd.WorkshopStatusAsync(624970).GetAwaiter().GetResult();
             WriteLine("Count: " + status.Count);
             WriteLine("WorkshopId\tStatus   \tHasUpdate\tSize\tDateTime");
             foreach (var stat in status)

@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net7.0</TargetFramework>
+    <TargetFramework>net8.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
 
@@ -22,6 +22,7 @@
   <ItemGroup>
     <ProjectReference Include="..\SteamVent.Common\SteamVent.Common.csproj" />
     <ProjectReference Include="..\SteamVent\SteamVent.csproj" />
+    <ProjectReference Include="..\SteamVent.SteamCmd\SteamVent.SteamCmd.csproj" />
   </ItemGroup>
 
   <ItemGroup>
@@ -29,5 +30,17 @@
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
   </ItemGroup>
+
+  <!--
+    Native runtime dependencies of SteamVent.SteamCmd (EasyHook32.dll, steamcmdinj.dll, steamcmdprox.exe)
+    are produced by the Visual Studio C++ projects and copied by SteamVent.SteamCmd's own PostBuild target.
+    If they are present in SteamVent.SteamCmd's output, copy them here so SteamCmd tests can run.
+  -->
+  <Target Name="CopyNativeRuntimeDependencies" AfterTargets="PostBuildEvent">
+    <Exec Command="copy /Y &quot;$(MSBuildThisFileDirectory)..\SteamVent.SteamCmd\bin\$(Configuration)\net8.0\EasyHook32.dll&quot; &quot;$(TargetDir)EasyHook32.dll&quot;" Condition="Exists('$(MSBuildThisFileDirectory)..\SteamVent.SteamCmd\bin\$(Configuration)\net8.0\EasyHook32.dll')" />
+    <Exec Command="copy /Y &quot;$(MSBuildThisFileDirectory)..\SteamVent.SteamCmd\bin\$(Configuration)\net8.0\steamcmdinj.dll&quot; &quot;$(TargetDir)steamcmdinj.dll&quot;" Condition="Exists('$(MSBuildThisFileDirectory)..\SteamVent.SteamCmd\bin\$(Configuration)\net8.0\steamcmdinj.dll')" />
+    <Exec Command="copy /Y &quot;$(MSBuildThisFileDirectory)..\SteamVent.SteamCmd\bin\$(Configuration)\net8.0\steamcmdprox.exe&quot; &quot;$(TargetDir)steamcmdprox.exe&quot;" Condition="Exists('$(MSBuildThisFileDirectory)..\SteamVent.SteamCmd\bin\$(Configuration)\net8.0\steamcmdprox.exe')" />
+    <Exec Command="copy /Y &quot;$(MSBuildThisFileDirectory)..\SteamVent.SteamCmd\bin\$(Configuration)\net8.0\steamcmdprox.pdb&quot; &quot;$(TargetDir)steamcmdprox.pdb&quot;" Condition="Exists('$(MSBuildThisFileDirectory)..\SteamVent.SteamCmd\bin\$(Configuration)\net8.0\steamcmdprox.pdb')" />
+  </Target>
 
 </Project>

@@ -15,15 +15,15 @@ namespace SteamVent.Tests.SteamCmd
         [SetUp]
         public void BaseSetUp()
         {
-            steamcmd = SteamCmdContext.GetInstance();
+            steamcmd = SteamCmdContext.Instance;
             Assert.IsNotNull(steamcmd);
-            steamcmd.Download();
+            steamcmd.DownloadAsync().Wait();
         }
 
         [Test, Order(1)]
         public void WorkshopStatusTest()
         {
-            List<WorkshopItemStatus> status = steamcmd.WorkshopStatus(624970);
+            List<WorkshopItemStatus> status = steamcmd.WorkshopStatusAsync(624970).Result;
 
             StringBuilder bld = new StringBuilder();
             bld.AppendLine("WorkshopId\tStatus   \tHasUpdate\tSize\tDateTime");
@@ -37,9 +37,9 @@ namespace SteamVent.Tests.SteamCmd
         [Test, Order(2)]
         public void WorkshopDownloadItemTest()
         {
-            string downloadString = steamcmd.WorkshopDownloadItem(624970, 1762479746);
+            string downloadString = steamcmd.WorkshopDownloadItemAsync(624970, 1762479746).Result;
 
-            List<WorkshopItemStatus> status = steamcmd.WorkshopStatus(624970);
+            List<WorkshopItemStatus> status = steamcmd.WorkshopStatusAsync(624970).Result;
             Assert.Greater(status.Count, 0);
             Assert.IsTrue(status.Any(stat => stat.WorkshopId == 1762479746 && stat.Status == "installed"));
 
