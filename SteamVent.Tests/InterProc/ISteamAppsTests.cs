@@ -1,89 +1,70 @@
-﻿using NUnit.Framework;
-using System;
-using SteamVent.InterProc;
-using SteamVent.InterProc.Interfaces;
+﻿using System;
 using System.Collections.Generic;
 using System.Reflection;
-using System.Configuration;
-using NLog.Internal;
+using SteamVent.InterProc;
+using SteamVent.InterProc.Interfaces;
+using Xunit;
 
 namespace SteamVent.Tests.InterProc
 {
-    //[TestFixture(typeof(ISteamClient016))]
-    [TestFixture(typeof(ISteamClient017), typeof(ISteamApps003))]
-    [TestFixture(typeof(ISteamClient017), typeof(ISteamApps004))]
-    [TestFixture(typeof(ISteamClient017), typeof(ISteamApps005))]
-    [TestFixture(typeof(ISteamClient017), typeof(ISteamApps006))]
-    [TestFixture(typeof(ISteamClient017), typeof(ISteamApps007))]
-    [TestFixture(typeof(ISteamClient017), typeof(ISteamApps008))]
     public class ISteamAppsTests
     {
-        private ISteamClient? SteamClient { get; set; }
-        Type _SteamClientVersion { get; set; }
-        private Int32 Pipe { get; set; }
-        private Int32 User { get; set; }
-        private ISteamApps? SteamApps { get; set; }
-        Type _SteamAppsVersion { get; set; }
-
-        UInt32 InstalledAppID;
-        UInt32 UninstalledAppID;
-        public ISteamAppsTests(Type SteamClientVersion, Type SteamAppsVersion)
+        public static IEnumerable<object[]> SteamClientAndAppsVersions()
         {
-            _SteamClientVersion = SteamClientVersion;
-            _SteamAppsVersion = SteamAppsVersion;
-            InstalledAppID = UInt32.Parse(Core.Configuration["InstalledAppID"]);
-            Assert.Greater(InstalledAppID, 0);
-            UninstalledAppID = UInt32.Parse(Core.Configuration["UninstalledAppID"]);
-            Assert.Greater(UninstalledAppID, 0);
+            yield return new object[] { typeof(ISteamClient017), typeof(ISteamApps003) };
+            yield return new object[] { typeof(ISteamClient017), typeof(ISteamApps004) };
+            yield return new object[] { typeof(ISteamClient017), typeof(ISteamApps005) };
+            yield return new object[] { typeof(ISteamClient017), typeof(ISteamApps006) };
+            yield return new object[] { typeof(ISteamClient017), typeof(ISteamApps007) };
+            yield return new object[] { typeof(ISteamClient017), typeof(ISteamApps008) };
         }
 
-        [SetUp]
-        public void BaseSetUp()
+        [Theory]
+        [MemberData(nameof(SteamClientAndAppsVersions))]
+        public void BIsAppInstalledTest(Type SteamClientVersion, Type SteamAppsVersion)
         {
-            Assert.IsTrue(Steam.Load(/*true*/));
-            //SteamClient = Steam.CreateInterface<ISteamClient###>(IntPtr.Zero);
+            ISteamClient? SteamClient = null;
+            Int32 Pipe = 0;
+            Int32 User = 0;
+            try
             {
+                UInt32 InstalledAppID = UInt32.Parse(Core.Configuration["InstalledAppID"]);
+                Assert.True(InstalledAppID > 0);
+                UInt32 UninstalledAppID = UInt32.Parse(Core.Configuration["UninstalledAppID"]);
+                Assert.True(UninstalledAppID > 0);
+
+                Assert.True(Steam.Load(/*true*/));
+                //SteamClient = Steam.CreateInterface<ISteamClient###>(IntPtr.Zero);
                 SteamClient = (ISteamClient?)typeof(Steam)
                     ?.GetMethod("CreateInterface")
-                    ?.MakeGenericMethod(new Type[] { _SteamClientVersion })
+                    ?.MakeGenericMethod(new Type[] { SteamClientVersion })
                     ?.Invoke(null, new object[] { });
-            }
-            Assert.IsNotNull(SteamClient);
-            Pipe = SteamClient.CreateSteamPipe();
-            Assert.Greater(Pipe, 0);
-            User = SteamClient.ConnectToGlobalUser(Pipe);
-            Assert.Greater(User, 0);
-            //SteamApps = SteamClient.GetISteamApps<ISteamApps###>(User, Pipe);
-            {
-                SteamApps = (ISteamApps?)SteamClient.GetType()
+                Assert.NotNull(SteamClient);
+                Pipe = SteamClient.CreateSteamPipe();
+                Assert.True(Pipe > 0);
+                User = SteamClient.ConnectToGlobalUser(Pipe);
+                Assert.True(User > 0);
+                //SteamApps = SteamClient.GetISteamApps<ISteamApps###>(User, Pipe);
+                ISteamApps? SteamApps = (ISteamApps?)SteamClient.GetType()
                     ?.GetMethod("GetISteamApps")
-                    ?.MakeGenericMethod(new Type[] { _SteamAppsVersion })
+                    ?.MakeGenericMethod(new Type[] { SteamAppsVersion })
                     ?.Invoke(SteamClient, new object[] { User, Pipe });
+                Assert.NotNull(SteamApps);
+
+                if (Attribute.IsDefined(SteamAppsVersion.GetMethod("BIsAppInstalled"), typeof(ObsoleteAttribute)))
+                    return; // Not Implemented in this Interface
+
+                Assert.True(SteamApps.BIsAppInstalled(InstalledAppID));
+                Assert.False(SteamApps.BIsAppInstalled(UninstalledAppID));
             }
-            Assert.IsNotNull(SteamApps);
-        }
-
-        [TearDown]
-        public void BaseTearDown()
-        {
-            if (SteamClient == null)
-                return;
-
-            SteamClient.ReleaseUser(Pipe, User);
-            SteamClient.BReleaseSteamPipe(Pipe);
-        }
-
-        [Test]
-        public void BIsAppInstalledTest()
-        {
-            if (Attribute.IsDefined(_SteamAppsVersion.GetMethod("BIsAppInstalled"), typeof(ObsoleteAttribute)))
-                Assert.Pass("Not Implemented in this Interface");
-                //Assert.Ignore("Not Implemented in this Interface");
-                //Assert.Inconclusive("Not Implemented in this Interface");
-
-            Assert.IsNotNull(SteamApps);
-            Assert.IsTrue(SteamApps.BIsAppInstalled(InstalledAppID));
-            Assert.IsFalse(SteamApps.BIsAppInstalled(UninstalledAppID));
+            finally
+            {
+                if (SteamClient != null)
+                {
+                    SteamClient.ReleaseUser(Pipe, User);
+                    SteamClient.BReleaseSteamPipe(Pipe);
+                }
+            }
         }
     }
 }

@@ -1,87 +1,68 @@
-﻿using NUnit.Framework;
-using System;
-using SteamVent.InterProc;
-using SteamVent.InterProc.Interfaces;
+﻿using System;
 using System.Collections.Generic;
 using System.Reflection;
-using System.Configuration;
-using NLog.Internal;
+using SteamVent.InterProc;
+using SteamVent.InterProc.Interfaces;
+using Xunit;
 
 namespace SteamVent.Tests.InterProc
 {
-    //[TestFixture(typeof(ISteamClient016))]
-    [TestFixture(typeof(ISteamClient017), typeof(ISteamUGC001))]
-    [TestFixture(typeof(ISteamClient017), typeof(ISteamUGC002))]
-    [TestFixture(typeof(ISteamClient017), typeof(ISteamUGC003))]
-    [TestFixture(typeof(ISteamClient017), typeof(ISteamUGC005))]
     public class ISteamUGCTests
     {
-        private ISteamClient? SteamClient { get; set; }
-        Type _SteamClientVersion { get; set; }
-        private Int32 Pipe { get; set; }
-        private Int32 User { get; set; }
-        private ISteamUGC? SteamUGC { get; set; }
-        Type _SteamUGCVersion { get; set; }
-
-        UInt64 PublishedFileID;
-        public ISteamUGCTests(Type SteamClientVersion, Type SteamUGCVersion)
+        public static IEnumerable<object[]> SteamClientAndUgcVersions()
         {
-            _SteamClientVersion = SteamClientVersion;
-            _SteamUGCVersion = SteamUGCVersion;
-            PublishedFileID = UInt32.Parse(Core.Configuration["PublishedFileID"]);
-            Assert.Greater(PublishedFileID, 0);
+            yield return new object[] { typeof(ISteamClient017), typeof(ISteamUGC001) };
+            yield return new object[] { typeof(ISteamClient017), typeof(ISteamUGC002) };
+            yield return new object[] { typeof(ISteamClient017), typeof(ISteamUGC003) };
+            yield return new object[] { typeof(ISteamClient017), typeof(ISteamUGC005) };
         }
 
-        [SetUp]
-        public void BaseSetUp()
+        [Theory]
+        [MemberData(nameof(SteamClientAndUgcVersions))]
+        public void GetItemDownloadInfoTest(Type SteamClientVersion, Type SteamUGCVersion)
         {
-            Assert.IsTrue(Steam.Load(/*true*/));
-            //SteamClient = Steam.CreateInterface<ISteamClient###>(IntPtr.Zero);
+            ISteamClient? SteamClient = null;
+            Int32 Pipe = 0;
+            Int32 User = 0;
+            try
             {
+                UInt64 PublishedFileID = UInt32.Parse(Core.Configuration["PublishedFileID"]);
+                Assert.True(PublishedFileID > 0);
+
+                Assert.True(Steam.Load(/*true*/));
+                //SteamClient = Steam.CreateInterface<ISteamClient###>(IntPtr.Zero);
                 SteamClient = (ISteamClient?)typeof(Steam)
                     ?.GetMethod("CreateInterface")
-                    ?.MakeGenericMethod(new Type[] { _SteamClientVersion })
+                    ?.MakeGenericMethod(new Type[] { SteamClientVersion })
                     ?.Invoke(null, new object[] { });
-            }
-            Assert.IsNotNull(SteamClient);
-            Pipe = SteamClient.CreateSteamPipe();
-            Assert.Greater(Pipe, 0);
-            User = SteamClient.ConnectToGlobalUser(Pipe);
-            Assert.Greater(User, 0);
-            //SteamUGC = SteamClient.GetISteamUGC<ISteamUGC###>(User, Pipe);
-            {
-                SteamUGC = (ISteamUGC?)SteamClient.GetType()
+                Assert.NotNull(SteamClient);
+                Pipe = SteamClient.CreateSteamPipe();
+                Assert.True(Pipe > 0);
+                User = SteamClient.ConnectToGlobalUser(Pipe);
+                Assert.True(User > 0);
+                //SteamUGC = SteamClient.GetISteamUGC<ISteamUGC###>(User, Pipe);
+                ISteamUGC? SteamUGC = (ISteamUGC?)SteamClient.GetType()
                     ?.GetMethod("GetISteamUGC")
-                    ?.MakeGenericMethod(new Type[] { _SteamUGCVersion })
+                    ?.MakeGenericMethod(new Type[] { SteamUGCVersion })
                     ?.Invoke(SteamClient, new object[] { User, Pipe });
+                Assert.NotNull(SteamUGC);
+
+                if (Attribute.IsDefined(SteamUGCVersion.GetMethod("GetItemDownloadInfo"), typeof(ObsoleteAttribute)))
+                    return; // Not Implemented in this Interface
+
+                UInt64 punBytesDownloaded = 0;
+                UInt64 punBytesTotal = 0;
+                bool retVal = SteamUGC.GetItemDownloadInfo(PublishedFileID, ref punBytesDownloaded, ref punBytesTotal);
+                Assert.True(retVal);
             }
-            Assert.IsNotNull(SteamUGC);
-        }
-
-        [TearDown]
-        public void BaseTearDown()
-        {
-            if (SteamClient == null)
-                return;
-
-            SteamClient.ReleaseUser(Pipe, User);
-            SteamClient.BReleaseSteamPipe(Pipe);
-        }
-
-        [Test]
-        public void GetItemDownloadInfoTest()
-        {
-            if (Attribute.IsDefined(_SteamUGCVersion.GetMethod("GetItemDownloadInfo"), typeof(ObsoleteAttribute)))
-                Assert.Pass("Not Implemented in this Interface");
-                //Assert.Ignore("Not Implemented in this Interface");
-                //Assert.Inconclusive("Not Implemented in this Interface");
-
-            Assert.IsNotNull(SteamUGC);
-
-            UInt64 punBytesDownloaded = 0;
-            UInt64 punBytesTotal = 0;
-            bool retVal = SteamUGC.GetItemDownloadInfo(PublishedFileID, ref punBytesDownloaded, ref punBytesTotal);
-            Assert.IsTrue(retVal);
+            finally
+            {
+                if (SteamClient != null)
+                {
+                    SteamClient.ReleaseUser(Pipe, User);
+                    SteamClient.BReleaseSteamPipe(Pipe);
+                }
+            }
         }
     }
 }

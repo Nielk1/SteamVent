@@ -1,26 +1,24 @@
-﻿/*using NUnit.Framework;
-using SteamVent.SteamCmd;
+﻿/*using SteamVent.SteamCmd;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using Xunit;
 
 namespace SteamVent.Tests.SteamCmd
 {
-    [TestFixture]
     public class SteamCmdTests
     {
         private SteamCmdContext steamcmd;
-        [SetUp]
-        public void BaseSetUp()
+        public SteamCmdTests()
         {
             steamcmd = SteamCmdContext.Instance;
-            Assert.IsNotNull(steamcmd);
+            Assert.NotNull(steamcmd);
             steamcmd.DownloadAsync().Wait();
         }
 
-        [Test, Order(1)]
+        [Fact]
         public void WorkshopStatusTest()
         {
             List<WorkshopItemStatus> status = steamcmd.WorkshopStatusAsync(624970).Result;
@@ -31,19 +29,19 @@ namespace SteamVent.Tests.SteamCmd
             {
                 bld.AppendLine($"{stat.WorkshopId}\t{stat.Status}\t{stat.HasUpdate}    \t{stat.Size}\t{stat.DateTime}");
             }
-            Assert.Pass(bld.ToString());
+            return; // output printed for manual inspection
         }
 
-        [Test, Order(2)]
+        [Fact]
         public void WorkshopDownloadItemTest()
         {
             string downloadString = steamcmd.WorkshopDownloadItemAsync(624970, 1762479746).Result;
 
             List<WorkshopItemStatus> status = steamcmd.WorkshopStatusAsync(624970).Result;
-            Assert.Greater(status.Count, 0);
-            Assert.IsTrue(status.Any(stat => stat.WorkshopId == 1762479746 && stat.Status == "installed"));
+            Assert.True(status.Count > 0);
+            Assert.True(status.Any(stat => stat.WorkshopId == 1762479746 && stat.Status == "installed"));
 
-            Assert.Pass(downloadString);
+            return; // downloadString printed for manual inspection
         }
     }
 }
