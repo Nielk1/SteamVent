@@ -11,17 +11,15 @@ namespace SteamVent.Tests.FileSystem
         [Fact]
         public void GetUserLocalConfigFileTest()
         {
-            if (!SteamProcessInfo.IsSteamInstalled)
-                return;
-            Assert.NotNull(LocalConfig.GetUserLocalConfigFile());
+            Assert.SkipWhen(!SteamProcessInfo.IsSteamInstalled, "Steam not installed");
+            Assert.NotNull(LocalConfig.GetUserLocalConfigFile(), "Steam localconfig.vdf not found");
         }
 
         [Fact]
         public void GetClientAppIdsTest()
         {
-            if (!SteamProcessInfo.IsSteamInstalled)
-                return;
-            Assert.NotEqual(0u, SteamProcessInfo.CurrentUserID);
+            Assert.SkipWhen(!SteamProcessInfo.IsSteamInstalled, "Steam not installed");
+            Assert.NotEqual(0u, SteamProcessInfo.CurrentUserID, "Steam UserId is Zero, is Steam running?");
         }
     }
 }*/

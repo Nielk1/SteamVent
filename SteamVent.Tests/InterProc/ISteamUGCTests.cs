@@ -21,6 +21,8 @@ namespace SteamVent.Tests.InterProc
         [MemberData(nameof(SteamClientAndUgcVersions))]
         public void GetItemDownloadInfoTest(Type SteamClientVersion, Type SteamUGCVersion)
         {
+            Assert.SkipWhen(Attribute.IsDefined(SteamUGCVersion.GetMethod("GetItemDownloadInfo"), typeof(ObsoleteAttribute)), "GetItemDownloadInfo is marked obsolete / not implemented in this interface version");
+
             ISteamClient? SteamClient = null;
             Int32 Pipe = 0;
             Int32 User = 0;
@@ -46,9 +48,6 @@ namespace SteamVent.Tests.InterProc
                     ?.MakeGenericMethod(new Type[] { SteamUGCVersion })
                     ?.Invoke(SteamClient, new object[] { User, Pipe });
                 Assert.NotNull(SteamUGC);
-
-                if (Attribute.IsDefined(SteamUGCVersion.GetMethod("GetItemDownloadInfo"), typeof(ObsoleteAttribute)))
-                    return; // Not Implemented in this Interface
 
                 UInt64 punBytesDownloaded = 0;
                 UInt64 punBytesTotal = 0;

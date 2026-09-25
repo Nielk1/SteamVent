@@ -23,6 +23,8 @@ namespace SteamVent.Tests.InterProc
         [MemberData(nameof(SteamClientAndAppsVersions))]
         public void BIsAppInstalledTest(Type SteamClientVersion, Type SteamAppsVersion)
         {
+            Assert.SkipWhen(Attribute.IsDefined(SteamAppsVersion.GetMethod("BIsAppInstalled"), typeof(ObsoleteAttribute)), "BIsAppInstalled is marked obsolete / not implemented in this interface version");
+
             ISteamClient? SteamClient = null;
             Int32 Pipe = 0;
             Int32 User = 0;
@@ -50,9 +52,6 @@ namespace SteamVent.Tests.InterProc
                     ?.MakeGenericMethod(new Type[] { SteamAppsVersion })
                     ?.Invoke(SteamClient, new object[] { User, Pipe });
                 Assert.NotNull(SteamApps);
-
-                if (Attribute.IsDefined(SteamAppsVersion.GetMethod("BIsAppInstalled"), typeof(ObsoleteAttribute)))
-                    return; // Not Implemented in this Interface
 
                 Assert.True(SteamApps.BIsAppInstalled(InstalledAppID));
                 Assert.False(SteamApps.BIsAppInstalled(UninstalledAppID));

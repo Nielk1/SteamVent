@@ -15,20 +15,20 @@ namespace SteamVent.Tests.FileSystem
         public void SteamInstallPathTest()
         {
             var SteamInstallPath = SteamProcessInfo.SteamInstallPath;
-            Assert.NotNull(SteamInstallPath);
-            Assert.True(Directory.Exists(SteamInstallPath));
+            Assert.NotNull(SteamInstallPath);//, "Steam install path not found");
+            Assert.True(Directory.Exists(SteamInstallPath), "Steam install path does not exist");
         }
 
         [Fact]
         public void GetSteamLibraryPathsTest()
         {
             List<string> Paths = SteamProcessInfo.GetSteamLibraryPaths().ToList();
-            Assert.True(Paths.Count > 0);
+            Assert.True(Paths.Count > 0, "No Steam library paths found");
             //Assert.That(ComparePaths(Paths[0], SteamProcessInfo.SteamInstallPath), "First Steam library path is not the default path");
-            Assert.True(Path.GetRelativePath(Paths[0], SteamProcessInfo.SteamInstallPath) == ".");
+            Assert.True(Path.GetRelativePath(Paths[0], SteamProcessInfo.SteamInstallPath) == ".", "First Steam library path is not the default path");
             foreach (string path in Paths)
             {
-                Assert.True(Directory.Exists(path));
+                Assert.True(Directory.Exists(path), "Returned library path does not exist");
             }
         }
 
@@ -37,7 +37,7 @@ namespace SteamVent.Tests.FileSystem
         {
             string SteamClientDllPath = SteamProcessInfo.SteamClientDllPath;
             string DllName = Is64Bit() ? "steamclient64.dll" : "steamclient.dll";
-            Assert.Equal(DllName, Path.GetFileName(SteamClientDllPath));
+            Assert.Equal(DllName, Path.GetFileName(SteamClientDllPath));//, $"Unexpected SteamClientDllPath, got \"{Path.GetFileName(SteamClientDllPath)}\" expected \"{DllName}\"");
         }
 
         [Fact]
@@ -45,35 +45,33 @@ namespace SteamVent.Tests.FileSystem
         {
             string SteamExePath = SteamProcessInfo.SteamExePath;
             //Assert.Equal("Steam.exe", Path.GetFileName(SteamExePath), "Unexpected Steam EXE Path, got \"{0}\" expected \"Steam.exe\"", Path.GetFileName(SteamExePath));
-            Assert.True(Path.GetRelativePath(Path.GetFileName(SteamExePath), "Steam.exe") == ".");
+            Assert.True(Path.GetRelativePath(Path.GetFileName(SteamExePath), "Steam.exe") == ".", $"Unexpected Steam EXE Path, got \"{Path.GetFileName(SteamExePath)}\" expected \"Steam.exe\"");
         }
 
         [Fact]
         public void IsSteamInstalledTest()
         {
-            Assert.True(SteamProcessInfo.IsSteamInstalled);
+            Assert.True(SteamProcessInfo.IsSteamInstalled, "Steam is not installed");
         }
 
         [Fact]
         public void GetSteamPidTest()
         {
-            if (!SteamProcessInfo.IsSteamInstalled)
-                return;
-            Assert.NotEqual(0, SteamProcessInfo.GetSteamPid());
+            Assert.SkipWhen(!SteamProcessInfo.IsSteamInstalled, "Steam not installed");
+            Assert.NotEqual(0, SteamProcessInfo.GetSteamPid());//, "Steam PID is Zero, is Steam running?");
         }
 
         [Fact]
         public void GetSteamUserIdTest()
         {
-            if (!SteamProcessInfo.IsSteamInstalled)
-                return;
-            Assert.NotEqual(0u, SteamProcessInfo.CurrentUserID);
+            Assert.SkipWhen(!SteamProcessInfo.IsSteamInstalled, "Steam not installed");
+            Assert.NotEqual(0u, SteamProcessInfo.CurrentUserID);//, "Steam UserId is Zero, is Steam running?");
         }
 
         [Fact]
         public void SteamProcessTest()
         {
-            Assert.NotNull(SteamProcessInfo.SteamProcess);
+            Assert.NotNull(SteamProcessInfo.SteamProcess);//, "Steam Process not found");
         }
     }
 }

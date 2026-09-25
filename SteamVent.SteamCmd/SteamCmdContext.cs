@@ -2,7 +2,6 @@
 
 //using Gameloop.Vdf;
 //using Gameloop.Vdf.Linq;
-using AngleSharp.Html.Parser;
 using Gameloop.Vdf;
 using Gameloop.Vdf.Linq;
 using Newtonsoft.Json;
@@ -734,7 +733,7 @@ namespace SteamVent.SteamCmd
                 await CacheScanTask;
 
                 // Read the workshop webpage because we can't get actual update information from steamcmd for anon accounts
-                if (LatestUpdate.HasValue)
+                /*if (LatestUpdate.HasValue)
                 {
                     await foreach (double? d in Web.SteamWorkshop.WorkshopStatusFromWebUpdateOnlyAsync(LibraryPath, AppId, LatestUpdate.Value, DictionaryLock, WorkshopItems, WorkshopItemLocks))
                     {
@@ -742,7 +741,7 @@ namespace SteamVent.SteamCmd
                         if (Progress != null)
                             UpdateProgress(Progress, ProgressA, ProgressB, ProgressC, ProgressD);
                     }
-                }
+                }*/
 
                 try
                 {

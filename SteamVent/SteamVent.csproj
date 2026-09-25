@@ -16,8 +16,4 @@
     <ProjectReference Include="..\SteamVent.Common\SteamVent.Common.csproj" />
   </ItemGroup>
 
-  <ItemGroup>
-    <PackageReference Include="AngleSharp" Version="1.1.2" />
-  </ItemGroup>
-
 </Project>

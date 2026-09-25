@@ -18,8 +18,8 @@ namespace SteamVent.Tests.FileSystem
         public void GetAppInstallDirTest()
         {
             string? AppInstallPath = SteamVent.FileSystem.SteamApps.GetAppInstallDir(InstalledAppID);
-            Assert.NotNull(AppInstallPath);
-            Assert.True(Directory.Exists(AppInstallPath));
+            Assert.NotNull(AppInstallPath);//, "App install path not found");
+            Assert.True(Directory.Exists(AppInstallPath), "App install path does not exist");
         }
     }
 }
