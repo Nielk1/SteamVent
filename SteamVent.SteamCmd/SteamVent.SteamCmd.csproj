@@ -23,7 +23,6 @@
   </ItemGroup>
 
   <Target Name="PostBuild" AfterTargets="PostBuildEvent">
-    <Exec Command="copy /Y &quot;$(SolutionDir)packages\EasyHookNativePackage.redist.2.7.7097\build\native\bin\Win32\v141\$(Configuration)\EasyHook32.dll&quot; &quot;$(TargetDir)EasyHook32.dll&quot;" Condition="Exists('$(SolutionDir)packages\EasyHookNativePackage.redist.2.7.7097\build\native\bin\Win32\v141\$(Configuration)\EasyHook32.dll')" />
     <Exec Command="copy /Y &quot;$(TargetDir)..\\..\\..\\..\\steamcmdinj\\bin\\$(Configuration)\\steamcmdinj.dll&quot; &quot;$(TargetDir)steamcmdinj.dll&quot;" Condition="Exists('$(MSBuildThisFileDirectory)..\steamcmdinj\bin\$(Configuration)\steamcmdinj.dll')" />
     <Exec Command="copy /Y &quot;$(TargetDir)..\\..\\..\\..\\steamcmdprox\\bin\\$(Configuration)\\steamcmdprox.exe&quot; &quot;$(TargetDir)steamcmdprox.exe&quot;" Condition="Exists('$(MSBuildThisFileDirectory)..\steamcmdprox\bin\$(Configuration)\steamcmdprox.exe')" />
     <Exec Command="copy /Y &quot;$(TargetDir)..\\..\\..\\..\\steamcmdprox\\bin\\$(Configuration)\\steamcmdprox.pdb&quot; &quot;$(TargetDir)steamcmdprox.pdb&quot;" Condition="Exists('$(MSBuildThisFileDirectory)..\steamcmdprox\bin\$(Configuration)\steamcmdprox.pdb')" />
