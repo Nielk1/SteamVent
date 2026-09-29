@@ -1,4 +1,4 @@
-﻿//#define DEBUG_STEAMCMD_PARSE
+﻿#define DEBUG_STEAMCMD_PARSE
 
 //using Gameloop.Vdf;
 //using Gameloop.Vdf.Linq;
@@ -47,7 +47,7 @@ namespace SteamVent.SteamCmd
         private const string ANTI_STALL = $"Loading Steam API...OK";
 
         //object procLock = new object();
-        SemaphoreSlim ProcessLock = new SemaphoreSlim(1, 1);
+        private readonly SemaphoreSlim ProcessLock = new SemaphoreSlim(1, 1);
         public ESteamCmdStatus Status { get; private set; }
 
         public delegate void SteamCmdStatusChangeEventHandler(object sender, SteamCmdStatusChangeEventArgs e);
@@ -176,53 +176,51 @@ namespace SteamVent.SteamCmd
 
         private async Task<string> StartProcAsync(string command)//, Action<string> LineOutput = null)
         {
+            await ProcessLock.WaitAsync().ConfigureAwait(false);
             try
             {
-                await ProcessLock.WaitAsync();
-                Process proc = GetProc(command);
+                using Process proc = GetProc(command);
 
                 OnSteamCmdArgs($"steamcmd.exe {command}");
                 OnSteamCmdStatusChange(new SteamCmdStatusChangeEventArgs(ESteamCmdStatus.Starting));
-                proc.Start();
-                //proc.BeginErrorReadLine();
 
+                proc.Start();
+                // Commands are supplied entirely on the command line. Close the redirected
+                // stdin writer immediately so SteamCMD sees EOF instead of an indefinitely
+                // open input pipe.
+                proc.StandardInput.Close();
                 OnSteamCmdStatusChange(new SteamCmdStatusChangeEventArgs(ESteamCmdStatus.Active));
 
                 StringBuilder AllOutput = new StringBuilder();
 
-                await foreach(string line in ReadLines(proc))
-                {
+                await foreach (string line in ReadLines(proc).ConfigureAwait(false))
                     AllOutput.AppendLine(line);
-                }
 
-                // check if we're stuck on a prompt or something wierd
-                if (!proc.HasExited)
-                {
-                    proc.Close();
-                }
-
-                OnSteamCmdStatusChange(new SteamCmdStatusChangeEventArgs(ESteamCmdStatus.Closed));
+                // ReadLines ends on stdout EOF. Confirm that the proxy process itself
+                // has also exited before releasing ProcessLock to the next caller.
+                await proc.WaitForExitAsync().ConfigureAwait(false);
 
                 return AllOutput.ToString();
             }
             finally
             {
+                OnSteamCmdStatusChange(new SteamCmdStatusChangeEventArgs(ESteamCmdStatus.Closed));
                 ProcessLock.Release();
             }
         }
 
         private async IAsyncEnumerable<string> ReadLines(Process proc)
         {
-            StringBuilder buffer = new StringBuilder();
+            StringBuilder lineBuffer = new StringBuilder();
             char[] readBuffer = new char[1];
 
             IEnumerable<string> FlushBuffer()
             {
-                if (buffer.Length == 0)
+                if (lineBuffer.Length == 0)
                     yield break;
 
-                string text = buffer.ToString();
-                buffer.Clear();
+                string text = lineBuffer.ToString();
+                lineBuffer.Clear();
 
                 OnSteamCmdOutputFull(text);
 
@@ -244,34 +242,35 @@ namespace SteamVent.SteamCmd
 
             while (true)
             {
-                int read = 0;
+                int read;
                 bool streamClosed = false;
 
                 try
                 {
-                    // Asynchronously wait as long as necessary for stdout.
-                    // No timeout and no synchronous EndOfStream probe.
+                    // No inactivity timeout here. SteamCMD may legitimately remain silent.
+                    // EOF is indicated only by ReadAsync returning 0.
                     read = await proc.StandardOutput.ReadAsync(
                         readBuffer,
                         0,
-                        readBuffer.Length);
+                        readBuffer.Length).ConfigureAwait(false);
                 }
                 catch (IOException)
                 {
+                    read = 0;
                     streamClosed = true;
                 }
                 catch (ObjectDisposedException)
                 {
+                    read = 0;
                     streamClosed = true;
                 }
                 catch (InvalidOperationException)
                 {
+                    read = 0;
                     streamClosed = true;
                 }
 
-                // Handle stream failure outside the catch because iterators
-                // cannot yield from within a catch block.
-                if (streamClosed)
+                if (streamClosed || read == 0)
                 {
                     foreach (string outputLine in FlushBuffer())
                         yield return outputLine;
@@ -279,46 +278,18 @@ namespace SteamVent.SteamCmd
                     yield break;
                 }
 
-                // ReadAsync returning 0 is the proper EOF indication.
-                if (read == 0)
+                for (int i = 0; i < read; i++)
                 {
-                    foreach (string outputLine in FlushBuffer())
-                        yield return outputLine;
+                    lineBuffer.Append(readBuffer[i]);
 
-                    yield break;
-                }
-
-                buffer.Append(readBuffer[0]);
-
-                // Normal CRLF-terminated output.
-                if (buffer.Length >= 2 &&
-                    buffer[buffer.Length - 2] == '\r' &&
-                    buffer[buffer.Length - 1] == '\n')
-                {
-                    foreach (string outputLine in FlushBuffer())
-                        yield return outputLine;
-
-                    continue;
-                }
-
-                // SteamCMD prompt is not CRLF terminated.
-                if (buffer.Length == 6 &&
-                    buffer.ToString() == "Steam>")
-                {
-                    foreach (string outputLine in FlushBuffer())
-                        yield return outputLine;
-
-                    yield break;
-                }
-
-                // SteamCMD explicitly detected its own internal stall.
-                if (buffer.ToString().Contains(
-                    @"Assertion Failed: CSteamEngine::BMainLoop appears to have stalled > 15 seconds without event signalled"))
-                {
-                    foreach (string outputLine in FlushBuffer())
-                        yield return outputLine;
-
-                    yield break;
+                    int length = lineBuffer.Length;
+                    if (length >= 2 &&
+                        lineBuffer[length - 2] == '\r' &&
+                        lineBuffer[length - 1] == '\n')
+                    {
+                        foreach (string outputLine in FlushBuffer())
+                            yield return outputLine;
+                    }
                 }
             }
         }
@@ -591,29 +562,24 @@ namespace SteamVent.SteamCmd
                 {
                     string command = $"+login anonymous +workshop_download_item {AppId} 1 +workshop_status {AppId} +quit";
 
-                    // if it takes over a second to get the lock, status us as paused
-                    Task lockTask = ProcessLock.WaitAsync();
-                    CancellationTokenSource waitStatusCancel = new CancellationTokenSource();
-                    await Task.WhenAny(lockTask, Task.Run(() => { Task.Delay(1000); OnStatus?.Invoke(ESteamCmdTaskStatus.Waiting); }, waitStatusCancel.Token));
-                    await lockTask;
-                    waitStatusCancel.Cancel();
+                    await ProcessLock.WaitAsync();
 
                     bool sawAntiStall = false;
                     for (int retries = 0; retries < 10 && !sawAntiStall; retries++)
                     {
                         OnStatus?.Invoke(ESteamCmdTaskStatus.Running);
 
-                        Process proc = GetProc(command);
+                        using Process proc = GetProc(command);
 
                         OnSteamCmdArgs($"steamcmd.exe {command}");
                         OnSteamCmdStatusChange(new SteamCmdStatusChangeEventArgs(ESteamCmdStatus.Starting));
                         proc.Start();
-                        //proc.BeginErrorReadLine();
+                        proc.StandardInput.Close();
 
                         OnSteamCmdStatusChange(new SteamCmdStatusChangeEventArgs(ESteamCmdStatus.Active));
 
                         int WorkshopReadStage = 0;
-                        await foreach (string line in ReadLines(proc))
+                        await foreach (string line in ReadLines(proc).ConfigureAwait(false))
                         {
                             if (line.Contains(ANTI_STALL))
                                 sawAntiStall = true;
@@ -725,18 +691,14 @@ namespace SteamVent.SteamCmd
                             }
                         }
 
-                        //await foreach (string line in ReadLines(proc)) { }
-
-                        // check if we're stuck on a prompt or something wierd
-                        if (!proc.HasExited)
-                        {
-                            proc.Close();
-                        }
+                        // ReadLines ends on stdout EOF. Confirm the proxy process has
+                        // also exited before allowing another SteamCMD request to start.
+                        await proc.WaitForExitAsync().ConfigureAwait(false);
 
                         OnSteamCmdStatusChange(new SteamCmdStatusChangeEventArgs(ESteamCmdStatus.Closed));
 
                         if (!sawAntiStall)
-                            await Task.Delay(1000);
+                            await Task.Delay(1000).ConfigureAwait(false);
                     }
                 }
                 finally
