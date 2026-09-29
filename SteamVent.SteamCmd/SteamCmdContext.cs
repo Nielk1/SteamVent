@@ -213,98 +213,114 @@ namespace SteamVent.SteamCmd
 
         private async IAsyncEnumerable<string> ReadLines(Process proc)
         {
-            string line = string.Empty;
-            char[] buffer = new char[1];
-            do
+            StringBuilder buffer = new StringBuilder();
+            char[] readBuffer = new char[1];
+
+            IEnumerable<string> FlushBuffer()
             {
-                Task<int> ReadCharTask = proc.StandardOutput.ReadAsync(buffer, 0, 1);
-                if (await Task.WhenAny(ReadCharTask, Task.Delay(10000)) == ReadCharTask)
+                if (buffer.Length == 0)
+                    yield break;
+
+                string text = buffer.ToString();
+                buffer.Clear();
+
+                OnSteamCmdOutputFull(text);
+
+                foreach (string badstring in Config.BadStrings)
+                    text = text.Replace(badstring + "\r\n", string.Empty);
+
+                if (text.Length == 0)
+                    yield break;
+
+                OnSteamCmdOutput(text);
+
+                foreach (string outputLine in text.Split(
+                    new[] { "\r\n" },
+                    StringSplitOptions.RemoveEmptyEntries))
                 {
-                    if (!ReadCharTask.IsCompleted)
-                    {
-                        // we exited, which means the steamcmdprox detected a failure
-                        if (proc.HasExited)
-                        {
-                            if (line.Length > 0)
-                                foreach (string line2 in line.Split(new string[] { "\r\n" }, StringSplitOptions.RemoveEmptyEntries))
-                                    yield return line2;
-                            yield break;
-                        }
-                    }
-                    else
-                    {
-                        if (ReadCharTask.Result == 0)
-                        {
-                            if (line.Length > 0)
-                            {
-                                OnSteamCmdOutputFull(line);
-
-                                foreach (string badstring in Config.BadStrings)
-                                    while(line.Contains(badstring + "\r\n"))
-                                        line = line.Replace(badstring + "\r\n", string.Empty);
-
-                                OnSteamCmdOutput(line);
-
-                                foreach (string line2 in line.Split(new string[] { "\r\n" }, StringSplitOptions.RemoveEmptyEntries))
-                                    yield return line2;
-                            }
-                            yield break;
-                        }
-                        line += buffer[0];
-                        if (line.EndsWith("\r\n"))
-                        {
-                            OnSteamCmdOutputFull(line);
-
-                            foreach (string badstring in Config.BadStrings)
-                                while (line.Contains(badstring + "\r\n"))
-                                    line = line.Replace(badstring + "\r\n", string.Empty);
-
-                            OnSteamCmdOutput(line);
-
-                            foreach (string line2 in line.Split(new string[] { "\r\n" }, StringSplitOptions.RemoveEmptyEntries))
-                                yield return line2;
-
-                            line = string.Empty;
-                        }
-                        if (line == "Steam>")
-                        {
-                            OnSteamCmdOutputFull(line);
-
-                            foreach (string badstring in Config.BadStrings)
-                                while (line.Contains(badstring + "\r\n"))
-                                    line = line.Replace(badstring + "\r\n", string.Empty);
-
-                            OnSteamCmdOutput(line);
-
-                            foreach (string line2 in line.Split(new string[] { "\r\n" }, StringSplitOptions.RemoveEmptyEntries))
-                                yield return line2;
-
-                            yield break;
-                        }
-                        // TODO handle this better, but it means it stalled
-                        if (line.Contains(@"Assertion Failed: CSteamEngine::BMainLoop appears to have stalled > 15 seconds without event signalled"))
-                        {
-                            // TODO forced exit of proxy?
-                            yield break;
-                        }
-                    }
+                    yield return outputLine;
                 }
-                else
+            }
+
+            while (true)
+            {
+                int read = 0;
+                bool streamClosed = false;
+
+                try
                 {
-                    OnSteamCmdOutputFull(line);
+                    // Asynchronously wait as long as necessary for stdout.
+                    // No timeout and no synchronous EndOfStream probe.
+                    read = await proc.StandardOutput.ReadAsync(
+                        readBuffer,
+                        0,
+                        readBuffer.Length);
+                }
+                catch (IOException)
+                {
+                    streamClosed = true;
+                }
+                catch (ObjectDisposedException)
+                {
+                    streamClosed = true;
+                }
+                catch (InvalidOperationException)
+                {
+                    streamClosed = true;
+                }
 
-                    foreach (string badstring in Config.BadStrings)
-                        while (line.Contains(badstring + "\r\n"))
-                            line = line.Replace(badstring + "\r\n", string.Empty);
-
-                    OnSteamCmdOutput(line);
-
-                    foreach (string line2 in line.Split(new string[] { "\r\n" }, StringSplitOptions.RemoveEmptyEntries))
-                        yield return line2;
+                // Handle stream failure outside the catch because iterators
+                // cannot yield from within a catch block.
+                if (streamClosed)
+                {
+                    foreach (string outputLine in FlushBuffer())
+                        yield return outputLine;
 
                     yield break;
                 }
-            } while (!proc.StandardOutput.EndOfStream);
+
+                // ReadAsync returning 0 is the proper EOF indication.
+                if (read == 0)
+                {
+                    foreach (string outputLine in FlushBuffer())
+                        yield return outputLine;
+
+                    yield break;
+                }
+
+                buffer.Append(readBuffer[0]);
+
+                // Normal CRLF-terminated output.
+                if (buffer.Length >= 2 &&
+                    buffer[buffer.Length - 2] == '\r' &&
+                    buffer[buffer.Length - 1] == '\n')
+                {
+                    foreach (string outputLine in FlushBuffer())
+                        yield return outputLine;
+
+                    continue;
+                }
+
+                // SteamCMD prompt is not CRLF terminated.
+                if (buffer.Length == 6 &&
+                    buffer.ToString() == "Steam>")
+                {
+                    foreach (string outputLine in FlushBuffer())
+                        yield return outputLine;
+
+                    yield break;
+                }
+
+                // SteamCMD explicitly detected its own internal stall.
+                if (buffer.ToString().Contains(
+                    @"Assertion Failed: CSteamEngine::BMainLoop appears to have stalled > 15 seconds without event signalled"))
+                {
+                    foreach (string outputLine in FlushBuffer())
+                        yield return outputLine;
+
+                    yield break;
+                }
+            }
         }
 
         private string ReadLine(Process proc)
