@@ -1,4 +1,4 @@
-﻿#define DEBUG_STEAMCMD_PARSE
+﻿//#define DEBUG_STEAMCMD_PARSE
 
 //using Gameloop.Vdf;
 //using Gameloop.Vdf.Linq;
