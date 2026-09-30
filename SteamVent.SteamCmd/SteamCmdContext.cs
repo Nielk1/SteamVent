@@ -67,6 +67,14 @@ namespace SteamVent.SteamCmd
 
         public ConfigData Config;
 
+        /// <summary>
+        /// Optional value for SteamCmd's <c>+force_install_dir</c>, i.e. the directory SteamCmd
+        /// should store its data (steamapps, etc.) in. When set, <c>+force_install_dir "path"</c>
+        /// is forced to the start of the parameter list on every SteamCmd launch. When null or
+        /// empty the argument is not used at all.
+        /// </summary>
+        public string ForceInstallDir { get; set; }
+
         private static readonly Lazy<SteamCmdContext> lazyInstance = new Lazy<SteamCmdContext>(() => new SteamCmdContext());
         public static SteamCmdContext Instance = lazyInstance.Value;
         private SteamCmdContext()
@@ -79,6 +87,25 @@ namespace SteamVent.SteamCmd
             Config.RegWorkshopDownloadItemError = new Regex(Config.WorkshopDownloadItemError);
             Config.RegWorkshopDownloadItemSuccess = new Regex(Config.WorkshopDownloadItemSuccess);
             //Config.SteamCmdDownloadURL ?== DefaultSteamCmdDownloadURL; // enable this later
+
+            // Allow steamvent.steamcmd.json to preset the forced install directory; callers
+            // (e.g. BZRModManager) may still override it after the instance has been created.
+            ForceInstallDir = string.IsNullOrWhiteSpace(Config.ForceInstallDir) ? null : Config.ForceInstallDir.Trim();
+        }
+
+        /// <summary>
+        /// Builds the full SteamCmd command line, forcing <c>+force_install_dir</c> to the start
+        /// of the parameter list when it is set. SteamCmd requires it to precede the other
+        /// +commands for it to take effect. When it is not set the command is returned as-is.
+        /// </summary>
+        private string BuildSteamCmdCommand(string command)
+        {
+            if (string.IsNullOrWhiteSpace(ForceInstallDir))
+                return command;
+
+            // Escape any embedded quotes so the path stays a single quoted argument.
+            string dir = ForceInstallDir.Trim().Replace("\"", "\\\"");
+            return $"+force_install_dir \"{dir}\" {command}";
         }
         public static string AssemblyDirectory
         {
@@ -176,12 +203,16 @@ namespace SteamVent.SteamCmd
 
         private async Task<string> StartProcAsync(string command)//, Action<string> LineOutput = null)
         {
+            // Apply +force_install_dir (if set) exactly once, here, so both the process
+            // arguments and the logged argument line show the final command.
+            string fullCommand = BuildSteamCmdCommand(command);
+
             await ProcessLock.WaitAsync().ConfigureAwait(false);
             try
             {
-                using Process proc = GetProc(command);
+                using Process proc = GetProc(fullCommand);
 
-                OnSteamCmdArgs($"steamcmd.exe {command}");
+                OnSteamCmdArgs($"steamcmd.exe {fullCommand}");
                 OnSteamCmdStatusChange(new SteamCmdStatusChangeEventArgs(ESteamCmdStatus.Starting));
 
                 proc.Start();
@@ -740,6 +771,10 @@ namespace SteamVent.SteamCmd
 
         public async Task<string> WorkshopDownloadItemAsync(UInt32 AppId, UInt64 PublishedFileId)
         {
+            if (PublishedFileId < 100000)
+                //throw new SteamCmdWorkshopDownloadException("Invalid ID");
+                return null;
+            
             string statusMessage = null;
             string statusType = null;
             string FullOutput = await StartProcWithRetryAsync($"+login anonymous +workshop_download_item {AppId} {PublishedFileId} +quit");
