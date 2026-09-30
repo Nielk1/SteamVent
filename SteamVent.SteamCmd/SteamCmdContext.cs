@@ -42,7 +42,7 @@ namespace SteamVent.SteamCmd
 
     public class SteamCmdContext
     {
-        private const string SteamCmdDownloadURL = @"https://steamcdn-a.akamaihd.net/client/installer/steamcmd.zip";
+        private const string SteamCmdDownloadURL = @"https://client-update.steamstatic.com/installer/steamcmd.zip";
         //private const string ANTI_STALL = $"-- type 'quit' to exit --";
         private const string ANTI_STALL = $"Loading Steam API...OK";
 
