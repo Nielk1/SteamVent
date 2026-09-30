@@ -272,8 +272,8 @@ namespace SteamVent.FileSystem
                         {
                             foreach (PublishedFileData pub in workshopList)
                             {
-                                UInt64 workshopId = pub.publishedFileId;
-                                DateTime? DateTimeSet = pub.punTimeStamp.HasValue ? DateTimeOffset.FromUnixTimeSeconds(pub.punTimeStamp.Value).DateTime : null;
+                                UInt64 workshopId = pub.PublishedFileId;
+                                DateTime? DateTimeSet = pub.TimeStamp.HasValue ? DateTimeOffset.FromUnixTimeSeconds(pub.TimeStamp.Value).DateTime : null;
 
                                 WorkshopItemStatus currentItem = null;
                                 SemaphoreSlim itemLock = null;
@@ -286,11 +286,11 @@ namespace SteamVent.FileSystem
                                         WorkshopItems[workshopId] = new WorkshopItemStatus
                                         {
                                             WorkshopId = workshopId,
-                                            Status = pub.state.HasFlag(EItemState.k_EItemStateNeedsUpdate) ? "update required" : "installed", // TODO revisit this
-                                            //Size = (long?)pub.punBytesTotal ?? (long?)pub.punSizeOnDisk ?? -1,
-                                            Size = (long?)pub.punSizeOnDisk ?? -1,
+                                            Status = pub.State.HasFlag(EItemState.k_EItemStateNeedsUpdate) ? "update required" : "installed", // TODO revisit this
+                                            //Size = (long?)pub.BytesTotal ?? (long?)pub.SizeOnDisk ?? -1,
+                                            Size = (long?)pub.SizeOnDisk ?? -1,
                                             DateTime = DateTimeSet,
-                                            HasUpdate = pub.state.HasFlag(EItemState.k_EItemStateNeedsUpdate),
+                                            HasUpdate = pub.State.HasFlag(EItemState.k_EItemStateNeedsUpdate),
                                             Missing = true, // assume missing till we see the folder
                                             Detection = WorkshopItemStatus.WorkshopDetectionType.Direct,
                                         };
@@ -313,11 +313,11 @@ namespace SteamVent.FileSystem
                                     try
                                     {
                                         await itemLock.WaitAsync();
-                                        currentItem.Status = pub.state.HasFlag(EItemState.k_EItemStateNeedsUpdate) ? "update required" : "installed"; // TODO revisit this
-                                        if (pub.punSizeOnDisk.HasValue)
-                                            currentItem.Size = (long)pub.punSizeOnDisk.Value;
+                                        currentItem.Status = pub.State.HasFlag(EItemState.k_EItemStateNeedsUpdate) ? "update required" : "installed"; // TODO revisit this
+                                        if (pub.SizeOnDisk.HasValue)
+                                            currentItem.Size = (long)pub.SizeOnDisk.Value;
                                         currentItem.DateTime = DateTimeSet.HasValue ? DateTimeSet : currentItem.DateTime;
-                                        currentItem.HasUpdate |= pub.state.HasFlag(EItemState.k_EItemStateNeedsUpdate);
+                                        currentItem.HasUpdate |= pub.State.HasFlag(EItemState.k_EItemStateNeedsUpdate);
                                         currentItem.Detection |= WorkshopItemStatus.WorkshopDetectionType.Direct; // we have a direct so add detection
                                     }
                                     finally

@@ -263,5 +263,6 @@ namespace SteamVent.InterProc.Interfaces
             GetDelegate<GetItemUpdateInfoDelegate>()(InterfacePtr, nPublishedFileID, ref pbNeedsUpdate, ref pbIsDownloading, ref punBytesDownloaded, ref punBytesTotal);
 
         [Obsolete("Not implemented in this version.", true)] public bool GetItemDownloadInfo(PublishedFileId_t nPublishedFileID, ref UInt64 punBytesDownloaded, ref UInt64 punBytesTotal) { throw new NotImplementedException(); }
+        [Obsolete("Not implemented in this version.", true)] public UInt64 DownloadItem(UInt64 nPublishedFileID) { throw new NotImplementedException(); }
     }
 }

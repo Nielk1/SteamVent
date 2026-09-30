@@ -30,9 +30,9 @@ namespace SteamVent.Tests.InterProc
             Int32 User = 0;
             try
             {
-                UInt32 InstalledAppID = UInt32.Parse(Core.Configuration["InstalledAppID"]);
+                UInt32 InstalledAppID = UInt32.Parse(Core.Configuration["SteamAppsTests:InstalledAppID"]);
                 Assert.True(InstalledAppID > 0);
-                UInt32 UninstalledAppID = UInt32.Parse(Core.Configuration["UninstalledAppID"]);
+                UInt32 UninstalledAppID = UInt32.Parse(Core.Configuration["SteamAppsTests:UninstalledAppID"]);
                 Assert.True(UninstalledAppID > 0);
 
                 Assert.True(Steam.Load(/*true*/));

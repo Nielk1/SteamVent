@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.InteropServices;
 using System.Text;
+using System.Text.Json.Serialization;
 using System.Threading.Tasks;
 using PublishedFileId_t = System.UInt64;
 
@@ -13,7 +14,7 @@ namespace SteamVent.Common.InterProc
     public struct RemoteStorageSubscribePublishedFileResult_t
     {
         public const int k_iCallback = 1313;
-        public EResult m_eResult;
-        public PublishedFileId_t m_nPublishedFileId;
+        [JsonInclude] public EResult m_eResult;
+        [JsonInclude] public PublishedFileId_t m_nPublishedFileId;
     };
 }

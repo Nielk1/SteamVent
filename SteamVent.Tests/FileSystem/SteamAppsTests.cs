@@ -10,7 +10,7 @@ namespace SteamVent.Tests.FileSystem
         UInt32 InstalledAppID;
         public SteamAppsTests()
         {
-            InstalledAppID = UInt32.Parse(Core.Configuration["InstalledAppID"]);
+            InstalledAppID = UInt32.Parse(Core.Configuration["SteamAppsTests:InstalledAppID"]);
             Assert.True(InstalledAppID > 0);
         }
 

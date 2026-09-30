@@ -65,6 +65,6 @@ namespace SteamVent.InterProc.Interfaces
         bool GetItemUpdateInfo(UInt64 nPublishedFileID, ref bool pbNeedsUpdate, ref bool pbIsDownloading, ref UInt64 punBytesDownloaded, ref UInt64 punBytesTotal);
         bool GetItemDownloadInfo(PublishedFileId_t nPublishedFileID, ref UInt64 punBytesDownloaded, ref UInt64 punBytesTotal);
 
-        //DownloadItem
+        UInt64 DownloadItem(UInt64 nPublishedFileID);
     }
 }

@@ -3,5 +3,14 @@
   "WorkshopDownloadItemError": "^.*ERROR! (?<message>.*)$",
   "WorkshopDownloadItemSuccess": "^Success. (?<message>.*)$",
 
-  "BadStrings": [ "\\src\\common\\contentmanifest.cpp (650) : Assertion Failed: !m_bIsFinalized" ]
+  "BadStrings": [ "\\src\\common\\contentmanifest.cpp (650) : Assertion Failed: !m_bIsFinalized" ],
+
+
+
+
+
+  
+  "UnterminatedLinePatterns": [
+    "ERROR! Download item [0-9]+ failed \\([^)]*\\)\\."
+  ]
 }

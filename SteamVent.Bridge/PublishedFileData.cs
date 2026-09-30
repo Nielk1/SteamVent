@@ -1,25 +1,27 @@
-﻿using SteamVent.Common.InterProc;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+using SteamVent.Common.InterProc;
 
-namespace SteamVent.Bridge
+namespace SteamVent.Bridge;
+
+/// <summary>
+/// The subscription/install state of a single workshop item, as reported by the bridge.
+/// </summary>
+public sealed class PublishedFileData
 {
-    public class PublishedFileData
+    public PublishedFileData()
     {
-        public ulong publishedFileId { get; set; }
-        public EItemState state { get; set; }
-        public UInt64? punSizeOnDisk { get; set; }
-        public string? pchFolder { get; set; }
-        public UInt32? punTimeStamp { get; set; }
-        public UInt64? punBytesDownloaded { get; set; }
-        public UInt64? punBytesTotal { get; set; }
-        public PublishedFileData(ulong publishedFileId, EItemState state)
-        {
-            this.publishedFileId = publishedFileId;
-            this.state = state;
-        }
     }
+
+    public PublishedFileData(ulong publishedFileId, EItemState state)
+    {
+        PublishedFileId = publishedFileId;
+        State = state;
+    }
+
+    public ulong PublishedFileId { get; set; }
+    public EItemState State { get; set; }
+    public UInt64? SizeOnDisk { get; set; }
+    public string? Folder { get; set; }
+    public UInt32? TimeStamp { get; set; }
+    public UInt64? BytesDownloaded { get; set; }
+    public UInt64? BytesTotal { get; set; }
 }

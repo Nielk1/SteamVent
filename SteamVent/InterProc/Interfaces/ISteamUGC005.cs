@@ -337,6 +337,11 @@ namespace SteamVent.InterProc.Interfaces
         public bool GetItemDownloadInfo(PublishedFileId_t nPublishedFileID, ref UInt64 punBytesDownloaded, ref UInt64 punBytesTotal) =>
             GetDelegate<GetItemDownloadInfoDelegate>()(InterfacePtr, nPublishedFileID, ref punBytesDownloaded, ref punBytesTotal);
 
-        //DownloadItem
+        #region VTableIndex(45)
+        [VTableIndex(45), UnmanagedFunctionPointer(CallingConvention.ThisCall)]
+        private delegate UInt64 DownloadItemDelegate(IntPtr thisPtr, UInt64 nPublishedFileID);
+        #endregion
+        public UInt64 DownloadItem(UInt64 nPublishedFileID) =>
+            GetDelegate<DownloadItemDelegate>()(InterfacePtr, nPublishedFileID);
     }
 }
