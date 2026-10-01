@@ -5,12 +5,8 @@
 
   "BadStrings": [ "\\src\\common\\contentmanifest.cpp (650) : Assertion Failed: !m_bIsFinalized" ],
 
-
-
-
-
-  
   "UnterminatedLinePatterns": [
-    "ERROR! Download item [0-9]+ failed \\([^)]*\\)\\."
+    "ERROR! Download item \\d+ failed \\([^)]*\\)\\.",
+    "Success\\. Downloaded item \\d+ to \"[^\"]*\" \\([^)]*bytes\\) ?"
   ]
 }

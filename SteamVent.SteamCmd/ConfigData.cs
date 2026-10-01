@@ -24,11 +24,22 @@ namespace SteamVent.SteamCmd
 
         public string[] BadStrings { get; set; }
 
+        /// <summary>
+        /// Regex patterns that match the terminal portion of a logical line that SteamCmd fails to
+        /// newline-terminate, causing the next message to be concatenated onto it (e.g.
+        /// "ERROR! Download item 123 failed (Access Denied).Unloading Steam API...OK"). When one of
+        /// these patterns matches in the middle of a line, a CRLF is injected immediately after the
+        /// match so the trailing text reads back in as its own line.
+        /// </summary>
+        public string[] UnterminatedLinePatterns { get; set; }
+
         [JsonIgnore]
         public Regex RegWorkshopStatusItem { get; set; }
         [JsonIgnore]
         public Regex RegWorkshopDownloadItemError { get; set; }
         [JsonIgnore]
         public Regex RegWorkshopDownloadItemSuccess { get; set; }
+        [JsonIgnore]
+        public Regex[] RegUnterminatedLinePatterns { get; set; }
     }
 }

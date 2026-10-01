@@ -86,6 +86,10 @@ namespace SteamVent.SteamCmd
             Config.RegWorkshopStatusItem = new Regex(Config.WorkshopStatusItem);
             Config.RegWorkshopDownloadItemError = new Regex(Config.WorkshopDownloadItemError);
             Config.RegWorkshopDownloadItemSuccess = new Regex(Config.WorkshopDownloadItemSuccess);
+            Config.RegUnterminatedLinePatterns = (Config.UnterminatedLinePatterns ?? Array.Empty<string>())
+                .Where(p => !string.IsNullOrWhiteSpace(p))
+                .Select(p => new Regex(p))
+                .ToArray();
             //Config.SteamCmdDownloadURL ?== DefaultSteamCmdDownloadURL; // enable this later
 
             // Allow steamvent.steamcmd.json to preset the forced install directory; callers
@@ -258,6 +262,12 @@ namespace SteamVent.SteamCmd
                 foreach (string badstring in Config.BadStrings)
                     text = text.Replace(badstring + "\r\n", string.Empty);
 
+                // SteamCmd sometimes fails to newline-terminate a logical line, concatenating the
+                // next message onto its tail (e.g. "ERROR! ... (Access Denied).Unloading Steam API...OK").
+                // Inject the missing CRLF so each logical line is emitted -- and later parsed -- as
+                // its own line.
+                text = InjectUnterminatedLineTerminators(text);
+
                 if (text.Length == 0)
                     yield break;
 
@@ -323,6 +333,42 @@ namespace SteamVent.SteamCmd
                     }
                 }
             }
+        }
+
+        /// <summary>
+        /// SteamCmd occasionally emits a logical line without a trailing newline, so the next
+        /// message is concatenated onto its tail (e.g.
+        /// "ERROR! Download item 123 failed (Access Denied).Unloading Steam API...OK"). Each entry
+        /// in <see cref="ConfigData.UnterminatedLinePatterns"/> matches the terminal portion of one
+        /// of those unterminated lines. Where such a pattern matches and is followed by further text
+        /// on the same line -- i.e. it is not already at the end of the buffer and not already
+        /// followed by a line break -- a CRLF is injected immediately after the match so the trailing
+        /// text reads back in as its own line.
+        /// </summary>
+        private string InjectUnterminatedLineTerminators(string text)
+        {
+            if (string.IsNullOrEmpty(text) || Config?.RegUnterminatedLinePatterns == null)
+                return text;
+
+            foreach (Regex pattern in Config.RegUnterminatedLinePatterns)
+            {
+                if (pattern == null)
+                    continue;
+
+                text = pattern.Replace(text, m =>
+                {
+                    int end = m.Index + m.Length;
+
+                    // A match that is at the very end of the buffer, or that is already followed by a
+                    // line break, is already properly terminated -- leave it alone.
+                    if (end >= text.Length || text[end] == '\r' || text[end] == '\n')
+                        return m.Value;
+
+                    return m.Value + "\r\n";
+                });
+            }
+
+            return text;
         }
 
         private string ReadLine(Process proc)
