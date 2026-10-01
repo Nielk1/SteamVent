@@ -870,6 +870,22 @@ namespace SteamVent.SteamCmd
         }
 
         /// <summary>
+        /// How a failed workshop download should be treated by the caller, so retry policy can be
+        /// applied per failure instead of blanket-retrying everything.
+        /// </summary>
+        public enum WorkshopItemFailureKind
+        {
+            /// <summary>Transient / unknown -- retrying is reasonable.</summary>
+            Transient = 0,
+
+            /// <summary>The item is unobtainable (e.g. "File Not Found", "Access Denied") -- retrying won't help.</summary>
+            Permanent,
+
+            /// <summary>Steam throttled or cut the connection (e.g. "No Connection") -- back off before retrying.</summary>
+            Throttling,
+        }
+
+        /// <summary>
         /// The outcome of a single workshop item within a batched SteamCmd download run
         /// (see <see cref="WorkshopDownloadItemsAsync"/>).
         /// </summary>
@@ -884,11 +900,19 @@ namespace SteamVent.SteamCmd
             /// <summary>SteamCmd's message describing the item's outcome.</summary>
             public string? Message { get; }
 
-            public WorkshopItemDownloadResult(UInt64 PublishedFileId, bool Success, string? Message)
+            /// <summary>
+            /// For failures, how the caller should treat this result (see <see cref="WorkshopItemFailureKind"/>);
+            /// always <see cref="WorkshopItemFailureKind.Transient"/> when <see cref="Success"/> is true.
+            /// </summary>
+            public WorkshopItemFailureKind FailureKind { get; }
+
+            public WorkshopItemDownloadResult(UInt64 PublishedFileId, bool Success, string? Message,
+                WorkshopItemFailureKind failureKind = WorkshopItemFailureKind.Transient)
             {
                 this.PublishedFileId = PublishedFileId;
                 this.Success = Success;
                 this.Message = Message;
+                this.FailureKind = failureKind;
             }
 
             public override string ToString()
@@ -1077,8 +1101,31 @@ namespace SteamVent.SteamCmd
             if (match.Success)
                 UInt64.TryParse(match.Groups[1].Value, out id);
 
-            result = new WorkshopItemDownloadResult(id, success, message);
+            var kind = success ? WorkshopItemFailureKind.Transient : ClassifyWorkshopFailure(message);
+            result = new WorkshopItemDownloadResult(id, success, message, kind);
             return true;
+        }
+
+        /// <summary>
+        /// Bucket a SteamCmd failure message so the caller can apply a sensible per-failure retry
+        /// policy. Matching is intentionally narrow (only the known phrases) so anything unexpected
+        /// falls through to <see cref="WorkshopItemFailureKind.Transient"/> and is still retried.
+        /// </summary>
+        private static WorkshopItemFailureKind ClassifyWorkshopFailure(string? message)
+        {
+            if (string.IsNullOrEmpty(message))
+                return WorkshopItemFailureKind.Transient;
+
+            // "This isn't going to work": the item doesn't exist / we don't have access to it.
+            if (message.Contains("File Not Found", StringComparison.OrdinalIgnoreCase)
+             || message.Contains("Access Denied", StringComparison.OrdinalIgnoreCase))
+                return WorkshopItemFailureKind.Permanent;
+
+            // Steam is throttling us or the connection dropped; hammering it more makes it worse.
+            if (message.Contains("No Connection", StringComparison.OrdinalIgnoreCase))
+                return WorkshopItemFailureKind.Throttling;
+
+            return WorkshopItemFailureKind.Transient;
         }
 
         private static bool IsStallLine(string? line)
