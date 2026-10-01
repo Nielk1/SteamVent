@@ -73,7 +73,7 @@ namespace SteamVent.SteamCmd
         /// is forced to the start of the parameter list on every SteamCmd launch. When null or
         /// empty the argument is not used at all.
         /// </summary>
-        public string ForceInstallDir { get; set; }
+        public string? ForceInstallDir { get; set; }
 
         private static readonly Lazy<SteamCmdContext> lazyInstance = new Lazy<SteamCmdContext>(() => new SteamCmdContext());
         public static SteamCmdContext Instance = lazyInstance.Value;
@@ -610,7 +610,7 @@ namespace SteamVent.SteamCmd
                 double ProgressC = 0;
                 double ProgressD = 0;
 
-                string LibraryPath = Path.Combine(SteamCmdContext.AssemblyDirectory, "steamcmd");
+                string LibraryPath = ForceInstallDir ?? Path.Combine(SteamCmdContext.AssemblyDirectory, "steamcmd");
 
                 // get existing mod folders
                 Task DirectoryScanTask = Task.Run(async () =>
@@ -641,14 +641,18 @@ namespace SteamVent.SteamCmd
 
                     await ProcessLock.WaitAsync();
 
+                    // Apply +force_install_dir (if set) exactly once, here, so both the process
+                    // arguments and the logged argument line show the final command.
+                    string fullCommand = BuildSteamCmdCommand(command);
+
                     bool sawAntiStall = false;
                     for (int retries = 0; retries < 10 && !sawAntiStall; retries++)
                     {
                         OnStatus?.Invoke(ESteamCmdTaskStatus.Running);
 
-                        using Process proc = GetProc(command);
+                        using Process proc = GetProc(fullCommand);
 
-                        OnSteamCmdArgs($"steamcmd.exe {command}");
+                        OnSteamCmdArgs($"steamcmd.exe {fullCommand}");
                         OnSteamCmdStatusChange(new SteamCmdStatusChangeEventArgs(ESteamCmdStatus.Starting));
                         proc.Start();
                         proc.StandardInput.Close();
