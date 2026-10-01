@@ -15,6 +15,7 @@ using System.IO.Compression;
 using System.Linq;
 using System.Net;
 using System.Reflection;
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Text.RegularExpressions;
@@ -866,6 +867,226 @@ namespace SteamVent.SteamCmd
                 Exception ex = new SteamCmdException("Unknown Error", new SteamCmdWorkshopDownloadException(FullOutput));
                 throw ex;
             }
+        }
+
+        /// <summary>
+        /// The outcome of a single workshop item within a batched SteamCmd download run
+        /// (see <see cref="WorkshopDownloadItemsAsync"/>).
+        /// </summary>
+        public sealed class WorkshopItemDownloadResult
+        {
+            /// <summary>The workshop item id this result refers to (0 when SteamCmd did not name one).</summary>
+            public UInt64 PublishedFileId { get; }
+
+            /// <summary>True when SteamCmd reported a "Success." line for this item.</summary>
+            public bool Success { get; }
+
+            /// <summary>SteamCmd's message describing the item's outcome.</summary>
+            public string? Message { get; }
+
+            public WorkshopItemDownloadResult(UInt64 PublishedFileId, bool Success, string? Message)
+            {
+                this.PublishedFileId = PublishedFileId;
+                this.Success = Success;
+                this.Message = Message;
+            }
+
+            public override string ToString()
+            {
+                return $"{(Success ? "Success" : "Failure")} - {PublishedFileId} - {Message}";
+            }
+        }
+
+        // Extracts the item id out of SteamCmd's per-item workshop lines, e.g.
+        //   "Success. Downloaded item 1325933293 to \"...\" (379069888 bytes)"
+        //   "ERROR! Download item 1325933293 failed (File Not Found)."
+        private static readonly Regex WorkshopItemIdRegex =
+            new Regex(@"\bitem\s+(\d{6,})", RegexOptions.Compiled | RegexOptions.IgnoreCase);
+
+        // A "plan" is the final, ready-to-run SteamCmd command plus an optional cleanup
+        // (used to delete a generated batch script file once the run is finished).
+        private readonly struct WorkshopBatchPlan
+        {
+            public readonly string Command;
+            public readonly Action? Cleanup;
+
+            public WorkshopBatchPlan(string command, Action? cleanup)
+            {
+                Command = command;
+                Cleanup = cleanup;
+            }
+        }
+
+        /// <summary>
+        /// Download many workshop items in a single SteamCmd invocation (one process, not one
+        /// per item). Per-item results are parsed from the streamed output and yielded in the
+        /// order SteamCmd reports them, so callers can drive real progress. Small/medium
+        /// batches go on the command line; large ones (near the OS command-line limit) are
+        /// written to a script file run with <c>+runscript</c>, keeping <c>login</c>/<c>quit</c>
+        /// on the command line so order is preserved (login, all items, quit).
+        /// </summary>
+        /// <param name="AppId">The app id (e.g. 443530 BZCC, 624970 BZ98R).</param>
+        /// <param name="PublishedFileIds">Workshop item ids to download (duplicates/blanks dropped).</param>
+        /// <param name="cancellationToken">Cancels the run and abandons the result stream.</param>
+        /// <returns>One <see cref="WorkshopItemDownloadResult"/> per item, as reported.</returns>
+        public async IAsyncEnumerable<WorkshopItemDownloadResult> WorkshopDownloadItemsAsync(
+            UInt32 AppId,
+            IEnumerable<UInt64> PublishedFileIds,
+            [EnumeratorCancellation] CancellationToken cancellationToken = default)
+        {
+            // Normalise: drop invalid/blank ids and duplicates, preserving first-seen order.
+            var ids = new List<UInt64>();
+            var seen = new HashSet<UInt64>();
+            if (PublishedFileIds != null)
+            {
+                foreach (var id in PublishedFileIds)
+                {
+                    if (id >= 100000 && seen.Add(id))
+                        ids.Add(id);
+                }
+            }
+            if (ids.Count == 0)
+                yield break;
+
+            WorkshopBatchPlan plan = BuildWorkshopBatchPlan(AppId, ids);
+            string fullCommand = plan.Command;
+            try
+            {
+                const int MaxAttempts = 3;
+                for (int attempt = 1; attempt <= MaxAttempts; attempt++)
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+
+                    bool yieldedAny = false;
+                    bool stalled = false;
+                    string? lastLine = null;
+
+                    await ProcessLock.WaitAsync(cancellationToken).ConfigureAwait(false);
+                    try
+                    {
+                        using Process proc = GetProc(fullCommand);
+
+                        OnSteamCmdArgs($"steamcmd.exe {fullCommand}");
+                        OnSteamCmdStatusChange(new SteamCmdStatusChangeEventArgs(ESteamCmdStatus.Starting));
+
+                        proc.Start();
+                        // Commands are supplied entirely on the command line / in the script;
+                        // close stdin immediately so SteamCmd sees EOF, not an open input pipe.
+                        proc.StandardInput.Close();
+                        OnSteamCmdStatusChange(new SteamCmdStatusChangeEventArgs(ESteamCmdStatus.Active));
+
+                        try
+                        {
+                            await foreach (string line in ReadLines(proc).ConfigureAwait(false))
+                            {
+                                cancellationToken.ThrowIfCancellationRequested();
+                                if (!string.IsNullOrWhiteSpace(line))
+                                    lastLine = line;
+
+                                if (TryParseWorkshopDownloadResult(line, out WorkshopItemDownloadResult? r) && r != null)
+                                {
+                                    yieldedAny = true;
+                                    OnSteamCmdRichOutput(new SteamCmdRichOutput(SteamCmdLogType.Workshop, line.TrimEnd('\r', '\n')));
+                                    yield return r;
+                                }
+                            }
+
+                            // ReadLines ends on stdout EOF; confirm the proxy process itself has
+                            // exited before releasing the lock to the next caller.
+                            await proc.WaitForExitAsync().ConfigureAwait(false);
+                            stalled = IsStallLine(lastLine);
+                        }
+                        finally
+                        {
+                            // The consumer may have abandoned the stream before steamcmd
+                            // finished; make sure we never leak a running steamcmd.exe.
+                            try { if (!proc.HasExited) proc.Kill(); } catch { }
+                        }
+                    }
+                    finally
+                    {
+                        OnSteamCmdStatusChange(new SteamCmdStatusChangeEventArgs(ESteamCmdStatus.Closed));
+                        ProcessLock.Release();
+                    }
+
+                    // A run ending on "Checking for available updates..." with no items reported
+                    // means SteamCmd bailed out before doing the work. Retry -- but only while we
+                    // have not streamed any results, so nothing is ever yielded twice.
+                    if (stalled && !yieldedAny && attempt < MaxAttempts)
+                        continue;
+
+                    yield break;
+                }
+            }
+            finally
+            {
+                // Run the plan's cleanup (e.g. delete the batch script) exactly once, even if
+                // the consumer abandons the stream early.
+                plan.Cleanup?.Invoke();
+            }
+        }
+
+        private WorkshopBatchPlan BuildWorkshopBatchPlan(UInt32 AppId, IReadOnlyList<UInt64> ids)
+        {
+            const int MaxCommandLineChars = 24000; // stay well under the ~32k Windows limit
+            string[] items = ids.Select(id => $"workshop_download_item {AppId} {id}").ToArray();
+
+            // 1) Everything on the command line (a single SteamCmd invocation).
+            string cliBody = string.Join(" ", items.Select(i => "+" + i));
+            string cliCommand = BuildSteamCmdCommand($"+login anonymous {cliBody} +quit");
+            if (cliCommand.Length <= MaxCommandLineChars)
+                return new WorkshopBatchPlan(cliCommand, null);
+
+            // 2) Item commands in a script file, run with +runscript (no command-line limit).
+            //    The surrounding +login / +quit stay on the command line, and the script is
+            //    written into the process working directory and referenced by bare name so it
+            //    resolves regardless of the directory SteamCmd expects scripts in.
+            string scriptName = $"bzrmm_workshop_{Guid.NewGuid():N}.txt";
+            string scriptPath = Path.Combine(AssemblyDirectory, "steamcmd", scriptName);
+            File.WriteAllText(scriptPath, string.Join(Environment.NewLine, items));
+            string scriptCommand = BuildSteamCmdCommand($"+login anonymous +runscript {scriptName} +quit");
+            return new WorkshopBatchPlan(scriptCommand, () => { try { File.Delete(scriptPath); } catch { } });
+        }
+
+        private bool TryParseWorkshopDownloadResult(string line, out WorkshopItemDownloadResult? result)
+        {
+            result = null;
+            if (string.IsNullOrWhiteSpace(line))
+                return false;
+
+            bool success;
+            string? message;
+
+            if (Config.RegWorkshopDownloadItemError.IsMatch(line))
+            {
+                success = false;
+                message = Config.RegWorkshopDownloadItemError.Match(line).Groups["message"]?.Value;
+            }
+            else if (Config.RegWorkshopDownloadItemSuccess.IsMatch(line))
+            {
+                success = true;
+                message = Config.RegWorkshopDownloadItemSuccess.Match(line).Groups["message"]?.Value;
+            }
+            else
+            {
+                return false;
+            }
+
+            var match = WorkshopItemIdRegex.Match(line);
+            UInt64 id = 0;
+            if (match.Success)
+                UInt64.TryParse(match.Groups[1].Value, out id);
+
+            result = new WorkshopItemDownloadResult(id, success, message);
+            return true;
+        }
+
+        private static bool IsStallLine(string? line)
+        {
+            return string.Equals(
+                line?.Trim(),
+                @"[  0%] Checking for available updates...",
+                StringComparison.Ordinal);
         }
 
         protected void OnSteamCmdStatusChange(SteamCmdStatusChangeEventArgs e)
