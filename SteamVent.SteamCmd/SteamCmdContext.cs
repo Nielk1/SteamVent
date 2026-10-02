@@ -1481,8 +1481,14 @@ namespace SteamVent.SteamCmd
             Directory.Delete(path);
         }
 
+        // TODO this only handles our locally managed manual data, might want to disable it entirely if using a custom path
         public void Purge()
         {
+            //if (!string.IsNullOrWhiteSpace(SteamCmdPath))
+            //{
+            //    return;
+            //}
+
             try
             {
                 ProcessLock.Wait();
@@ -1535,6 +1541,76 @@ namespace SteamVent.SteamCmd
             // Re-arm the readiness gate: the binary was just removed, so the next
             // EnsureReadyAsync()/DownloadAsync() performs a fresh download.
             ResetReadiness();
+        }
+    
+        public async Task CleanJunkDataAsync()
+        {
+            // for an existing install rather than our managed one, just don't do cleanup for now
+            if (!string.IsNullOrWhiteSpace(SteamCmdPath))
+            {
+                return;
+            }
+
+            await CleanTemporaryUserdataAsync();
+        }
+
+        /// <summary>
+        /// Safely purges temporary anonymous SteamCMD userdata folders asynchronously.
+        /// </summary>
+        public async Task CleanTemporaryUserdataAsync()
+        {
+            // for an existing install rather than our managed one, just don't do cleanup for now
+            if (!string.IsNullOrWhiteSpace(SteamCmdPath))
+            {
+                return;
+            }
+
+            string userdataPath = Path.Combine(SteamCmdDir, "userdata");
+
+            if (!Directory.Exists(userdataPath))
+            {
+                Console.WriteLine("Userdata directory does not exist. Skipping cleanup.");
+                return;
+            }
+
+            try
+            {
+                // Enumerate directories lazily to minimize memory overhead
+                var directories = Directory.EnumerateDirectories(userdataPath);
+
+                foreach (var dirPath in directories)
+                {
+                    string folderName = Path.GetFileName(dirPath);
+
+                    // 1. Rule: Must be purely numeric
+                    // 2. Rule: Exclude the static base folder '0'
+                    if (folderName.All(char.IsDigit) && folderName != "0")
+                    {
+                        string configPath = Path.Combine(dirPath, "config");
+
+                        // Safeguard: Real users have a 'config' directory. Guest sessions do not.
+                        if (!Directory.Exists(configPath))
+                        {
+                            Console.WriteLine($"Purging anonymous session folder: {folderName}");
+                            
+                            // Run IO-heavy deletion on a background thread to keep UI/Management loop responsive
+                            await Task.Run(() => Directory.Delete(dirPath, recursive: true));
+                        }
+                        else
+                        {
+                            Console.WriteLine($"Skipping protected real user folder: {folderName}");
+                        }
+                    }
+                }
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                Console.WriteLine($"Permission error during cleanup: {ex.Message}");
+            }
+            catch (IOException ex)
+            {
+                Console.WriteLine($"IO error (file locked by SteamCMD?): {ex.Message}");
+            }
         }
     }
 }
