@@ -100,6 +100,41 @@ namespace SteamVent.SteamCmd
         /// </summary>
         public string? ForceInstallDir { get; set; }
 
+        /// <summary>
+        /// Whether command entry points should block until SteamCmd is ready (true) or fail fast when
+        /// it is not ready (false). This only affects the command methods (WorkshopStatusAsync,
+        /// WorkshopDownloadItemAsync, ...): with it false they throw a
+        /// <see cref="SteamCmdNotReadyException"/> instead of waiting. <see cref="EnsureReadyAsync"/>
+        /// is unaffected and ALWAYS waits, so complex code can call it explicitly to opt into waiting
+        /// -- and then catch/branch on the not-ready / failed outcome to react.
+        /// </summary>
+        public bool WaitWhenNotReady { get; set; } = false;
+
+        /// <summary>
+        /// Optional path to an EXISTING SteamCmd installation (the directory containing steamcmd.exe).
+        /// When set, SteamCmd is NOT downloaded -- this path is used directly and merely validated.
+        /// When null/empty SteamCmd is downloaded next to the application as usual.
+        /// </summary>
+        public string? SteamCmdPath { get; set; }
+
+        /// <summary>The directory that holds the steamcmd.exe we launch (existing instance, or the default).</summary>
+        public string SteamCmdDir
+        {
+            get
+            {
+                if (!string.IsNullOrWhiteSpace(SteamCmdPath))
+                    return Path.GetFullPath(SteamCmdPath.Trim());
+
+                return Path.Combine(AssemblyDirectory, "steamcmd");
+            }
+        }
+
+        /// <summary>The full path to the steamcmd.exe we launch.</summary>
+        public string SteamCmdExePath
+        {
+            get { return Path.Combine(SteamCmdDir, "steamcmd.exe"); }
+        }
+
         private static readonly Lazy<SteamCmdContext> lazyInstance = new Lazy<SteamCmdContext>(() => new SteamCmdContext());
         public static SteamCmdContext Instance = lazyInstance.Value;
         private SteamCmdContext()
@@ -183,14 +218,17 @@ namespace SteamVent.SteamCmd
         }
 
         /// <summary>
-        /// Ensures SteamCmd has been downloaded and extracted, running that work exactly once no
-        /// matter how many callers race for it. Every method that launches steamcmd awaits this
-        /// before starting a process. Awaits here block until the download has either succeeded
-        /// (this returns normally) or failed (a <see cref="SteamCmdDownloadException"/> is thrown).
+        /// Ensures SteamCmd is ready to run -- validating the existing installation at
+        /// <see cref="SteamCmdPath"/> when set, or downloading + extracting it when not -- and
+        /// performs that setup exactly once no matter how many callers race for it. This method
+        /// ALWAYS waits (it is the explicit opt-in to block for readiness); the command entry points
+        /// only do so when <see cref="WaitWhenNotReady"/> is true. Awaits here block until the setup
+        /// has either succeeded (this returns normally) or failed (a
+        /// <see cref="SteamCmdDownloadException"/> is thrown).
         /// </summary>
         /// <param name="cancellationToken">
-        /// Optional caller-scoped token that can release this wait early. The underlying download
-        /// is additionally bound to the application shutdown token, so shutdown always unblocks it.
+        /// Optional caller-scoped token that can release this wait early. The underlying setup is
+        /// additionally bound to the application shutdown token, so shutdown always unblocks it.
         /// </param>
         public Task EnsureReadyAsync(CancellationToken cancellationToken = default)
         {
@@ -198,7 +236,7 @@ namespace SteamVent.SteamCmd
             lock (_readyGate)
             {
                 if (_readyTask == null)
-                    _readyTask = DownloadCoreAsync(_shutdownCts.Token);
+                    _readyTask = SetupCoreAsync(_shutdownCts.Token);
 
                 ready = _readyTask;
             }
@@ -207,6 +245,43 @@ namespace SteamVent.SteamCmd
                 return ready; // the shared task already observes the shutdown token
 
             return WaitForCancellation(ready, cancellationToken, _shutdownCts.Token);
+        }
+
+        /// <summary>
+        /// Internal readiness gate for the command entry points. Honors <see cref="WaitWhenNotReady"/>:
+        /// when true it waits for readiness exactly like <see cref="EnsureReadyAsync"/>; when false it
+        /// fails fast -- throwing <see cref="SteamCmdNotReadyException"/> (or the real setup failure if
+        /// one already occurred) instead of blocking. Complex code that wants to wait, or to react to
+        /// the missing/failed state, should call <see cref="EnsureReadyAsync"/> explicitly instead.
+        /// </summary>
+        private async Task RequireReadyAsync(CancellationToken cancellationToken)
+        {
+            if (WaitWhenNotReady)
+            {
+                await EnsureReadyAsync(cancellationToken).ConfigureAwait(false);
+                return;
+            }
+
+            // Fast-fail: never block. Inspect the shared setup task (if any) and surface a usable error.
+            Task? shared;
+            lock (_readyGate) shared = _readyTask;
+
+            if (shared == null)
+                throw new SteamCmdNotReadyException(
+                    "SteamCmd is not ready and has not been set up. Call EnsureReadyAsync() to wait for it, " +
+                    "point SteamCmdPath at an existing installation, or set WaitWhenNotReady = true.");
+
+            if (shared.IsCompleted)
+            {
+                // Setup already finished: propagate its outcome (success, or the real setup/download failure).
+                await shared.ConfigureAwait(false);
+                return;
+            }
+
+            // Still in flight -- don't block for it.
+            throw new SteamCmdNotReadyException(
+                "SteamCmd is still being set up and WaitWhenNotReady is false. Call EnsureReadyAsync() to " +
+                "wait for it, or set WaitWhenNotReady = true.");
         }
 
         /// <summary>
@@ -245,15 +320,27 @@ namespace SteamVent.SteamCmd
         #endregion ReadinessGate
 
         /// <summary>
-        /// Performs the download + extract exactly once (shared across callers). Downloads to a
-        /// .part file and only renames it into place when complete, so an interrupted download
-        /// never leaves a half-written zip that later looks valid. Any failure is reported as a
+        /// Makes SteamCmd ready exactly once (shared across callers): either validates the existing
+        /// installation at <see cref="SteamCmdPath"/>, or downloads + extracts it (to a .part file,
+        /// renamed into place only when complete, so an interrupted download never leaves a
+        /// half-written zip that later looks valid). Any failure is reported as a
         /// <see cref="SteamCmdDownloadException"/> (or the cancellation exception when aborted by
         /// shutdown), which every waiter observes.
         /// </summary>
-        private async Task DownloadCoreAsync(CancellationToken cancellationToken)
+        private async Task SetupCoreAsync(CancellationToken cancellationToken)
         {
-            string exePath = Path.Combine(AssemblyDirectory, "steamcmd", "steamcmd.exe");
+            string exePath = SteamCmdExePath;
+
+            // Existing installation: we never download in this mode -- just validate it is present.
+            if (!string.IsNullOrWhiteSpace(SteamCmdPath))
+            {
+                if (File.Exists(exePath))
+                    return; // existing instance found -- ready
+                throw new SteamCmdDownloadException(
+                    $"SteamCmd is configured to use the existing installation at \"{SteamCmdDir}\", " +
+                    "but steamcmd.exe was not found there.");
+            }
+
             if (File.Exists(exePath))
                 return; // already installed -- nothing to do
 
@@ -265,7 +352,7 @@ namespace SteamVent.SteamCmd
                     return;
 
                 string zipPath = Path.Combine(AssemblyDirectory, "steamcmd.zip");
-                string destDir = Path.Combine(AssemblyDirectory, "steamcmd");
+                string destDir = SteamCmdDir;
 
                 if (!File.Exists(zipPath) || new FileInfo(zipPath).Length == 0)
                 {
@@ -388,8 +475,13 @@ namespace SteamVent.SteamCmd
         /// <exception cref="SteamCmdMissingException"></exception>
         private Process GetProc(string command)
         {
-            if (!Directory.Exists(Path.Combine(AssemblyDirectory, "steamcmd"))) throw new SteamCmdMissingException("steamcmd directory missing");
-            if (!File.Exists(Path.Combine(AssemblyDirectory, "steamcmd\\steamcmd.exe"))) throw new SteamCmdMissingException("steamcmd.exe missing");
+            if (!Directory.Exists(SteamCmdDir)) throw new SteamCmdMissingException("steamcmd directory missing");
+            if (!File.Exists(SteamCmdExePath)) throw new SteamCmdMissingException("steamcmd.exe missing");
+
+            // Quote the exe path if it contains whitespace (external installations often do).
+            string exeArg = SteamCmdExePath;
+            if (exeArg.Any(System.Char.IsWhiteSpace))
+                exeArg = $"\"{exeArg}\"";
 
             Process proc = new Process()
             {
@@ -397,7 +489,7 @@ namespace SteamVent.SteamCmd
                 {
                     WorkingDirectory = AssemblyDirectory,
                     FileName = Path.Combine(AssemblyDirectory, "steamcmdprox.exe"),
-                    Arguments = $"steamcmd\\steamcmd.exe {command}",
+                    Arguments = $"{exeArg} {command}",
                     UseShellExecute = false,
                     CreateNoWindow = true,
                     RedirectStandardOutput = true,
@@ -413,8 +505,8 @@ namespace SteamVent.SteamCmd
 
         private async Task<string> StartProcAsync(string command)//, Action<string> LineOutput = null)
         {
-            // Ensure SteamCmd is downloaded before we attempt to launch it.
-            await EnsureReadyAsync().ConfigureAwait(false);
+            // Ensure SteamCmd is ready (waits, or fast-fails, per WaitWhenNotReady) before we launch it.
+            await RequireReadyAsync(default).ConfigureAwait(false);
 
             // Apply +force_install_dir (if set) exactly once, here, so both the process
             // arguments and the logged argument line show the final command.
@@ -803,8 +895,8 @@ namespace SteamVent.SteamCmd
 
         public async Task<List<WorkshopItemStatus>?> WorkshopStatusAsync(UInt32 AppId, IProgress<double?>? Progress = null, Action<ESteamCmdTaskStatus>? OnStatus = null)
         {
-            // Ensure SteamCmd is downloaded before we attempt to launch it.
-            await EnsureReadyAsync().ConfigureAwait(false);
+            // Ensure SteamCmd is ready (waits, or fast-fails, per WaitWhenNotReady) before we launch it.
+            await RequireReadyAsync(default).ConfigureAwait(false);
 
             OnStatus?.Invoke(ESteamCmdTaskStatus.WaitingToStart);
             Trace.WriteLine($"WorkshopStatus({AppId})");
@@ -822,7 +914,7 @@ namespace SteamVent.SteamCmd
                 double ProgressC = 0;
                 double ProgressD = 0;
 
-                string LibraryPath = ForceInstallDir ?? Path.Combine(SteamCmdContext.AssemblyDirectory, "steamcmd");
+                string LibraryPath = ForceInstallDir ?? SteamCmdDir;
 
                 // get existing mod folders
                 Task DirectoryScanTask = Task.Run(async () =>
@@ -1169,8 +1261,8 @@ namespace SteamVent.SteamCmd
             IEnumerable<UInt64> PublishedFileIds,
             [EnumeratorCancellation] CancellationToken cancellationToken = default)
         {
-            // Ensure SteamCmd is downloaded before we attempt to launch it.
-            await EnsureReadyAsync(cancellationToken).ConfigureAwait(false);
+            // Ensure SteamCmd is ready (waits, or fast-fails, per WaitWhenNotReady) before we launch it.
+            await RequireReadyAsync(cancellationToken).ConfigureAwait(false);
 
             // Normalise: drop invalid/blank ids and duplicates, preserving first-seen order.
             var ids = new List<UInt64>();

@@ -36,6 +36,20 @@ namespace SteamVent.SteamCmd
         }
     }
 
+    /// <summary>
+    /// Raised when a command is invoked while SteamCmd is not ready and <c>WaitWhenNotReady</c> is
+    /// false (fast-fail mode) -- i.e. setup has not completed or is still in flight and the caller
+    /// did not opt to block. Distinguishable from <see cref="SteamCmdDownloadException"/> (the setup
+    /// itself failed) and <see cref="SteamCmdMissingException"/> (the binary is gone at launch time).
+    /// </summary>
+    public class SteamCmdNotReadyException : SteamCmdException
+    {
+        public SteamCmdNotReadyException(string message)
+            : base(message)
+        {
+        }
+    }
+
     public class SteamCmdWorkshopDownloadException : SteamCmdException
     {
         public SteamCmdWorkshopDownloadException(string msg)
