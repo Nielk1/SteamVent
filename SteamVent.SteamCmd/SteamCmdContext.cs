@@ -49,6 +49,30 @@ namespace SteamVent.SteamCmd
 
         //object procLock = new object();
         private readonly SemaphoreSlim ProcessLock = new SemaphoreSlim(1, 1);
+
+        // ------------------------------------------------------------------
+        // Readiness gate
+        //
+        // Downloading + extracting SteamCmd is an async prerequisite for every command. It is
+        // modelled as a single shared Task rather than a plain semaphore, because that is what
+        // gives us the guarantees a semaphore can't:
+        //   * the download runs exactly once no matter how many callers race for it;
+        //   * on failure every waiter observes the SAME descriptive exception instead of a
+        //     downstream "steamcmd.exe missing" (a semaphore can't tell you *why* it opened);
+        //   * it composes with await / Task.WhenAll / cancellation.
+        // Every code path that launches steamcmd awaits EnsureReadyAsync() first.
+        // ------------------------------------------------------------------
+        private readonly object _readyGate = new object();
+        private Task _readyTask;          // shared download/readiness task (null until first requested)
+
+        // 1 = a fresh download just completed and the one-time activation ping has not yet run.
+        private int _activationPending;
+
+        // Application-lifetime cancellation. Shutdown() fires it, which aborts an in-flight
+        // download and releases every caller blocked on the readiness gate (and the process
+        // lock) so the UI can close even when a download is stuck.
+        private readonly CancellationTokenSource _shutdownCts = new CancellationTokenSource();
+
         public ESteamCmdStatus Status { get; private set; }
 
         public delegate void SteamCmdStatusChangeEventHandler(object sender, SteamCmdStatusChangeEventArgs e);
@@ -130,34 +154,215 @@ namespace SteamVent.SteamCmd
             await StartProcWithRetryAsync($"+login anonymous +info +quit");
         }
 
-        public async Task DownloadAsync()
+        public async Task DownloadAsync(CancellationToken cancellationToken = default)
+        {
+            // Guarantee SteamCmd is downloaded & extracted before anything launches it. This is
+            // the shared, deduplicated gate: it runs the download at most once and, on failure,
+            // faults with a SteamCmdDownloadException that surfaces to the caller (instead of a
+            // later, less useful "steamcmd.exe missing").
+            await EnsureReadyAsync(cancellationToken).ConfigureAwait(false);
+
+            // One-time "activation" ping (primes the anonymous Steam session / creates the userdata
+            // dir). Runs exactly once per fresh install; Interlocked.Exchange atomically claims it so
+            // concurrent callers don't fire it twice.
+            if (Interlocked.Exchange(ref _activationPending, 0) == 1)
+            {
+                await StartProcWithRetryAsync("+login anonymous +info +quit").ConfigureAwait(false);
+            }
+        }
+
+        // ------------------------------------------------------------------
+        // Readiness gate implementation (see the field comments above)
+        // ------------------------------------------------------------------
+        #region ReadinessGate
+
+        /// <summary>True once SteamCmd has been downloaded and extracted and is ready to run.</summary>
+        public bool IsReady
+        {
+            get { lock (_readyGate) return _readyTask?.IsCompletedSuccessfully == true; }
+        }
+
+        /// <summary>
+        /// Ensures SteamCmd has been downloaded and extracted, running that work exactly once no
+        /// matter how many callers race for it. Every method that launches steamcmd awaits this
+        /// before starting a process. Awaits here block until the download has either succeeded
+        /// (this returns normally) or failed (a <see cref="SteamCmdDownloadException"/> is thrown).
+        /// </summary>
+        /// <param name="cancellationToken">
+        /// Optional caller-scoped token that can release this wait early. The underlying download
+        /// is additionally bound to the application shutdown token, so shutdown always unblocks it.
+        /// </param>
+        public Task EnsureReadyAsync(CancellationToken cancellationToken = default)
+        {
+            Task ready;
+            lock (_readyGate)
+            {
+                if (_readyTask == null)
+                    _readyTask = DownloadCoreAsync(_shutdownCts.Token);
+
+                ready = _readyTask;
+            }
+
+            if (cancellationToken == default)
+                return ready; // the shared task already observes the shutdown token
+
+            return WaitForCancellation(ready, cancellationToken, _shutdownCts.Token);
+        }
+
+        /// <summary>
+        /// Re-arms the readiness gate so the next <see cref="EnsureReadyAsync"/> performs a fresh
+        /// download. Called by <see cref="Purge"/> so "Fix SteamCmd" rebuilds from scratch.
+        /// </summary>
+        public void ResetReadiness()
+        {
+            lock (_readyGate)
+            {
+                _readyTask = null;
+            }
+        }
+
+        /// <summary>
+        /// Signals application shutdown: aborts an in-flight download and releases every caller
+        /// blocked on the readiness gate or the process lock. Idempotent; safe to call repeatedly.
+        /// </summary>
+        public void Shutdown()
         {
             try
             {
-                await ProcessLock.WaitAsync();
-                if (File.Exists(Path.Combine(AssemblyDirectory, "steamcmd\\steamcmd.exe"))) return;
-                string steamcmdzip = Path.GetFileName(SteamCmdDownloadURL);
-                if (!File.Exists(steamcmdzip))
+                _shutdownCts.Cancel();
+            }
+            catch (ObjectDisposedException)
+            {
+                // already disposed -- nothing to do
+            }
+        }
+
+        /// <summary>
+        /// The application-scoped shutdown token that the readiness gate and download observe.
+        /// </summary>
+        public CancellationToken ShutdownToken => _shutdownCts.Token;
+
+        #endregion ReadinessGate
+
+        /// <summary>
+        /// Performs the download + extract exactly once (shared across callers). Downloads to a
+        /// .part file and only renames it into place when complete, so an interrupted download
+        /// never leaves a half-written zip that later looks valid. Any failure is reported as a
+        /// <see cref="SteamCmdDownloadException"/> (or the cancellation exception when aborted by
+        /// shutdown), which every waiter observes.
+        /// </summary>
+        private async Task DownloadCoreAsync(CancellationToken cancellationToken)
+        {
+            string exePath = Path.Combine(AssemblyDirectory, "steamcmd", "steamcmd.exe");
+            if (File.Exists(exePath))
+                return; // already installed -- nothing to do
+
+            await ProcessLock.WaitAsync(cancellationToken).ConfigureAwait(false);
+            try
+            {
+                // Re-check under the lock: a sibling may have finished the download while we waited.
+                if (File.Exists(exePath))
+                    return;
+
+                string zipPath = Path.Combine(AssemblyDirectory, "steamcmd.zip");
+                string destDir = Path.Combine(AssemblyDirectory, "steamcmd");
+
+                if (!File.Exists(zipPath) || new FileInfo(zipPath).Length == 0)
                 {
+                    string tempPath = zipPath + ".part";
+
                     OnSteamCmdStatusChange(new SteamCmdStatusChangeEventArgs(ESteamCmdStatus.Downloading));
-                    HttpClient client = new HttpClient();
-                    var response = await client.GetAsync(SteamCmdDownloadURL);
-                    using (var fs = new FileStream(Path.Combine(AssemblyDirectory, steamcmdzip), FileMode.CreateNew))
+                    using (HttpClient client = new HttpClient())
                     {
-                        await response.Content.CopyToAsync(fs);
+                        // Rely on our own cancellation instead of a fixed client timeout so a slow
+                        // (but progressing) download isn't cut off, while a stuck one is aborted by
+                        // the shutdown token.
+                        client.Timeout = System.Threading.Timeout.InfiniteTimeSpan;
+                        using (var response = await client
+                                   .GetAsync(SteamCmdDownloadURL, HttpCompletionOption.ResponseHeadersRead, cancellationToken)
+                                   .ConfigureAwait(false))
+                        {
+                            if (!response.IsSuccessStatusCode)
+                                throw new SteamCmdDownloadException(
+                                    $"SteamCmd download failed: HTTP {(int)response.StatusCode} ({response.StatusCode}).");
+
+                            await using (var fs = new FileStream(tempPath, FileMode.Create, FileAccess.Write, FileShare.None))
+                            {
+                                await response.Content.CopyToAsync(fs, cancellationToken).ConfigureAwait(false);
+                            }
+                        }
                     }
+
+                    if (File.Exists(zipPath)) File.Delete(zipPath);
+                    File.Move(tempPath, zipPath);
                 }
-                if (!Directory.Exists(Path.Combine(AssemblyDirectory, "steamcmd"))) Directory.CreateDirectory(Path.Combine(AssemblyDirectory, "steamcmd"));
+
+                if (!Directory.Exists(destDir))
+                    Directory.CreateDirectory(destDir);
+
+                // ZipFile.ExtractToDirectory cannot overwrite existing entries, so first clear any
+                // stale (e.g. partially-extracted) files -- while preserving Steam's runtime data
+                // (steamapps), which the archive does not contain and which we must never lose.
+                foreach (string entry in Directory.EnumerateFileSystemEntries(destDir))
+                {
+                    if (Path.GetFileName(entry) == "steamapps")
+                        continue;
+                    try
+                    {
+                        if (Directory.Exists(entry))
+                            RecursiveDelete(entry);
+                        else
+                            File.Delete(entry);
+                    }
+                    catch { /* best effort; a locked entry will surface as an extract failure below */ }
+                }
+
                 OnSteamCmdStatusChange(new SteamCmdStatusChangeEventArgs(ESteamCmdStatus.Extracting));
-                ZipFile.ExtractToDirectory(Path.Combine(AssemblyDirectory, steamcmdzip), Path.Combine(AssemblyDirectory, "steamcmd"));
+                ZipFile.ExtractToDirectory(zipPath, destDir);
+
+                if (!File.Exists(exePath))
+                    throw new SteamCmdDownloadException("SteamCmd extraction completed but steamcmd.exe was not found.");
+
                 OnSteamCmdStatusChange(new SteamCmdStatusChangeEventArgs(ESteamCmdStatus.Installed));
+
+                // Claim the one-time activation ping (DownloadAsync fires it exactly once).
+                Interlocked.Exchange(ref _activationPending, 1);
+            }
+            catch (OperationCanceledException)
+            {
+                // Shutdown / caller cancellation: report as cancellation, not a download failure.
+                throw;
+            }
+            catch (Exception ex)
+            {
+                // Surface one descriptive failure to every waiter. Partial artifacts are left in
+                // place; a retry re-downloads the zip and re-extracts with overwrite, so a failed
+                // run is self-healing.
+                throw new SteamCmdDownloadException("Failed to download or extract SteamCmd.", ex);
             }
             finally
             {
                 ProcessLock.Release();
             }
+        }
 
-            await StartProcWithRetryAsync($"+login anonymous +info +quit");
+        /// <summary>
+        /// Awaits <paramref name="task"/> while also honoring <paramref name="caller"/> and
+        /// <paramref name="shutdown"/> so a cancelling caller is released promptly even while the
+        /// shared download is still in flight.
+        /// </summary>
+        private static async Task WaitForCancellation(Task task, CancellationToken caller, CancellationToken shutdown)
+        {
+            using var linked = CancellationTokenSource.CreateLinkedTokenSource(caller, shutdown);
+            if (linked.IsCancellationRequested)
+                throw new OperationCanceledException(linked.Token);
+
+            Task finished = await Task.WhenAny(task, Task.Delay(System.Threading.Timeout.Infinite, linked.Token)).ConfigureAwait(false);
+            if (!ReferenceEquals(finished, task))
+                throw new OperationCanceledException(linked.Token);
+
+            // The shared task finished: await it to propagate its result or exception.
+            await task.ConfigureAwait(false);
         }
 
         private async Task<string> StartProcWithRetryAsync(string command)
@@ -208,11 +413,14 @@ namespace SteamVent.SteamCmd
 
         private async Task<string> StartProcAsync(string command)//, Action<string> LineOutput = null)
         {
+            // Ensure SteamCmd is downloaded before we attempt to launch it.
+            await EnsureReadyAsync().ConfigureAwait(false);
+
             // Apply +force_install_dir (if set) exactly once, here, so both the process
             // arguments and the logged argument line show the final command.
             string fullCommand = BuildSteamCmdCommand(command);
 
-            await ProcessLock.WaitAsync().ConfigureAwait(false);
+            await ProcessLock.WaitAsync(_shutdownCts.Token).ConfigureAwait(false);
             try
             {
                 using Process proc = GetProc(fullCommand);
@@ -595,6 +803,9 @@ namespace SteamVent.SteamCmd
 
         public async Task<List<WorkshopItemStatus>?> WorkshopStatusAsync(UInt32 AppId, IProgress<double?>? Progress = null, Action<ESteamCmdTaskStatus>? OnStatus = null)
         {
+            // Ensure SteamCmd is downloaded before we attempt to launch it.
+            await EnsureReadyAsync().ConfigureAwait(false);
+
             OnStatus?.Invoke(ESteamCmdTaskStatus.WaitingToStart);
             Trace.WriteLine($"WorkshopStatus({AppId})");
             try
@@ -640,7 +851,7 @@ namespace SteamVent.SteamCmd
                 {
                     string command = $"+login anonymous +workshop_download_item {AppId} 1 +workshop_status {AppId} +quit";
 
-                    await ProcessLock.WaitAsync();
+                    await ProcessLock.WaitAsync(_shutdownCts.Token);
 
                     // Apply +force_install_dir (if set) exactly once, here, so both the process
                     // arguments and the logged argument line show the final command.
@@ -958,6 +1169,9 @@ namespace SteamVent.SteamCmd
             IEnumerable<UInt64> PublishedFileIds,
             [EnumeratorCancellation] CancellationToken cancellationToken = default)
         {
+            // Ensure SteamCmd is downloaded before we attempt to launch it.
+            await EnsureReadyAsync(cancellationToken).ConfigureAwait(false);
+
             // Normalise: drop invalid/blank ids and duplicates, preserving first-seen order.
             var ids = new List<UInt64>();
             var seen = new HashSet<UInt64>();
@@ -1225,6 +1439,10 @@ namespace SteamVent.SteamCmd
             {
                 ProcessLock.Release();
             }
+
+            // Re-arm the readiness gate: the binary was just removed, so the next
+            // EnsureReadyAsync()/DownloadAsync() performs a fresh download.
+            ResetReadiness();
         }
     }
 }
