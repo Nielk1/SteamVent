@@ -4,7 +4,7 @@ using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
 using SteamVent.Core;
-using SteamVent.Core.InterProc;
+using SteamVent.Core.Steamworks;
 using SteamVent.FileSystem;
 
 namespace SteamVent

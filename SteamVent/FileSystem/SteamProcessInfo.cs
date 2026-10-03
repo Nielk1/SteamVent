@@ -1,6 +1,6 @@
-﻿using System;
+using System;
 using Microsoft.Win32;
-using SteamVent.InterProc.Native;
+using SteamVent.Steamworks.Native;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;

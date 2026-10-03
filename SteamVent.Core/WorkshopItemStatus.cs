@@ -39,14 +39,14 @@ namespace SteamVent.Core
         public bool Equals(WorkshopItemStatus? other)
         {
             return this?.WorkshopId == other?.WorkshopId
-                && this?.Status == other?.Status
-                && this?.Size == other?.Size
-                && this?.DateTime == other?.DateTime
-                && this?.HasUpdate == other?.HasUpdate
-                && this?.Missing == other?.Missing
-                && this?.Detection == other?.Detection
-                && this?.Title == other?.Title
-                && this?.Image == other?.Image;
+                && this?.Status     == other?.Status
+                && this?.Size       == other?.Size
+                && this?.DateTime   == other?.DateTime
+                && this?.HasUpdate  == other?.HasUpdate
+                && this?.Missing    == other?.Missing
+                && this?.Detection  == other?.Detection
+                && this?.Title      == other?.Title
+                && this?.Image      == other?.Image;
         }
     }
 }

@@ -1,22 +1,22 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading.Tasks;
-using SteamVent.InterProc.Attributes;
-using SteamVent.InterProc.Interop;
+using SteamVent.Steamworks.Native.Attributes;
+using SteamVent.Steamworks.Native;
 
-namespace SteamVent.InterProc.Interfaces
+namespace SteamVent.Steamworks.Native.Interfaces
 {
     /// <inheritdoc />
     /// <summary>
-    /// Contains ISteamApps003 delegates which correspond to their native SteamClient DLL functions.
+    /// Contains ISteamApps004 delegates which correspond to their native SteamClient DLL functions.
     /// </summary>
-    [InterfaceVersion("STEAMAPPS_INTERFACE_VERSION003")]
-    public class ISteamApps003 : SteamInterfaceWrapper, ISteamApps
+    [InterfaceVersion("STEAMAPPS_INTERFACE_VERSION004")]
+    public class ISteamApps004 : SteamInterfaceWrapper, ISteamApps
     {
-        public ISteamApps003(IntPtr interfacePtr) : base(interfacePtr) { }
+        public ISteamApps004(IntPtr interfacePtr) : base(interfacePtr) { }
 
         #region VTableIndex(0)
         [VTableIndex(0), UnmanagedFunctionPointer(CallingConvention.ThisCall)]
@@ -50,7 +50,7 @@ namespace SteamVent.InterProc.Interfaces
         [VTableIndex(4), UnmanagedFunctionPointer(CallingConvention.ThisCall)]
         private delegate IntPtr GetCurrentGameLanguageDelegate(IntPtr thisPtr);
         #endregion
-        public string GetCurrentGameLanguage() =>
+        public string GetCurrentGameLanguage() => 
             DecodeUtf8String(GetDelegate<GetCurrentGameLanguageDelegate>()(InterfacePtr));
 
         #region VTableIndex(5)
@@ -74,12 +74,44 @@ namespace SteamVent.InterProc.Interfaces
         public int BIsDlcInstalled(UInt32 nAppId) =>
             GetDelegate<BIsDlcInstalledDelegate>()(InterfacePtr, nAppId);
 
-        [Obsolete("Not implemented in this version.", true)] public uint GetEarliestPurchaseUnixTime(uint nAppId) { throw new NotImplementedException(); }
-        [Obsolete("Not implemented in this version.", true)] public bool BIsSubscribedFromFreeWeekend() { throw new NotImplementedException(); }
-        [Obsolete("Not implemented in this version.", true)] public int GetDLCCount() { throw new NotImplementedException(); }
-        [Obsolete("Not implemented in this version.", true)] public void InstallDLC(uint nAppId) { throw new NotImplementedException(); }
-        [Obsolete("Not implemented in this version.", true)] public void UninstallDLC(uint nAppId) { throw new NotImplementedException(); }
+        #region VTableIndex(8)
+        [VTableIndex(8), UnmanagedFunctionPointer(CallingConvention.ThisCall)]
+        private delegate UInt32 GetEarliestPurchaseUnixTimeDelegate(IntPtr thisPtr, UInt32 nAppId);
+        #endregion
+        public UInt32 GetEarliestPurchaseUnixTime(UInt32 nAppId) =>
+            GetDelegate<GetEarliestPurchaseUnixTimeDelegate>()(InterfacePtr, nAppId);
+
+        #region VTableIndex(9)
+        [VTableIndex(9), UnmanagedFunctionPointer(CallingConvention.ThisCall)]
+        private delegate bool BIsSubscribedFromFreeWeekendDelegate(IntPtr thisPtr);
+        #endregion
+        public bool BIsSubscribedFromFreeWeekend() =>
+            GetDelegate<BIsSubscribedFromFreeWeekendDelegate>()(InterfacePtr);
+
+        #region VTableIndex(10)
+        [VTableIndex(10), UnmanagedFunctionPointer(CallingConvention.ThisCall)]
+        private delegate int GetDLCCountDelegate(IntPtr thisPtr);
+        #endregion
+        public int GetDLCCount() =>
+            GetDelegate<GetDLCCountDelegate>()(InterfacePtr);
+
+        //BGetDLCDataByIndex
+
+        #region VTableIndex(12)
+        [VTableIndex(12), UnmanagedFunctionPointer(CallingConvention.ThisCall)]
+        private delegate void InstallDLCDelegate(IntPtr thisPtr, UInt32 nAppId);
+        #endregion
+        public void InstallDLC(UInt32 nAppId) =>
+            GetDelegate<InstallDLCDelegate>()(InterfacePtr, nAppId);
+
+        #region VTableIndex(13)
+        [VTableIndex(13), UnmanagedFunctionPointer(CallingConvention.ThisCall)]
+        private delegate void UninstallDLCDelegate(IntPtr thisPtr, UInt32 nAppId);
+        #endregion
+        public void UninstallDLC(UInt32 nAppId) =>
+            GetDelegate<UninstallDLCDelegate>()(InterfacePtr, nAppId);
+
         [Obsolete("Not implemented in this version.", true)] public string GetAppInstallDir(UInt32 nAppId) { throw new NotImplementedException(); }
-        [Obsolete("Not implemented in this version.", true)] public bool BIsAppInstalled(uint nAppId) { throw new NotImplementedException(); }
+        [Obsolete("Not implemented in this version.", true)] public bool BIsAppInstalled(UInt32 nAppId) { throw new NotImplementedException(); }
     }
 }

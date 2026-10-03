@@ -1,10 +1,10 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace SteamVent.InterProc.Interfaces
+namespace SteamVent.Steamworks.Native.Interfaces
 {
     public enum EAccountType : int
     {

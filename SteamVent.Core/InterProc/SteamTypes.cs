@@ -1,8 +1,8 @@
-﻿using System;
+using System;
 using System.Runtime.InteropServices;
 using PublishedFileId_t = System.UInt64;
 
-namespace SteamVent.InterProc.Interfaces
+namespace SteamVent.Steamworks.Native.Interfaces
 {
     public enum ELobbyType : int
     {

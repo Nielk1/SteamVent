@@ -1,4 +1,4 @@
-﻿using SteamVent.InterProc.Interfaces;
+using SteamVent.Steamworks.Native.Interfaces;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -8,7 +8,7 @@ using System.Text.Json.Serialization;
 using System.Threading.Tasks;
 using PublishedFileId_t = System.UInt64;
 
-namespace SteamVent.Core.InterProc
+namespace SteamVent.Core.Steamworks
 {
     [StructLayout(LayoutKind.Sequential, Pack = 8)]
     public struct RemoteStorageUnsubscribePublishedFileResult_t

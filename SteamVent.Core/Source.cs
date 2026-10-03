@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
-using SteamVent.Core.InterProc;
+using SteamVent.Core.Steamworks;
 
 namespace SteamVent.Core
 {
@@ -82,6 +82,16 @@ namespace SteamVent.Core
     {
         /// <summary>Which source families are enabled. Built-ins honour this; optional modules only load when flagged.</summary>
         public SteamSource Sources { get; init; } = SteamSource.FileSystem | SteamSource.Steamworks;
+
+        /// <summary>
+        /// The appid the local (in-process) Steamworks / interproc context is running under - i.e. the app
+        /// that owns the calling process (<c>steam_appid.txt</c> / <c>SteamAppId</c>). When set, workshop
+        /// commands for that exact appid are served in-process via <c>ISteamUGC</c> (fast, no child process);
+        /// any other appid is routed to the Bridge. When <c>null</c> (the default - a host that is not itself
+        /// a Steam game, e.g. a standalone mod manager) the in-process path is never eligible and the Bridge
+        /// is always used.
+        /// </summary>
+        public UInt32? SteamworksAppId { get; init; }
 
         /// <summary>Directory probed (Assembly.Load by name) for optional source assemblies.</summary>
         public string? ModuleDirectory { get; init; }

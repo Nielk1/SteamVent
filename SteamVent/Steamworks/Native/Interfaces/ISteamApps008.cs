@@ -1,22 +1,22 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading.Tasks;
-using SteamVent.InterProc.Attributes;
-using SteamVent.InterProc.Interop;
+using SteamVent.Steamworks.Native.Attributes;
+using SteamVent.Steamworks.Native;
 
-namespace SteamVent.InterProc.Interfaces
+namespace SteamVent.Steamworks.Native.Interfaces
 {
     /// <inheritdoc />
     /// <summary>
-    /// Contains ISteamApps004 delegates which correspond to their native SteamClient DLL functions.
+    /// Contains ISteamApps008 delegates which correspond to their native SteamClient DLL functions.
     /// </summary>
-    [InterfaceVersion("STEAMAPPS_INTERFACE_VERSION004")]
-    public class ISteamApps004 : SteamInterfaceWrapper, ISteamApps
+    [InterfaceVersion("STEAMAPPS_INTERFACE_VERSION008")]
+    public class ISteamApps008 : SteamInterfaceWrapper, ISteamApps
     {
-        public ISteamApps004(IntPtr interfacePtr) : base(interfacePtr) { }
+        public ISteamApps008(IntPtr interfacePtr) : base(interfacePtr) { }
 
         #region VTableIndex(0)
         [VTableIndex(0), UnmanagedFunctionPointer(CallingConvention.ThisCall)]
@@ -111,7 +111,46 @@ namespace SteamVent.InterProc.Interfaces
         public void UninstallDLC(UInt32 nAppId) =>
             GetDelegate<UninstallDLCDelegate>()(InterfacePtr, nAppId);
 
-        [Obsolete("Not implemented in this version.", true)] public string GetAppInstallDir(UInt32 nAppId) { throw new NotImplementedException(); }
-        [Obsolete("Not implemented in this version.", true)] public bool BIsAppInstalled(UInt32 nAppId) { throw new NotImplementedException(); }
+        //RequestAppProofOfPurchaseKey
+        //GetCurrentBetaName
+        //MarkContentCorrupt
+        //GetInstalledDepots
+
+        #region VTableIndex(18)
+        [VTableIndex(18), UnmanagedFunctionPointer(CallingConvention.ThisCall, CharSet = CharSet.Ansi)]
+        private delegate UInt32 GetAppInstallDirDelegate(IntPtr thisPtr, UInt32 nAppId, IntPtr pchFolder, UInt32 cchFolderBufferSize);
+        #endregion
+        public string GetAppInstallDir(UInt32 nAppId)
+        {
+            const UInt32 size = 1024;
+            byte[] _pchFolder = new byte[size];
+            IntPtr pchFolder = Marshal.AllocHGlobal(_pchFolder.Length + 1);
+            try
+            {
+                UInt32 read = GetDelegate<GetAppInstallDirDelegate>()(InterfacePtr, nAppId, pchFolder, size);
+                Marshal.Copy(pchFolder, _pchFolder, 0, (int)read);
+                return Encoding.UTF8.GetString(_pchFolder, 0, (int)read);
+            }
+            finally
+            {
+                Marshal.FreeHGlobal(pchFolder);
+            }
+        }
+
+        #region VTableIndex(19)
+        [VTableIndex(19), UnmanagedFunctionPointer(CallingConvention.ThisCall)]
+        private delegate bool GetIsAppInstalledDelegate(IntPtr thisPtr, UInt32 nAppId);
+        #endregion
+        public bool BIsAppInstalled(UInt32 nAppId) =>
+            GetDelegate<GetIsAppInstalledDelegate>()(InterfacePtr, nAppId);
+
+        //GetAppOwner
+        //GetLaunchQueryParam
+        //GetDlcDownloadProgress
+        //GetAppBuildId
+        //RequestAllProofOfPurchaseKeys
+        //GetFileDetails
+        //GetFileDetails
+        //BIsSubscribedFromFamilySharing
     }
 }

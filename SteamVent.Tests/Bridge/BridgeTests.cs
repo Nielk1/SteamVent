@@ -1,7 +1,7 @@
 using SteamVent.Bridge;
 using SteamVent.Core;
-using SteamVent.Core.InterProc;
-using SteamVent.InterProc.Interfaces;
+using SteamVent.Core.Steamworks;
+using SteamVent.Steamworks.Native.Interfaces;
 
 namespace SteamVent.Tests.Bridge;
 

@@ -1,4 +1,4 @@
-﻿using Gameloop.Vdf;
+using Gameloop.Vdf;
 using Gameloop.Vdf.Linq;
 using SteamVent.Core;
 using System;
@@ -7,7 +7,7 @@ using System.Diagnostics;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-using SteamVent.Core.InterProc;
+using SteamVent.Core.Steamworks;
 using static System.Runtime.InteropServices.JavaScript.JSType;
 
 namespace SteamVent.FileSystem

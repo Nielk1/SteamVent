@@ -1,10 +1,10 @@
-﻿// SteamUGC needs to be running under an appid it appears
+// SteamUGC needs to be running under an appid it appears
 
 //using System;
 //using System.Collections.Generic;
 //using System.Reflection;
-//using SteamVent.InterProc;
-//using SteamVent.InterProc.Interfaces;
+//using SteamVent.Steamworks.Native;
+//using SteamVent.Steamworks.Native.Interfaces;
 //using Xunit;
 //
 //namespace SteamVent.Tests.InterProc

@@ -1,8 +1,8 @@
-﻿using System;
+using System;
 using System.Runtime.InteropServices;
-using SteamVent.InterProc.Interfaces;
+using SteamVent.Steamworks.Native.Interfaces;
 
-namespace SteamVent.InterProc.Native
+namespace SteamVent.Steamworks.Native
 {
     public struct SteamNative
     {

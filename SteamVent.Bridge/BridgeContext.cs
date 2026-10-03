@@ -4,7 +4,7 @@ using System.Reflection;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using SteamVent.Core;
-using SteamVent.Core.InterProc;
+using SteamVent.Core.Steamworks;
 
 namespace SteamVent.Bridge;
 

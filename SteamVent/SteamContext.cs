@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -10,15 +10,16 @@ using System.Diagnostics;
 using Gameloop.Vdf.Linq;
 using SteamVent.FileSystem;
 using SteamVent.Core.BVdf;
-using SteamVent.InterProc.Interfaces;
-using SteamVent.InterProc;
+using SteamVent.Steamworks.Native.Interfaces;
+using SteamVent.Steamworks.Native;
 using Gameloop.Vdf;
 using SteamVent.Core;
+using SteamVent.Core.Steamworks;
 using System.Reflection;
 
 namespace SteamVent
 {
-    class SteamException : Exception
+    public class SteamException : Exception
     {
         public SteamException(string msg)
             : base(msg)
@@ -36,15 +37,10 @@ namespace SteamVent
 
 
 
-        private ISteamClient SteamClient { get; set; }
-        private Int32 Pipe { get; set; }
-        private Int32 User { get; set; }
-        private ISteamApps SteamApps { get; set; }
-
-
+        // Steamworks lifecycle is owned by the shared SteamClient wrapper (see the Client facade below);
+        // constructing the context never requires Steam to be running.
         private SteamContext()
         {
-            InitSteamworks();
         }
 
         public static SteamContext GetInstance()
@@ -76,7 +72,8 @@ namespace SteamVent
 
             if (disposing)
             {
-                Shutdown();
+                _client?.Dispose();
+                _client = null;
             }
 
             // Free any unmanaged objects here.
@@ -95,52 +92,50 @@ namespace SteamVent
         public bool SteamIsRunning { get { return SteamProcessInfo.GetSteamPid() > 0; } }
 
 
+        #region Steamworks facade
+
+        private Steamworks.SteamClient? _client;
+
+        /// <summary>
+        /// The shared Steamworks lifecycle wrapper (a ref-counted singleton). Constructed lazily on first
+        /// use and never requires Steam to be running. Owns the interproc pipe, user and the thin
+        /// <see cref="Steamworks.SteamApps"/> / <see cref="Steamworks.SteamWorkshop"/> wrappers.
+        /// </summary>
+        public Steamworks.SteamClient Client => _client ??= Steamworks.SteamClient.Construct();
+
+        /// <summary>Thin Steamworks wrapper over <c>ISteamApps</c> (ownership / install dir).</summary>
+        public Steamworks.SteamApps Apps => Client.GetSteamApps();
+
+        /// <summary>Thin Steamworks wrapper over <c>ISteamUGC</c> (in-process workshop commands).</summary>
+        public Steamworks.SteamWorkshop Workshop => Client.GetSteamWorkshop();
+
+        #endregion Steamworks facade
+
+
         // TODO use a better AppID source, the AppInfo.vtf file only holds data the client has actually seen
         // Requires: Steam is installed and has AppCache data
         // Requires: Steam is running for SteamApps interface
         public List<SteamLaunchableApp>? GetOwnedApps()
         {
-            if (!TryStartSteamworks())
-                throw new Exception("Failed to start Steamworks");
+            if (!Client.EnsureSteamworks())
+                throw new SteamException("Failed to start Steamworks (is Steam running and logged on?)");
 
+            Steamworks.SteamApps steamApps = Apps;
             List<SteamLaunchableApp> apps = new List<SteamLaunchableApp>();
 
-            SteamAppInfoDataFile dataFile = SteamAppInfoDataFile.GetSteamAppInfoDataFile();
-
-            if (dataFile == null)
-                return null;
-
-            foreach (var chunk in dataFile.chunks)
+            foreach (SteamAppInfo app in SteamAppInfoDataFile.GetApps())
             {
-                if (chunk.data != null
-                 && chunk.data.Properties != null
-                 && chunk.data.Properties.Count > 0)
+                if (string.IsNullOrWhiteSpace(app.Type) || app.Type == "config")
+                    continue;
+                if (steamApps.IsSubscribed(app.AppId) != true || string.IsNullOrWhiteSpace(app.Name))
+                    continue;
+
+                apps.Add(new SteamLaunchableApp(app.AppId)
                 {
-                    BVPropertyCollection? appinfo = ((BVPropertyCollection?)chunk.data?["appinfo"]);
-                    BVPropertyCollection? common = ((BVPropertyCollection?)appinfo?["common"]);
-                    //BVPropertyCollection? extended = ((BVPropertyCollection?)appinfo?["extended"]);
-
-                    string? type = common?["type"]?.GetValue<string>()?.ToLowerInvariant();
-                    //if (type == "demo" || type == "game")
-                    if (!string.IsNullOrWhiteSpace(type) && type != "config")
-                    {
-                        //bool isInstalled = SteamApps.BIsAppInstalled(chunk.AppID);
-                        bool isSubscribed = SteamApps.BIsSubscribedApp(chunk.AppID);
-
-                        string? name = common?["name"]?.GetValue<string?>();
-                        string? clienticon = common?["clienticon"]?.GetValue<string?>();
-
-                        if (isSubscribed && !string.IsNullOrWhiteSpace(name) && !string.IsNullOrWhiteSpace(type))
-                        {
-                            apps.Add(new SteamLaunchableApp(chunk.AppID)
-                            {
-                                Name = name?.TrimEnd(),
-                                appIcon = string.IsNullOrWhiteSpace(clienticon) ? null : Path.Combine(SteamProcessInfo.SteamInstallPath, "steam", "games", clienticon + ".ico"),
-                                appType = type,
-                            });
-                        }
-                    }
-                }
+                    Name = app.Name!.TrimEnd(),
+                    appIcon = app.IconPath,
+                    appType = app.Type,
+                });
             }
 
             return apps;
@@ -277,8 +272,8 @@ namespace SteamVent
 
         public List<SteamLaunchableApp> GetAppsWithMetadata(UInt64[]? AppIDs = null)
         {
-            if (!TryStartSteamworks())
-                throw new Exception("Failed to start Steamworks");
+            if (!Client.EnsureSteamworks())
+                throw new SteamException("Failed to start Steamworks (is Steam running and logged on?)");
 
             List<SteamLaunchableApp> apps = new List<SteamLaunchableApp>();
 
@@ -299,8 +294,8 @@ namespace SteamVent
                     //if (type == "demo" || type == "game")
                     if (!string.IsNullOrWhiteSpace(type) && type != "config")
                     {
-                        bool isInstalled = SteamApps.BIsAppInstalled(chunk.AppID);
-                        bool isSubscribed = SteamApps.BIsSubscribedApp(chunk.AppID);
+                        bool isInstalled = Apps.GetAppInstalled(chunk.AppID) == true;
+                        bool isSubscribed = Apps.IsSubscribed(chunk.AppID) == true;
 
                         string? name = common?["name"]?.GetValue<string>();
                         //string oslist = common?["oslist"]?.GetValue<string>();
@@ -458,7 +453,7 @@ namespace SteamVent
                             if (!UInt32.TryParse(appID.ToString(), out appIdCheck)) return;
                             if (appIdCheck == 0) return;
 
-                            string AppInstallDir = SteamApps.GetAppInstallDir(appIdCheck);
+                            string? AppInstallDir = Apps.GetAppInstallDir(appIdCheck);
                             if (!string.IsNullOrWhiteSpace(AppInstallDir))
                             {
                                 SteamLaunchableModSource mod = SteamLaunchableModSource.Make(appIdCheck, dr, rootObj);
@@ -479,7 +474,7 @@ namespace SteamVent
             {
                 // Basic Steam App
                 case CGameID.EGameID.k_EGameIDTypeApp:
-                    return SteamApps.BIsAppInstalled(gameID.AppID);
+                    return Apps.GetAppInstalled(gameID.AppID) == true;
                 //return SteamApps.BIsAppInstalled(gameID.AppID().m_AppId);
 
                 // Mod Steam App
@@ -487,7 +482,7 @@ namespace SteamVent
                     return true;
 
                     // If the base game isn't installed, just say no
-                    if (!SteamApps.BIsAppInstalled(gameID.AppID)) return false;
+                    if (Apps.GetAppInstalled(gameID.AppID) != true) return false;
                     //if (!SteamApps.BIsAppInstalled(gameID.AppID().m_AppId)) return false;
 
                     // Root app is GoldSrc
@@ -596,19 +591,20 @@ namespace SteamVent
 
         public string? GetAppInstallDir(UInt32 appID)
         {
-            if (TryStartSteamworks())
+            if (Client.EnsureSteamworks())
             {
-                // Steamworks is active, ask steam for the install path
-                if (SteamApps.BIsAppInstalled(appID))
-                    return SteamApps.GetAppInstallDir(appID);
+                // Steamworks is active, ask Steam for the install path
+                if (Apps.GetAppInstalled(appID) == true)
+                {
+                    string? dir = Apps.GetAppInstallDir(appID);
+                    if (!string.IsNullOrWhiteSpace(dir))
+                        return dir;
+                }
+                return null;
             }
-            else
-            {
-                // Steamworks isn't active, time to slum it in the file system
-                string? retVal = FileSystem.SteamApps.GetAppInstallDir(appID);
-                return retVal;
-            }
-            return null;
+
+            // Steamworks isn't active, time to slum it in the file system
+            return FileSystem.SteamApps.GetAppInstallDir(appID);
         }
 
         public string? GetAppLibrary(UInt32 appId)
@@ -636,40 +632,42 @@ namespace SteamVent
 
 
 
-        private bool TryStartSteamworks()
+        #region Workshop routing (in-process interproc vs Bridge)
+
+        /// <summary>
+        /// The workshop command provider to use for <paramref name="appid"/>. When the Steamworks source is
+        /// enabled and <paramref name="appid"/> is exactly the app the local interproc context is running under
+        /// (<see cref="SteamVentOptions.SteamworksAppId"/>), the fast in-process <see cref="Steamworks.SteamWorkshop"/>
+        /// is used; otherwise the Bridge (if enabled). Returns null when neither applies.
+        /// </summary>
+        public IWorkshopCommands? GetWorkshopCommands(UInt32 appid)
         {
-            if (SteamIsRunning && SteamClient == null)
-            {
-                InitSteamworks();
-            }
-            // Idempotent: report whether the client is available now, whether it was just started or
-            // already started. (The old version returned false after the first successful start.)
-            return SteamClient != null;
-        }
-        private void InitSteamworks()
-        {
-            Steam.Load();
-            SteamClient = Steam.CreateInterface<ISteamClient017>();
-            if (SteamClient == null)
-                throw new Exception();
-            Pipe = SteamClient.CreateSteamPipe();
-            if (Pipe == 0)
-                throw new Exception();
-            User = SteamClient.ConnectToGlobalUser(Pipe);
-            if (User == 0)
-                throw new Exception();
-            SteamApps = SteamClient.GetISteamApps<ISteamApps008>(User, Pipe);
-            if (SteamApps == null)
-                throw new Exception();
+            if (Options.Sources.HasFlag(SteamSource.Steamworks) && Options.SteamworksAppId == appid)
+                return Workshop;
+
+            if (Options.Sources.HasFlag(SteamSource.Bridge))
+                return Pipeline.GetWorkshopCommands();
+
+            return null;
         }
 
-        private void Shutdown()
-        {
-            if (SteamClient == null)
-                return;
+        private IWorkshopCommands RequireWorkshopCommands(UInt32 appid)
+            => GetWorkshopCommands(appid)
+               ?? throw new SteamException($"No workshop command provider is available for appid {appid}. " +
+                                           "Enable the Bridge, or enable Steamworks and set Options.SteamworksAppId to this appid.");
 
-            SteamClient.ReleaseUser(Pipe, User);
-            SteamClient.BReleaseSteamPipe(Pipe);
-        }
+        /// <summary>Subscribes to a workshop item, routed in-process or via the Bridge for <paramref name="appid"/>.</summary>
+        public Task<RemoteStorageSubscribePublishedFileResult_t> WorkshopSubscribeAsync(ulong publishedFileId, UInt32 appid, CancellationToken cancellationToken = default)
+            => RequireWorkshopCommands(appid).SubscribeAsync(publishedFileId, (int)appid, cancellationToken);
+
+        /// <summary>Unsubscribes from a workshop item, routed in-process or via the Bridge for <paramref name="appid"/>.</summary>
+        public Task<RemoteStorageUnsubscribePublishedFileResult_t> WorkshopUnsubscribeAsync(ulong publishedFileId, UInt32 appid, CancellationToken cancellationToken = default)
+            => RequireWorkshopCommands(appid).UnsubscribeAsync(publishedFileId, (int)appid, cancellationToken);
+
+        /// <summary>Downloads a workshop item, routed in-process or via the Bridge for <paramref name="appid"/>.</summary>
+        public Task<DownloadItemResult_t> WorkshopDownloadAsync(ulong publishedFileId, UInt32 appid, CancellationToken cancellationToken = default)
+            => RequireWorkshopCommands(appid).DownloadAsync(publishedFileId, (int)appid, cancellationToken);
+
+        #endregion Workshop routing
     }
 }

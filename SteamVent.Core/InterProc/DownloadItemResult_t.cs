@@ -1,9 +1,9 @@
 using System.Runtime.InteropServices;
 using System.Text.Json.Serialization;
 using PublishedFileId_t = System.UInt64;
-using SteamVent.InterProc.Interfaces;
+using SteamVent.Steamworks.Native.Interfaces;
 
-namespace SteamVent.Core.InterProc
+namespace SteamVent.Core.Steamworks
 {
     [StructLayout(LayoutKind.Sequential, Pack = 8)]
     public struct DownloadItemResult_t

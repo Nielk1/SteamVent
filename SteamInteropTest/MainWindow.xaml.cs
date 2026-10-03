@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
@@ -14,9 +14,9 @@ using System.Windows.Media.Imaging;
 using System.Windows.Navigation;
 using System.Windows.Shapes;
 using SteamInteropTest.Logging;
-using SteamVent.InterProc;
-using SteamVent.InterProc.Attributes;
-using SteamVent.InterProc.Interfaces;
+using SteamVent.Steamworks.Native;
+using SteamVent.Steamworks.Native.Attributes;
+using SteamVent.Steamworks.Native.Interfaces;
 
 namespace SteamInteropTest
 {

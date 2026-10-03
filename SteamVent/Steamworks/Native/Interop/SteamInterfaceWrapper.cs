@@ -1,5 +1,5 @@
-﻿using SteamVent.Core.Tools;
-using SteamVent.InterProc.Attributes;
+using SteamVent.Core.Tools;
+using SteamVent.Steamworks.Native.Attributes;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -7,7 +7,7 @@ using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Text;
 
-namespace SteamVent.InterProc.Interop
+namespace SteamVent.Steamworks.Native
 {
     /// <summary>
     /// Generic wrapper class for any managed SteamClient DLL native interface implementation.

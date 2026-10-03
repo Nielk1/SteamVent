@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -6,12 +6,12 @@ using System.Reflection;
 using System.Text;
 using System.Threading.Tasks;
 using SteamVent.FileSystem;
-using SteamVent.InterProc.Attributes;
-using SteamVent.InterProc.Interfaces;
-using SteamVent.InterProc.Interop;
-using SteamVent.InterProc.Native;
+using SteamVent.Steamworks.Native.Attributes;
+using SteamVent.Steamworks.Native.Interfaces;
+using SteamVent.Steamworks.Native;
+using SteamVent.Steamworks.Native;
 
-namespace SteamVent.InterProc
+namespace SteamVent.Steamworks.Native
 {
     public class Steam
     {

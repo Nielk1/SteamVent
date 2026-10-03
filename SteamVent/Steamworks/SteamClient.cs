@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -10,8 +10,8 @@ using System.Diagnostics;
 using Gameloop.Vdf.Linq;
 using SteamVent.FileSystem;
 using SteamVent.Core.BVdf;
-using SteamVent.InterProc.Interfaces;
-using SteamVent.InterProc;
+using SteamVent.Steamworks.Native.Interfaces;
+using SteamVent.Steamworks.Native;
 using Gameloop.Vdf;
 using SteamVent.Core;
 
@@ -198,6 +198,46 @@ namespace SteamVent.Steamworks
             }
         }
 
+        /// <summary>
+        /// The real interop <see cref="ISteamUtils"/> (ISteamUtils007); null when Steamworks is unavailable.
+        /// </summary>
+        public ISteamUtils? GetISteamUtils()
+        {
+            if (!EnsureSteamworks() || InternalSteamClient == null)
+                return null;
+            try
+            {
+                return InternalSteamClient.GetISteamUtils<ISteamUtils007>(Pipe);
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// The real interop <see cref="ISteamUGC"/> (ISteamUGC005); null when Steamworks is unavailable.
+        /// </summary>
+        public ISteamUGC? GetISteamUGC()
+        {
+            if (!EnsureSteamworks() || InternalSteamClient == null)
+                return null;
+            try
+            {
+                return InternalSteamClient.GetISteamUGC<ISteamUGC005>(User, Pipe);
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// The live Steam pipe; required by <c>Steam.GetAPICallResult</c> to read a completed async call.
+        /// 0 when Steamworks is not (yet) available.
+        /// </summary>
+        public Int32 SteamPipe => Pipe;
+
 
 
 
@@ -212,6 +252,17 @@ namespace SteamVent.Steamworks
             {
                 steamApps ??= new SteamApps(this);
                 return steamApps;
+            }
+        }
+
+        object steamWorkshopLock = new object();
+        SteamWorkshop? steamWorkshop = null;
+        public SteamWorkshop GetSteamWorkshop()
+        {
+            lock (steamWorkshopLock)
+            {
+                steamWorkshop ??= new SteamWorkshop(this);
+                return steamWorkshop;
             }
         }
     }

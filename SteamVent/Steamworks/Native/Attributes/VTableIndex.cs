@@ -1,6 +1,6 @@
-﻿using System;
+using System;
 
-namespace SteamVent.InterProc.Attributes
+namespace SteamVent.Steamworks.Native.Attributes
 {
     [AttributeUsage(AttributeTargets.Delegate, AllowMultiple = false)]
     public class VTableIndex : Attribute

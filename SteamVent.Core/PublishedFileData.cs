@@ -1,5 +1,5 @@
 using System;
-using SteamVent.Core.InterProc;
+using SteamVent.Core.Steamworks;
 
 namespace SteamVent.Core
 {

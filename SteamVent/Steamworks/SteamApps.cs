@@ -1,4 +1,4 @@
-﻿using SteamVent.InterProc.Interfaces;
+using SteamVent.Steamworks.Native.Interfaces;
 using System;
 
 namespace SteamVent.Steamworks

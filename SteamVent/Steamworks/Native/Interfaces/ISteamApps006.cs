@@ -1,22 +1,22 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading.Tasks;
-using SteamVent.InterProc.Attributes;
-using SteamVent.InterProc.Interop;
+using SteamVent.Steamworks.Native.Attributes;
+using SteamVent.Steamworks.Native;
 
-namespace SteamVent.InterProc.Interfaces
+namespace SteamVent.Steamworks.Native.Interfaces
 {
     /// <inheritdoc />
     /// <summary>
-    /// Contains ISteamApps005 delegates which correspond to their native SteamClient DLL functions.
+    /// Contains ISteamApps006 delegates which correspond to their native SteamClient DLL functions.
     /// </summary>
-    [InterfaceVersion("STEAMAPPS_INTERFACE_VERSION005")]
-    public class ISteamApps005 : SteamInterfaceWrapper, ISteamApps
+    [InterfaceVersion("STEAMAPPS_INTERFACE_VERSION006")]
+    public class ISteamApps006 : SteamInterfaceWrapper, ISteamApps
     {
-        public ISteamApps005(IntPtr interfacePtr) : base(interfacePtr) { }
+        public ISteamApps006(IntPtr interfacePtr) : base(interfacePtr) { }
 
         #region VTableIndex(0)
         [VTableIndex(0), UnmanagedFunctionPointer(CallingConvention.ThisCall)]
@@ -136,5 +136,8 @@ namespace SteamVent.InterProc.Interfaces
         #endregion
         public bool BIsAppInstalled(UInt32 nAppId) =>
             GetDelegate<GetIsAppInstalledDelegate>()(InterfacePtr, nAppId);
+
+        //GetAppOwner
+        //GetLaunchQueryParam
     }
 }

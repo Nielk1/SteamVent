@@ -1,13 +1,13 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading.Tasks;
-using SteamVent.InterProc.Attributes;
-using SteamVent.InterProc.Interop;
+using SteamVent.Steamworks.Native.Attributes;
+using SteamVent.Steamworks.Native;
 
-namespace SteamVent.InterProc.Interfaces
+namespace SteamVent.Steamworks.Native.Interfaces
 {
     public interface ISteamApps {
         bool BIsSubscribed();

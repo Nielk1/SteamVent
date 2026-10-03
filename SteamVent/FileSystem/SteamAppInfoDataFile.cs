@@ -33,6 +33,27 @@ namespace SteamVent.FileSystem
             return SteamAppInfoDataFile.Read(path ?? GetAppCacheAppInfoFile());
         }
 
+        /// <summary>
+        /// Reads the appcache (appinfo.vdf) and returns every app as a strongly-typed
+        /// <see cref="SteamAppInfo"/> record. This is the filesystem-section function for app
+        /// enumeration: it only reads the file system and never touches Steamworks, so it works whether
+        /// or not Steam is running.
+        /// </summary>
+        public static IReadOnlyList<SteamAppInfo> GetApps()
+        {
+            var result = new List<SteamAppInfo>();
+            SteamAppInfoDataFile? file = GetSteamAppInfoDataFile();
+            if (file?.chunks == null)
+                return result;
+            foreach (SteamAppInfoDataFileChunk chunk in file.chunks)
+            {
+                SteamAppInfo? info = SteamAppInfo.From(chunk);
+                if (info != null)
+                    result.Add(info);
+            }
+            return result;
+        }
+
 
 
 

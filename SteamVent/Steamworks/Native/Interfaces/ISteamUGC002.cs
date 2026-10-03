@@ -1,26 +1,26 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading.Tasks;
-using SteamVent.InterProc.Attributes;
-using SteamVent.InterProc.Interop;
+using SteamVent.Steamworks.Native.Attributes;
+using SteamVent.Steamworks.Native;
 using UGCQueryHandle_t = System.UInt64;
 using PublishedFileId_t = System.UInt64;
 using UGCUpdateHandle_t = System.UInt64;
-using SteamVent.Core.InterProc;
+using SteamVent.Core.Steamworks;
 
-namespace SteamVent.InterProc.Interfaces
+namespace SteamVent.Steamworks.Native.Interfaces
 {
     /// <inheritdoc />
     /// <summary>
     /// Contains ISteamApps008 delegates which correspond to their native SteamClient DLL functions.
     /// </summary>
-    [InterfaceVersion("STEAMUGC_INTERFACE_VERSION003")]
-    public class ISteamUGC003 : SteamInterfaceWrapper, ISteamUGC
+    [InterfaceVersion("STEAMUGC_INTERFACE_VERSION002")]
+    public class ISteamUGC002 : SteamInterfaceWrapper, ISteamUGC
     {
-        public ISteamUGC003(IntPtr interfacePtr) : base(interfacePtr) { }
+        public ISteamUGC002(IntPtr interfacePtr) : base(interfacePtr) { }
 
         #region VTableIndex(0)
         [VTableIndex(0), UnmanagedFunctionPointer(CallingConvention.ThisCall)]
@@ -159,74 +159,74 @@ namespace SteamVent.InterProc.Interfaces
 
         #region VTableIndex(17)
         [VTableIndex(17), UnmanagedFunctionPointer(CallingConvention.ThisCall)]
-        private delegate bool SetItemTitleDelegate(IntPtr thisPtr, UGCUpdateHandle_t handle, string pchTitle);
+        private delegate bool SetItemTitleDelegate(IntPtr thisPtr, UInt64 handle, string pchTitle);
         #endregion
-        public bool SetItemTitle(UGCUpdateHandle_t handle, string pchTitle) =>
+        public bool SetItemTitle(UInt64 handle, string pchTitle) =>
             GetDelegate<SetItemTitleDelegate>()(InterfacePtr, handle, pchTitle);
 
         #region VTableIndex(18)
         [VTableIndex(18), UnmanagedFunctionPointer(CallingConvention.ThisCall)]
-        private delegate bool SetItemDescriptionDelegate(IntPtr thisPtr, UGCUpdateHandle_t handle, string pchDescription);
+        private delegate bool SetItemDescriptionDelegate(IntPtr thisPtr, UInt64 handle, string pchDescription);
         #endregion
-        public bool SetItemDescription(UGCUpdateHandle_t handle, string pchDescription) =>
+        public bool SetItemDescription(UInt64 handle, string pchDescription) =>
             GetDelegate<SetItemDescriptionDelegate>()(InterfacePtr, handle, pchDescription);
 
         [Obsolete("Not implemented in this version.", true)] public bool SetItemMetadata(UGCUpdateHandle_t handle, string pchMetaData) { throw new NotImplementedException(); }
 
         #region VTableIndex(19)
         [VTableIndex(19), UnmanagedFunctionPointer(CallingConvention.ThisCall)]
-        private delegate bool SetItemVisibilityDelegate(IntPtr thisPtr, UGCUpdateHandle_t handle, ERemoteStoragePublishedFileVisibility eVisibility);
+        private delegate bool SetItemVisibilityDelegate(IntPtr thisPtr, UInt64 handle, ERemoteStoragePublishedFileVisibility eVisibility);
         #endregion
-        public bool SetItemVisibility(UGCUpdateHandle_t handle, ERemoteStoragePublishedFileVisibility eVisibility) =>
+        public bool SetItemVisibility(UInt64 handle, ERemoteStoragePublishedFileVisibility eVisibility) =>
             GetDelegate<SetItemVisibilityDelegate>()(InterfacePtr, handle, eVisibility);
 
         #region VTableIndex(20)
         [VTableIndex(20), UnmanagedFunctionPointer(CallingConvention.ThisCall)]
-        private delegate bool SetItemTagsDelegate(IntPtr thisPtr, UGCUpdateHandle_t updateHandle, ref SteamParamStringArray_t pTags);
+        private delegate bool SetItemTagsDelegate(IntPtr thisPtr, UInt64 updateHandle, ref SteamParamStringArray_t pTags);
         #endregion
-        public bool SetItemTags(UGCUpdateHandle_t updateHandle, ref SteamParamStringArray_t pTags) =>
+        public bool SetItemTags(UInt64 updateHandle, ref SteamParamStringArray_t pTags) =>
             GetDelegate<SetItemTagsDelegate>()(InterfacePtr, updateHandle, ref pTags);
 
         #region VTableIndex(21)
         [VTableIndex(21), UnmanagedFunctionPointer(CallingConvention.ThisCall)]
-        private delegate bool SetItemContentDelegate(IntPtr thisPtr, UGCUpdateHandle_t handle, string pszContentFolder);
+        private delegate bool SetItemContentDelegate(IntPtr thisPtr, UInt64 handle, string pszContentFolder);
         #endregion
-        public bool SetItemContent(UGCUpdateHandle_t handle, string pszContentFolder) =>
+        public bool SetItemContent(UInt64 handle, string pszContentFolder) =>
             GetDelegate<SetItemContentDelegate>()(InterfacePtr, handle, pszContentFolder);
 
         #region VTableIndex(22)
         [VTableIndex(22), UnmanagedFunctionPointer(CallingConvention.ThisCall)]
-        private delegate bool SetItemPreviewDelegate(IntPtr thisPtr, UGCUpdateHandle_t handle, string pszPreviewFile);
+        private delegate bool SetItemPreviewDelegate(IntPtr thisPtr, UInt64 handle, string pszPreviewFile);
         #endregion
-        public bool SetItemPreview(UGCUpdateHandle_t handle, string pszPreviewFile) =>
+        public bool SetItemPreview(UInt64 handle, string pszPreviewFile) =>
             GetDelegate<SetItemPreviewDelegate>()(InterfacePtr, handle, pszPreviewFile);
 
         #region VTableIndex(23)
         [VTableIndex(23), UnmanagedFunctionPointer(CallingConvention.ThisCall)]
-        private delegate UInt64 SubmitItemUpdateDelegate(IntPtr thisPtr, UGCUpdateHandle_t handle, string pchChangeNote);
+        private delegate UInt64 SubmitItemUpdateDelegate(IntPtr thisPtr, UInt64 handle, string pchChangeNote);
         #endregion
-        public UInt64 SubmitItemUpdate(UGCUpdateHandle_t handle, string pchChangeNote) =>
+        public UInt64 SubmitItemUpdate(UInt64 handle, string pchChangeNote) =>
             GetDelegate<SubmitItemUpdateDelegate>()(InterfacePtr, handle, pchChangeNote);
 
         #region VTableIndex(24)
         [VTableIndex(24), UnmanagedFunctionPointer(CallingConvention.ThisCall)]
-        private delegate EItemUpdateStatus GetItemUpdateProgressDelegate(IntPtr thisPtr, UGCUpdateHandle_t handle, ref UInt64 punBytesProcessed, ref UInt64 punBytesTotal);
+        private delegate EItemUpdateStatus GetItemUpdateProgressDelegate(IntPtr thisPtr, UInt64 handle, ref UInt64 punBytesProcessed, ref UInt64 punBytesTotal);
         #endregion
-        public EItemUpdateStatus GetItemUpdateProgress(UGCUpdateHandle_t handle, ref UInt64 punBytesProcessed, ref UInt64 punBytesTotal) =>
+        public EItemUpdateStatus GetItemUpdateProgress(UInt64 handle, ref UInt64 punBytesProcessed, ref UInt64 punBytesTotal) =>
             GetDelegate<GetItemUpdateProgressDelegate>()(InterfacePtr, handle, ref punBytesProcessed, ref punBytesTotal);
 
         #region VTableIndex(25)
         [VTableIndex(25), UnmanagedFunctionPointer(CallingConvention.ThisCall)]
-        private delegate UInt64 SubscribeItemDelegate(IntPtr thisPtr, PublishedFileId_t nPublishedFileID);
+        private delegate UInt64 SubscribeItemDelegate(IntPtr thisPtr, UInt64 nPublishedFileID);
         #endregion
-        public UInt64 SubscribeItem(PublishedFileId_t nPublishedFileID) =>
+        public UInt64 SubscribeItem(UInt64 nPublishedFileID) =>
             GetDelegate<SubscribeItemDelegate>()(InterfacePtr, nPublishedFileID);
 
         #region VTableIndex(26)
         [VTableIndex(26), UnmanagedFunctionPointer(CallingConvention.ThisCall)]
-        private delegate UInt64 UnsubscribeItemDelegate(IntPtr thisPtr, PublishedFileId_t nPublishedFileID);
+        private delegate UInt64 UnsubscribeItemDelegate(IntPtr thisPtr, UInt64 nPublishedFileID);
         #endregion
-        public UInt64 UnsubscribeItem(PublishedFileId_t nPublishedFileID) =>
+        public UInt64 UnsubscribeItem(UInt64 nPublishedFileID) =>
             GetDelegate<UnsubscribeItemDelegate>()(InterfacePtr, nPublishedFileID);
 
         #region VTableIndex(27)
@@ -242,16 +242,17 @@ namespace SteamVent.InterProc.Interfaces
         #endregion
         public UInt32 GetSubscribedItems(UInt64[] pvecPublishedFileID, UInt32 cMaxEntries) =>
             GetDelegate<GetSubscribedItemsDelegate>()(InterfacePtr, pvecPublishedFileID, cMaxEntries);
+
         [Obsolete("Not implemented in this version.", true)] public EItemState GetItemState(UInt64 nPublishedFileID) { throw new NotImplementedException(); }
-        [Obsolete("Not implemented in this version.", true)] public bool GetItemInstallInfo(UInt64 nPublishedFileID, ref UInt64 punSizeOnDisk, StringBuilder pchFolder, UInt32 cchFolderSize) { throw new NotImplementedException(); }
 
         #region VTableIndex(29)
         [VTableIndex(29), UnmanagedFunctionPointer(CallingConvention.ThisCall)]
-        private delegate bool GetItemInstallInfoDelegate(IntPtr thisPtr, UInt64 nPublishedFileID, ref UInt64 punSizeOnDisk, StringBuilder pchFolder, UInt32 cchFolderSize, ref bool pbLegacyItem);
+        private delegate bool GetItemInstallInfoDelegate(IntPtr thisPtr, UInt64 nPublishedFileID, ref UInt64 punSizeOnDisk, StringBuilder pchFolder, UInt32 cchFolderSize);
         #endregion
-        public bool GetItemInstallInfo(UInt64 nPublishedFileID, ref UInt64 punSizeOnDisk, StringBuilder pchFolder, UInt32 cchFolderSize, ref bool pbLegacyItem) =>
-            GetDelegate<GetItemInstallInfoDelegate>()(InterfacePtr, nPublishedFileID, ref punSizeOnDisk, pchFolder, cchFolderSize, ref pbLegacyItem);
+        public bool GetItemInstallInfo(UInt64 nPublishedFileID, ref UInt64 punSizeOnDisk, StringBuilder pchFolder, UInt32 cchFolderSize) =>
+            GetDelegate<GetItemInstallInfoDelegate>()(InterfacePtr, nPublishedFileID, ref punSizeOnDisk, pchFolder, cchFolderSize);
 
+        [Obsolete("Not implemented in this version.", true)] public bool GetItemInstallInfo(UInt64 nPublishedFileID, ref UInt64 punSizeOnDisk, StringBuilder pchFolder, UInt32 cchFolderSize, ref bool pbLegacyItem) { throw new NotImplementedException(); }
         [Obsolete("Not implemented in this version.", true)] public bool GetItemInstallInfo(UInt64 nPublishedFileID, ref UInt64 punSizeOnDisk, StringBuilder pchFolder, UInt32 cchFolderSize, ref UInt32 punTimeStamp) { throw new NotImplementedException(); }
 
         #region VTableIndex(30)

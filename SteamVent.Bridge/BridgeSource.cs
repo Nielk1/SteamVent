@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using SteamVent.Core;
-using SteamVent.Core.InterProc;
+using SteamVent.Core.Steamworks;
 
 namespace SteamVent.Bridge
 {

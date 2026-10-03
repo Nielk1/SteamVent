@@ -1,8 +1,8 @@
 using SteamVent.Bridge;
 using SteamVent.Core;
-using SteamVent.Core.InterProc;
-using SteamVent.InterProc;
-using SteamVent.InterProc.Interfaces;
+using SteamVent.Core.Steamworks;
+using SteamVent.Steamworks.Native;
+using SteamVent.Steamworks.Native.Interfaces;
 using System.Globalization;
 using System.Runtime.InteropServices;
 using System.Text;

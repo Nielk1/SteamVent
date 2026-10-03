@@ -83,8 +83,8 @@ namespace SteamVent.Tests.Orchestration
         [Fact]
         public async Task A_source_that_throws_is_skipped_and_others_still_contribute()
         {
-            var bad = new FakeWorkshopSource("Bad", 5, SteamSource.Bridge, new[] { new PublishedFileData(1, SteamVent.Core.InterProc.EItemState.k_EItemStateInstalled) }, throwOnError: true);
-            var good = new FakeWorkshopSource("Good", 30, SteamSource.FileSystem, new[] { new PublishedFileData(1, SteamVent.Core.InterProc.EItemState.k_EItemStateInstalled), new PublishedFileData(7, SteamVent.Core.InterProc.EItemState.k_EItemStateInstalled) });
+            var bad = new FakeWorkshopSource("Bad", 5, SteamSource.Bridge, new[] { new PublishedFileData(1, SteamVent.Core.Steamworks.EItemState.k_EItemStateInstalled) }, throwOnError: true);
+            var good = new FakeWorkshopSource("Good", 30, SteamSource.FileSystem, new[] { new PublishedFileData(1, SteamVent.Core.Steamworks.EItemState.k_EItemStateInstalled), new PublishedFileData(7, SteamVent.Core.Steamworks.EItemState.k_EItemStateInstalled) });
 
             var result = await Make(bad, good).GetWorkshopItemsAsync(550);
             // The bad (higher-priority) source is skipped; the good one provides both ids.

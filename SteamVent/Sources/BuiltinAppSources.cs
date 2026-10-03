@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 using SteamVent.Core;
 using SteamVent.Core.BVdf;
 using SteamVent.FileSystem;
-using SteamVent.InterProc.Interfaces;
+using SteamVent.Steamworks.Native.Interfaces;
 
 namespace SteamVent
 {
@@ -45,20 +45,10 @@ namespace SteamVent
             if (Cache?.chunks == null) return result;
             foreach (var chunk in Cache.chunks)
             {
-                if (chunk?.data == null) continue;
-                BVPropertyCollection? appinfo = (BVPropertyCollection?)chunk.data["appinfo"];
-                BVPropertyCollection? common = (BVPropertyCollection?)appinfo?["common"];
-                if (common == null) continue;
+                SteamAppInfo? app = SteamAppInfo.From(chunk);
+                if (app?.Type == null || string.IsNullOrWhiteSpace(app.Type) || app.Type == "config") continue;
 
-                string? type = common["type"]?.GetValue<string>()?.ToLowerInvariant();
-                if (string.IsNullOrWhiteSpace(type) || type == "config") continue;
-
-                string? name = common["name"]?.GetValue<string>();
-                string? clienticon = common["clienticon"]?.GetValue<string>();
-                string icon = string.IsNullOrWhiteSpace(clienticon)
-                    ? string.Empty
-                    : Path.Combine(SteamProcessInfo.SteamInstallPath, "steam", "games", clienticon + ".ico");
-                result.Add(new OwnedAppInfo(chunk.AppID, name ?? string.Empty, type, icon));
+                result.Add(new OwnedAppInfo(app.AppId, app.Name ?? string.Empty, app.Type, app.IconPath ?? string.Empty));
             }
             return result;
         }
