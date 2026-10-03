@@ -3,7 +3,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Runtime.CompilerServices;
 
-namespace SteamVent.Common.Logging
+namespace SteamVent.Core.Logging
 {
     public interface ILogger
     {

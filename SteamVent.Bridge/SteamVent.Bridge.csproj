@@ -6,8 +6,11 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
 
+  <!-- Bridge is an optional module. It depends on SteamVent (for the Steam interop it wraps and the ISource
+       contracts it adapts) but is never referenced by SteamVent, so it can be removed without breaking core. -->
   <ItemGroup>
-    <ProjectReference Include="..\SteamVent.Common\SteamVent.Common.csproj" />
+    <ProjectReference Include="..\SteamVent\SteamVent.csproj" />
+    <ProjectReference Include="..\SteamVent.Core\SteamVent.Core.csproj" />
   </ItemGroup>
 
 </Project>

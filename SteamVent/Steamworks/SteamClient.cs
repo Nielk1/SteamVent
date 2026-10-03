@@ -9,11 +9,11 @@ using System.Text.RegularExpressions;
 using System.Diagnostics;
 using Gameloop.Vdf.Linq;
 using SteamVent.FileSystem;
-using SteamVent.Common.BVdf;
+using SteamVent.Core.BVdf;
 using SteamVent.InterProc.Interfaces;
 using SteamVent.InterProc;
 using Gameloop.Vdf;
-using SteamVent.Common;
+using SteamVent.Core;
 
 namespace SteamVent.Steamworks
 {
@@ -98,18 +98,39 @@ namespace SteamVent.Steamworks
         #region Steamworks Lifecycle
         public bool SteamIsRunning { get { return SteamProcessInfo.GetSteamPid() > 0; } }
 
+        private readonly object _lifecycleLock = new object();
+
         /// <summary>
-        /// Inilize Steamworks if not already active
+        /// True when the Steamworks interface is currently available for use.
         /// </summary>
-        /// <exception cref="Exception"></exception>
-        internal bool TryStartSteamworks()
+        public bool IsAvailable
         {
-            if (SteamIsRunning && InternalSteamClient == null)
+            get { lock (_lifecycleLock) { return InternalSteamClient != null; } }
+        }
+
+        /// <summary>
+        /// Ensure Steamworks is initialized (once, thread-safe) when Steam is running, and report
+        /// whether the interface is available for use afterwards. Idempotent: it is safe to call on
+        /// every operation, and a failed start never wedges subsequent attempts (unlike the old
+        /// one-shot gate that returned false after the first successful start).
+        /// </summary>
+        public bool EnsureSteamworks()
+        {
+            lock (_lifecycleLock)
             {
-                InitSteamworks();
+                if (InternalSteamClient == null && SteamIsRunning)
+                {
+                    try
+                    {
+                        InitSteamworks();
+                    }
+                    catch
+                    {
+                        InternalSteamClient = null; // a half-started client must not be reused
+                    }
+                }
                 return InternalSteamClient != null;
             }
-            return false;
         }
         
         /// <summary>
@@ -134,17 +155,48 @@ namespace SteamVent.Steamworks
         }
         
         /// <summary>
-        /// Shutdown Steamworks if active
+        /// Shutdown Steamworks if active. Idempotent and thread-safe.
         /// </summary>
+        private bool _shutdown;
         private void Shutdown()
         {
-            if (InternalSteamClient == null)
-                return;
-
-            InternalSteamClient.ReleaseUser(Pipe, User);
-            InternalSteamClient.BReleaseSteamPipe(Pipe);
+            lock (_lifecycleLock)
+            {
+                if (_shutdown || InternalSteamClient == null)
+                    return;
+                _shutdown = true;
+                try
+                {
+                    InternalSteamClient.ReleaseUser(Pipe, User);
+                    InternalSteamClient.BReleaseSteamPipe(Pipe);
+                }
+                finally
+                {
+                    InternalSteamClient = null;
+                    Pipe = 0;
+                    User = 0;
+                }
+            }
         }
         #endregion Steamworks Lifecycle
+
+        /// <summary>
+        /// The real interop ISteamApps (ISteamApps008); null when Steamworks is unavailable.
+        /// This is the actual native interface - distinct from the <see cref="SteamApps"/> wrapper.
+        /// </summary>
+        public ISteamApps? GetISteamApps()
+        {
+            if (!EnsureSteamworks() || InternalSteamClient == null)
+                return null;
+            try
+            {
+                return InternalSteamClient.GetISteamApps<ISteamApps008>(User, Pipe);
+            }
+            catch
+            {
+                return null;
+            }
+        }
 
 
 

@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <!-- The physical folder is temporarily named SteamVent.Core (a process was holding
+         the directory during the rename); the logical identity is SteamVent.Core everywhere. -->
+    <AssemblyName>SteamVent.Core</AssemblyName>
+    <RootNamespace>SteamVent.Core</RootNamespace>
+  </PropertyGroup>
+
+</Project>

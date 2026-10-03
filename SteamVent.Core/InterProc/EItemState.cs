@@ -4,7 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace SteamVent.Common.InterProc
+namespace SteamVent.Core.InterProc
 {
     [Flags]
     public enum EItemState : UInt32

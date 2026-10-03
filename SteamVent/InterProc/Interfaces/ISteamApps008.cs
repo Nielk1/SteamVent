@@ -122,12 +122,19 @@ namespace SteamVent.InterProc.Interfaces
         #endregion
         public string GetAppInstallDir(UInt32 nAppId)
         {
-            UInt32 size = 1024;
+            const UInt32 size = 1024;
             byte[] _pchFolder = new byte[size];
             IntPtr pchFolder = Marshal.AllocHGlobal(_pchFolder.Length + 1);
-            UInt32 read = GetDelegate<GetAppInstallDirDelegate>()(InterfacePtr, nAppId, pchFolder, size);
-            Marshal.Copy(pchFolder, _pchFolder, 0, (int)read);
-            return Encoding.UTF8.GetString(_pchFolder, 0, (int)read);
+            try
+            {
+                UInt32 read = GetDelegate<GetAppInstallDirDelegate>()(InterfacePtr, nAppId, pchFolder, size);
+                Marshal.Copy(pchFolder, _pchFolder, 0, (int)read);
+                return Encoding.UTF8.GetString(_pchFolder, 0, (int)read);
+            }
+            finally
+            {
+                Marshal.FreeHGlobal(pchFolder);
+            }
         }
 
         #region VTableIndex(19)

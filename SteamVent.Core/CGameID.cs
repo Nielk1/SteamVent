@@ -4,7 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace SteamVent.Common
+namespace SteamVent.Core
 {
     public class CGameID
     {

@@ -1,4 +1,4 @@
-﻿using SteamVent.Common.Tools;
+﻿using SteamVent.Core.Tools;
 using SteamVent.InterProc.Attributes;
 using System;
 using System.Collections.Generic;

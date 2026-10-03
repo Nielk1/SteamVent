@@ -9,11 +9,12 @@ using System.Text.RegularExpressions;
 using System.Diagnostics;
 using Gameloop.Vdf.Linq;
 using SteamVent.FileSystem;
-using SteamVent.Common.BVdf;
+using SteamVent.Core.BVdf;
 using SteamVent.InterProc.Interfaces;
 using SteamVent.InterProc;
 using Gameloop.Vdf;
-using SteamVent.Common;
+using SteamVent.Core;
+using System.Reflection;
 
 namespace SteamVent
 {
@@ -144,6 +145,135 @@ namespace SteamVent
 
             return apps;
         }
+
+        #region Configurable sources (built-in + optional Bridge/SteamCmd modules)
+
+        /// <summary>Options driving which sources are composed and how; set before first use.</summary>
+        public SteamVentOptions Options { get; } = SteamVentOptions.Default;
+
+        private SourcePipeline? _pipeline;
+        private readonly object _pipelineLock = new object();
+
+        private SourcePipeline Pipeline
+        {
+            get
+            {
+                lock (_pipelineLock)
+                {
+                    if (_pipeline == null)
+                    {
+                        var assemblies = new List<Assembly> { typeof(SteamContext).Assembly };
+                        foreach (string name in Options.ModuleAssemblyNames)
+                        {
+                            try
+                            {
+                                var loaded = Assembly.Load(new AssemblyName(name));
+                                if (loaded != null) assemblies.Add(loaded);
+                            }
+                            catch { /* an optional module may simply be absent - that's the point */ }
+                        }
+                        assemblies.AddRange(Options.AdditionalAssemblies);
+
+                        var sources = new List<ISource>
+                        {
+                            new FileSystemAppSource(),
+                            new SteamworksAppSource(),
+                            new FileSystemWorkshopSource(),
+                        };
+                        sources.AddRange(SourceDiscovery.Discover(assemblies));
+                        foreach (var s in Options.SourceInstances) sources.Add(s);
+                        _pipeline = new SourcePipeline(Options, sources);
+                    }
+                    return _pipeline;
+                }
+            }
+        }
+
+        /// <summary>The resolved sources (built-in + any discovered optional module) in query order.</summary>
+        public IReadOnlyList<ISource> Sources => Pipeline.Sources;
+
+        /// <summary>The best available appid-context workshop command provider (Bridge, else SteamCmd), or null.</summary>
+        public IWorkshopCommands? WorkshopCommands => Pipeline.GetWorkshopCommands();
+
+        /// <summary>Merged workshop items for an appid across all available workshop sources.</summary>
+        public Task<IReadOnlyCollection<PublishedFileData>> GetWorkshopItemsAsync(int appid, CancellationToken cancellationToken = default)
+            => Pipeline.GetWorkshopItemsAsync(appid, cancellationToken);
+
+        /// <summary>
+        /// Owned apps, async-first and streaming. Candidate ids come from every candidate source (the
+        /// FileSystem appcache by default); each is ownership-checked in parallel against the available
+        /// ownership source (Steamworks per-id BIsSubscribedApp). Yields one app at a time as they resolve,
+        /// so a UI can fill in over time instead of waiting for the whole set.
+        /// </summary>
+        public async IAsyncEnumerable<SteamLaunchableApp> GetOwnedAppsAsync(CancellationToken cancellationToken = default)
+        {
+            var candidates = await Pipeline.GetCandidateAppsAsync(cancellationToken);
+            int degree = Math.Max(1, Options.MaxParallelism);
+            using var gate = new SemaphoreSlim(degree);
+            using var enumerator = candidates.GetEnumerator();
+            try
+            {
+                while (true)
+                {
+                    var batch = new List<OwnedAppInfo>();
+                    while (batch.Count < degree && !cancellationToken.IsCancellationRequested)
+                    {
+                        if (enumerator.MoveNext()) batch.Add(enumerator.Current);
+                        else break;
+                    }
+
+                    if (batch.Count == 0) break;
+
+                    var tasks = new Task<(OwnedAppInfo App, bool? Owned)>[batch.Count];
+                    for (int i = 0; i < batch.Count; i++)
+                    {
+                        var app = batch[i];
+                        tasks[i] = CheckOwnedAsync(app, gate, cancellationToken);
+                    }
+                    await Task.WhenAll(tasks);
+                    for (int i = 0; i < tasks.Length; i++)
+                    {
+                        var (app, owned) = tasks[i].Result;
+                        if (owned == true)
+                        {
+                            var launchable = ToSteamLaunchable(app);
+                            if (launchable != null) yield return launchable;
+                        }
+                    }
+                }
+            }
+            finally
+            {
+                enumerator.Dispose();
+            }
+        }
+
+        private async Task<(OwnedAppInfo App, bool? Owned)> CheckOwnedAsync(OwnedAppInfo app, SemaphoreSlim gate, CancellationToken cancellationToken)
+        {
+            await gate.WaitAsync(cancellationToken);
+            try
+            {
+                bool? owned = await Pipeline.IsOwnedAsync(app.AppId, cancellationToken);
+                return (app, owned);
+            }
+            finally
+            {
+                gate.Release();
+            }
+        }
+
+        private static SteamLaunchableApp? ToSteamLaunchable(OwnedAppInfo app)
+        {
+            if (string.IsNullOrWhiteSpace(app.Name)) return null;
+            return new SteamLaunchableApp(app.AppId)
+            {
+                Name = app.Name,
+                appType = app.Type,
+                appIcon = string.IsNullOrWhiteSpace(app.Icon) ? null : app.Icon,
+            };
+        }
+
+        #endregion Configurable sources
 
         public List<SteamLaunchableApp> GetAppsWithMetadata(UInt64[]? AppIDs = null)
         {
@@ -511,9 +641,10 @@ namespace SteamVent
             if (SteamIsRunning && SteamClient == null)
             {
                 InitSteamworks();
-                return SteamClient != null;
             }
-            return false;
+            // Idempotent: report whether the client is available now, whether it was just started or
+            // already started. (The old version returned false after the first successful start.)
+            return SteamClient != null;
         }
         private void InitSteamworks()
         {

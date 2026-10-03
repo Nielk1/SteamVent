@@ -1,5 +1,6 @@
 using SteamVent.Bridge;
-using SteamVent.Common.InterProc;
+using SteamVent.Core;
+using SteamVent.Core.InterProc;
 using SteamVent.InterProc;
 using SteamVent.InterProc.Interfaces;
 using System.Globalization;

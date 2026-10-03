@@ -9,7 +9,7 @@ using SteamVent.InterProc.Interop;
 using UGCQueryHandle_t = System.UInt64;
 using PublishedFileId_t = System.UInt64;
 using UGCUpdateHandle_t = System.UInt64;
-using SteamVent.Common.InterProc;
+using SteamVent.Core.InterProc;
 
 namespace SteamVent.InterProc.Interfaces
 {

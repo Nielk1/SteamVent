@@ -8,12 +8,12 @@ using System.Text.Json.Serialization;
 using System.Threading.Tasks;
 using PublishedFileId_t = System.UInt64;
 
-namespace SteamVent.Common.InterProc
+namespace SteamVent.Core.InterProc
 {
     [StructLayout(LayoutKind.Sequential, Pack = 8)]
-    public struct RemoteStorageUnsubscribePublishedFileResult_t
+    public struct RemoteStorageSubscribePublishedFileResult_t
     {
-        public const int k_iCallback = 1315;
+        public const int k_iCallback = 1313;
         [JsonInclude] public EResult m_eResult;
         [JsonInclude] public PublishedFileId_t m_nPublishedFileId;
     };

@@ -5,7 +5,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace SteamVent.Common.BVdf
+namespace SteamVent.Core.BVdf
 {
     public static class BVdfFile
     {

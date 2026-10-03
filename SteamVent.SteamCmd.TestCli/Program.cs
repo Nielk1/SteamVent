@@ -1,4 +1,4 @@
-﻿using SteamVent.Common;
+﻿using SteamVent.Core;
 using SteamVent.SteamCmd;
 using System;
 using System.Collections.Generic;

@@ -21,7 +21,7 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SteamVent.SteamCmd.TestCli"
 		{1B1CF7C2-DA92-4FFD-BC92-8332947A87BE} = {1B1CF7C2-DA92-4FFD-BC92-8332947A87BE}
 	EndProjectSection
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SteamVent.Common", "SteamVent.Common\SteamVent.Common.csproj", "{F1096E3A-C50A-43A3-9A46-6112D4BBAE38}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SteamVent.Core", "SteamVent.Core\SteamVent.Core.csproj", "{F1096E3A-C50A-43A3-9A46-6112D4BBAE38}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Utilities", "Utilities", "{BE01A886-8383-4B3F-9E69-814FBB8CABC0}"
 EndProject

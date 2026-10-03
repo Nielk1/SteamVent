@@ -9,7 +9,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\SteamVent.Bridge\SteamVent.Bridge.csproj" />
-    <ProjectReference Include="..\SteamVent.Common\SteamVent.Common.csproj" />
+    <ProjectReference Include="..\SteamVent.Core\SteamVent.Core.csproj" />
     <ProjectReference Include="..\SteamVent\SteamVent.csproj" />
   </ItemGroup>
 

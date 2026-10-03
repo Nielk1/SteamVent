@@ -1,4 +1,4 @@
-﻿using SteamVent.Common.BVdf;
+﻿using SteamVent.Core.BVdf;
 using System;
 using System.Collections.Generic;
 using System.IO;

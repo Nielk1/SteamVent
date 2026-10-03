@@ -11,9 +11,12 @@
     <PackageReference Include="System.Data.HashFunction.CRC" Version="2.0.0" />
   </ItemGroup>
 
+  <!-- SteamVent is the orchestrator plus the always-present FileSystem / Steamworks / interop / Web
+       subsystems. It references ONLY SteamVent.Core. The optional Bridge and SteamCmd modules reference
+       STEAMVENT (for the interop + ISource contracts they adapt) and are discovered at runtime - they are
+       NEVER hard-referenced here, so removing their DLLs degrades the library instead of breaking it. -->
   <ItemGroup>
-    <ProjectReference Include="..\SteamVent.Bridge\SteamVent.Bridge.csproj" />
-    <ProjectReference Include="..\SteamVent.Common\SteamVent.Common.csproj" />
+    <ProjectReference Include="..\SteamVent.Core\SteamVent.Core.csproj" />
   </ItemGroup>
 
 </Project>

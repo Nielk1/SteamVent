@@ -1,14 +1,13 @@
 ﻿using Gameloop.Vdf;
 using Gameloop.Vdf.Linq;
-using SteamVent.Common;
+using SteamVent.Core;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-using SteamVent.Bridge;
-using SteamVent.Common.InterProc;
+using SteamVent.Core.InterProc;
 using static System.Runtime.InteropServices.JavaScript.JSType;
 
 namespace SteamVent.FileSystem
@@ -202,7 +201,7 @@ namespace SteamVent.FileSystem
             yield return (1d, null);
         }
 
-        public static async Task<List<WorkshopItemStatus>?> WorkshopStatusAsync(string LibraryPath, UInt32 AppId, IProgress<double?>? Progress = null, bool AllowBridge = false)
+        public static async Task<List<WorkshopItemStatus>?> WorkshopStatusAsync(string LibraryPath, UInt32 AppId, IProgress<double?>? Progress = null)
         {
             Trace.WriteLine($"WorkshopStatus({AppId})");
             try
@@ -216,7 +215,7 @@ namespace SteamVent.FileSystem
 
                 double ProgressA = 0;
                 double ProgressB = 0;
-                double? ProgressC = AllowBridge ? 0 : null;
+                double? ProgressC = null;
 
                 // get existing mod folders
                 Task DirectoryScanTask = Task.Run(async () =>
@@ -257,87 +256,6 @@ namespace SteamVent.FileSystem
 
                 // TODO consider moving this to another location that copies this function or something, or calls this one too
                 // If moved this can also check for ownership before the call which would help
-                if (AllowBridge)
-                {
-                    ProgressC = 0;
-                    int ProgressCounter = 0;
-                    try
-                    {
-                        PublishedFileData[]? workshopList = null;
-                        using (BridgeContext bc = new BridgeContext(AppId))
-                        {
-                            workshopList = await bc.SteamWorkshopListAsync();
-                        }
-                        if (workshopList != null)
-                        {
-                            foreach (PublishedFileData pub in workshopList)
-                            {
-                                UInt64 workshopId = pub.PublishedFileId;
-                                DateTime? DateTimeSet = pub.TimeStamp.HasValue ? DateTimeOffset.FromUnixTimeSeconds(pub.TimeStamp.Value).DateTime : null;
-
-                                WorkshopItemStatus currentItem = null;
-                                SemaphoreSlim itemLock = null;
-                                try
-                                {
-                                    await DictionaryLock.WaitAsync();
-
-                                    if (!WorkshopItems.ContainsKey(workshopId))
-                                    {
-                                        WorkshopItems[workshopId] = new WorkshopItemStatus
-                                        {
-                                            WorkshopId = workshopId,
-                                            Status = pub.State.HasFlag(EItemState.k_EItemStateNeedsUpdate) ? "update required" : "installed", // TODO revisit this
-                                            //Size = (long?)pub.BytesTotal ?? (long?)pub.SizeOnDisk ?? -1,
-                                            Size = (long?)pub.SizeOnDisk ?? -1,
-                                            DateTime = DateTimeSet,
-                                            HasUpdate = pub.State.HasFlag(EItemState.k_EItemStateNeedsUpdate),
-                                            Missing = true, // assume missing till we see the folder
-                                            Detection = WorkshopItemStatus.WorkshopDetectionType.Direct,
-                                        };
-                                        WorkshopItemLocks[workshopId] = new SemaphoreSlim(1, 1);
-                                    }
-                                    else
-                                    {
-                                        itemLock = WorkshopItemLocks[workshopId];
-                                        currentItem = WorkshopItems[workshopId];
-                                    }
-                                    LatestUpdate = Nullable.Compare(LatestUpdate, DateTimeSet) > 0 ? LatestUpdate : DateTimeSet;
-                                }
-                                finally
-                                {
-                                    DictionaryLock.Release();
-                                }
-
-                                if (currentItem != null && itemLock != null)
-                                {
-                                    try
-                                    {
-                                        await itemLock.WaitAsync();
-                                        currentItem.Status = pub.State.HasFlag(EItemState.k_EItemStateNeedsUpdate) ? "update required" : "installed"; // TODO revisit this
-                                        if (pub.SizeOnDisk.HasValue)
-                                            currentItem.Size = (long)pub.SizeOnDisk.Value;
-                                        currentItem.DateTime = DateTimeSet.HasValue ? DateTimeSet : currentItem.DateTime;
-                                        currentItem.HasUpdate |= pub.State.HasFlag(EItemState.k_EItemStateNeedsUpdate);
-                                        currentItem.Detection |= WorkshopItemStatus.WorkshopDetectionType.Direct; // we have a direct so add detection
-                                    }
-                                    finally
-                                    {
-                                        itemLock.Release();
-                                    }
-                                }
-
-                                ProgressCounter++;
-                                ProgressC = 1d - (1d / (ProgressCounter + 1));
-                                if (Progress != null)
-                                    UpdateProgress(Progress, ProgressA, ProgressB, ProgressC);
-                            }
-                        }
-                    }
-                    catch
-                    {
-                        // process not found might happen
-                    }
-                }
 
                 try
                 {

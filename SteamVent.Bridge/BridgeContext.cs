@@ -3,7 +3,8 @@ using System.Globalization;
 using System.Reflection;
 using System.Text.Json;
 using System.Text.Json.Serialization;
-using SteamVent.Common.InterProc;
+using SteamVent.Core;
+using SteamVent.Core.InterProc;
 
 namespace SteamVent.Bridge;
 
