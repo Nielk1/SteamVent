@@ -5,9 +5,9 @@ SteamVent is the buisness logic for the **BZR Mod Manager**. It is organized int
 
 | Project | Target | Purpose |
 | --- | --- | --- |
-| `SteamVent.Core` | `net10.0` | Framework-agnostic abstractions: `Source`, `PublishedFileData`, the workshop `IWorkshopSource` / `IWorkshopCommands` contracts, the `BVdf` binary-VDF reader, and the Steam result structs (`DownloadItemResult_t`, `RemoteStorage*Result_t`, `EItemState`, `EResult`, `SteamTypes`). |
+| `SteamVent.Core` | `net10.0` | Framework-agnostic abstractions: `PublishedFileData`, `WorkshopItemStatus`, the workshop `IWorkshopSource` / `IWorkshopCommands` contracts, `SteamVentOptions` (per-subsystem enable flags + `SteamworksAppId`), the `BVdf` binary-VDF reader, and the Steam result structs (`DownloadItemResult_t`, `RemoteStorage*Result_t`, `EItemState`, `EResult`, `SteamTypes`). |
 | `SteamVent.Bridge` | `net10.0` | The process-isolated IPC **Bridge** (`BridgeContext` + the `ISteamApps`/`ISteamUtils`/`ISteamUGC` command wrappers and their generated proxies). |
-| `SteamVent` | `net10.0` | The main library: the `Steamworks` (native interproc) layer, the `FileSystem` layer, the `Sources` (Bridge / filesystem / Steamworks), `SteamVentOptions`, and the `SteamContext` facade. |
+| `SteamVent` | `net10.0` | The main library: the `Steamworks` (native interproc) layer, the `FileSystem` layer, and the `SteamContext` facade, which deliberately composes whichever subsystems are enabled per operation. |
 
 > The two C++ projects (`steamcmdinj`, `steamcmdprox`) implement the `steamcmd` injection/proxy used by the Bridge child process and build with MSBuild, not the `dotnet` CLI.
 
@@ -31,11 +31,10 @@ SteamVent/
 │   ├── BridgeSource.cs          # IWorkshopSource / IWorkshopCommands over the Bridge
 │   ├── Interfaces/              # ISteamApps / ISteamUtils / ISteamUGC command contracts
 │   └── InterProc/               # SteamAPICall_t, Callback<T>, generated proxies + result structs
-└── SteamVent/                   # net10.0, depends on Core + Bridge
-    ├── SteamContext.cs          # Public facade / gateway: options, pipeline, sources, child-service facades
+└── SteamVent/                   # net10.0, depends on Core
+    ├── SteamContext.cs          # Public facade / gateway: per-operation composition of the enabled subsystems
     ├── SteamApps.cs             # SteamVent app facade — a box over Steamworks.SteamApps (ctx.SteamApps)
-    ├── SteamWorkshop.cs         # SteamVent workshop facade — a box over Steamworks.SteamWorkshop, routed (ctx.SteamWorkshop)
-    ├── SteamVentOptions.cs      # Source selection, SteamworksAppId, Bridge command config
+    ├── SteamWorkshop.cs         # SteamVent workshop facade — routes reads/commands in-process, Bridge, SteamCmd, or disk (ctx.SteamWorkshop)
     ├── SteamLaunchable.cs       # SteamLaunchable* POCOs returned by the context
     ├── Steamworks/              # In-process Steamworks layer (namespace SteamVent.Steamworks)
     │   ├── SteamClient.cs       #   Owned lifecycle: pipe/user + appid (request→latch) + interop factory + wrappers
@@ -47,22 +46,18 @@ SteamVent/
     │       ├── Interfaces/      #   ISteamApps(+versioned), ISteamClient, ISteamUGC, ISteamUtils, CSteamID
     │       ├── Interop/         #   SteamInterfaceWrapper
     │       └── Native/          #   SteamNative, SysNative
-    ├── FileSystem/              # File-system access to a local Steam install (namespace SteamVent.FileSystem)
-    │   ├── SteamAppInfoDataFile.cs  # appcache (appinfo.vdf) parser + GetApps()
-    │   ├── SteamAppInfo.cs          # strongly-typed per-app model (SteamAppInfo / Common / Extended)
-    │   ├── BvdfNode.cs              # lossless VDF node base + generic object node (Extra + [string] indexer)
-    │   ├── SteamProcessInfo.cs      # Steam install path, library paths, running-process detection
-    │   └── SteamWorkshop.cs         # Read workshop items straight from the workshop/contentdl cache
-    └── Sources/
-        ├── BuiltinAppSources.cs     # SteamworksAppSource + FileSystemAppSource
-        └── FileSystemWorkshopSource.cs
+    └── FileSystem/              # File-system access to a local Steam install (namespace SteamVent.FileSystem)
+        ├── SteamAppInfoDataFile.cs  # appcache (appinfo.vdf) parser + GetApps()
+        ├── SteamAppInfo.cs          # strongly-typed per-app model (SteamAppInfo / Common / Extended)
+        ├── BvdfNode.cs              # lossless VDF node base + generic object node (Extra + [string] indexer)
+        ├── SteamProcessInfo.cs      # Steam install path, library paths, running-process detection
+        └── SteamWorkshop.cs         # Read workshop items straight from the workshop/contentdl cache
 ```
 
 ---
 
 ## Core abstractions (`SteamVent.Core`)
 
-- **`Source`** — a self-describing, optionally async source of data. Subclass it, name it, optionally set `DefaultPollInterval`, and provide sync `IReadOnlyCollection<T> Get<T>()` and/or async `Task<IReadOnlyCollection<T>> GetAsync<T>(CancellationToken)`.
 - **`PublishedFileData`** — a lightweight snapshot of one Steam Workshop item: `PublishedFileId`, `State` (`EItemState` flags), plus optional `Folder`, `SizeOnDisk`, `TimeStamp`, `BytesDownloaded`, `BytesTotal`.
 - **`IWorkshopSource`** — read-side workshop listing:
   ```csharp
@@ -186,7 +181,7 @@ Other helpers: `SteamAppInfoDataFile.GetSteamAppInfoDataFile(path?)` (raw chunks
 
 ## Configuration & routing (`SteamContext`)
 
-`SteamContext` (singleton, `SteamContext.GetInstance()`) is the public facade. `ctx.Options` exposes the shared, mutable **`SteamVentOptions`** settings object:
+`SteamContext` (singleton, `SteamContext.GetInstance()`) is the public facade and the single gateway to Steam. It is **tightly coupled** to its subsystems: each top-level method deliberately composes the specific children it wants — in its own order, with its own concurrency and fallbacks — gated by `ctx.Options`, so a disabled or excised subsystem degrades the call instead of breaking it. `ctx.Options` is the settable **`SteamVentOptions`** settings object:
 
 ```csharp
 using SteamVent;
@@ -194,14 +189,15 @@ using SteamVent.Core;
 
 SteamContext ctx = SteamContext.GetInstance();
 
-ctx.Options.Sources = SteamSource.Bridge | SteamSource.Steamworks;  // which sources to include
-ctx.Options.SteamworksAppId = 1091500;   // request the in-process appid context (Battlezone: Redux); live value via ActiveSteamworksAppId
-ctx.Options.BridgeCommand = "dotnet";    // optional Bridge child-process overrides
-// ctx.Options.BridgeCommandArgs = new() { "SteamVentContextBridge.dll" };
-// ctx.Options.BridgeWorkingDirectory = @"C:\SteamVentBridge";
+// SteamVentOptions is settable before first use. Each subsystem is an explicit enable flag:
+ctx.Options.UseSteamworks = true;    // in-process Steamworks (default on): ownership, install state, in-process workshop
+ctx.Options.UseBridge     = false;   // optional Bridge assembly (default off): workshop data + commands for any appid
+ctx.Options.UseSteamCmd   = false;   // optional SteamCmd assembly (default off): workshop status
+ctx.Options.UseFileSystem = true;    // filesystem appcache / install dirs / local workshop (default on)
 
-IReadOnlyList<ISource> active  = ctx.Sources;   // the enabled sources
-SourcePipeline pipeline        = ctx.Pipeline;  // the merged / filtered source pipeline
+// Force the in-process context to a specific appid, and have the context validate on start that it is
+// actually running under it (throws if the live ISteamUtils.GetAppID differs - something got in the way):
+ctx.Options.SteamworksAppId = 1091500;   // e.g. Battlezone: Redux; the live value is reported via ActiveSteamworksAppId
 ```
 
 ### Child service facades — `ctx.SteamApps` and `ctx.SteamWorkshop`
@@ -218,7 +214,7 @@ using SteamVent;
 using SteamVent.Core;
 
 SteamContext ctx = SteamContext.GetInstance();
-ctx.Options.Sources        = SteamSource.Bridge | SteamSource.Steamworks;  // which sources to include
+ctx.Options.UseBridge      = true;    // enable the optional Bridge module (in-process Steamworks is on by default)
 ctx.Options.SteamworksAppId = 1091500;   // request the in-process context (Battlezone: Redux); not authoritative
 UInt32 activeAppId         = ctx.ActiveSteamworksAppId;  // the appid the process actually runs under (latched live)
 
@@ -246,8 +242,8 @@ Workshop **commands** (subscribe / unsubscribe / download) can come from two pla
 ```csharp
 IWorkshopCommands? cmds = ctx.GetWorkshopCommands(appId);
 
-// SteamSource.Steamworks enabled AND the LIVE appid (ctx.ActiveSteamworksAppId) == appId -> in-process SteamWorkshop
-// otherwise, if SteamSource.Bridge is enabled                                          -> Bridge
+// Options.UseSteamworks enabled AND the LIVE appid (ctx.ActiveSteamworksAppId) == appId -> in-process SteamWorkshop
+// otherwise, if Options.UseBridge is enabled and the Bridge assembly is present         -> Bridge
 ```
 
 Routing is decided from the *live* appid, not the configured one: `SteamworksAppId` is only the request that established the context, so the configured value and the running process can never drift apart.

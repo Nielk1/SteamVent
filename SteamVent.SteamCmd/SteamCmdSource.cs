@@ -8,23 +8,11 @@ using SteamVent.Core.Steamworks;
 namespace SteamVent.SteamCmd
 {
     /// <summary>
-    /// Adapts the SteamCmd pipeline to the SteamVent source contracts. SteamCmd enumerates workshop state
-    /// via its own process; this maps that to the shared <see cref="PublishedFileData"/> model. Optional:
-    /// when this assembly is absent the library simply degrades to the built-in sources.
+    /// Adapts the SteamCmd automation pipe to the shared workshop contract (<see cref="IWorkshopSource"/>).
+    /// Optional: when this assembly is absent the top-level context simply degrades to the other subsystems.
     /// </summary>
-    public sealed class SteamCmdSource : ISource, IWorkshopSource
+    public sealed class SteamCmdSource : IWorkshopSource
     {
-        public string Name => "SteamCmd";
-        public int Priority => 20; // between the live Bridge and the local FileSystem fallback
-        public SteamSource Family => SteamSource.SteamCmd;
-
-        public bool IsAvailable()
-        {
-            try { return SteamCmdContext.Instance != null; }
-            catch { return false; }
-        }
-        public Task<bool> CheckAsync(CancellationToken cancellationToken = default) => Task.FromResult(IsAvailable());
-
         public async Task<IReadOnlyCollection<PublishedFileData>> GetInstalledWorkshopItems(int appid, CancellationToken cancellationToken = default)
         {
             var status = await SteamCmdContext.Instance.WorkshopStatusAsync((UInt32)appid, null, null);

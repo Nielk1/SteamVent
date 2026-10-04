@@ -114,6 +114,8 @@ namespace SteamVent
         {
             get
             {
+                if (!Options.UseSteamworks)
+                    throw new SteamException("The Steamworks subsystem is disabled (Options.UseSteamworks is false).");
                 if (_client == null)
                 {
                     var client = Steamworks.SteamClient.Construct();
@@ -132,10 +134,10 @@ namespace SteamVent
         }
 
         /// <summary>The in-process <see cref="Steamworks.SteamApps"/> child (lazily owned by the client).</summary>
-        private Steamworks.SteamApps InnerApps => Client.GetSteamApps();
+        internal Steamworks.SteamApps InnerApps => Client.GetSteamApps();
 
         /// <summary>The in-process <see cref="Steamworks.SteamWorkshop"/> child (lazily owned by the client).</summary>
-        private Steamworks.SteamWorkshop InnerWorkshop => Client.GetSteamWorkshop();
+        internal Steamworks.SteamWorkshop InnerWorkshop => Client.GetSteamWorkshop();
 
         /// <summary>
         /// The SteamVent <b>app</b> facade (a latched box over the in-process Steamworks app queries). The context
@@ -144,7 +146,7 @@ namespace SteamVent
         /// </summary>
         public SteamApps SteamApps
         {
-            get { lock (_childLock) { return _appsBox ??= new SteamApps(InnerApps); } }
+            get { lock (_childLock) { return _appsBox ??= new SteamApps(this); } }
         }
 
         /// <summary>
@@ -154,7 +156,7 @@ namespace SteamVent
         /// </summary>
         public SteamWorkshop SteamWorkshop
         {
-            get { lock (_childLock) { return _workshopBox ??= new SteamWorkshop(this, InnerWorkshop); } }
+            get { lock (_childLock) { return _workshopBox ??= new SteamWorkshop(this); } }
         }
 
         /// <summary>
@@ -163,14 +165,15 @@ namespace SteamVent
         /// effective AppID from <see cref="Steamworks.ISteamUtils.GetAppID"/>, not merely the configured one).
         /// </summary>
         internal bool UsesInProcessWorkshop(UInt32 appid)
-            => Options.Sources.HasFlag(SteamSource.Steamworks) && Client.AppId == appid;
+            => Options.UseSteamworks && Client.AppId == appid;
 
         /// <summary>
         /// The AppID the local (in-process) Steamworks context is actually running under, as reported by
         /// <see cref="Steamworks.ISteamUtils.GetAppID"/> once the context is active; null before it starts or
         /// when Steamworks is unavailable. This is the source of truth used for in-process workshop routing.
         /// </summary>
-        public UInt32? ActiveSteamworksAppId => Client.AppId;
+        public UInt32? ActiveSteamworksAppId
+            => Options.UseSteamworks ? Client.AppId : null;
 
         #endregion Child services
 
@@ -180,13 +183,18 @@ namespace SteamVent
         // Requires: Steam is running for SteamApps interface
         public List<SteamLaunchableApp>? GetOwnedApps()
         {
-            if (!Client.EnsureSteamworks())
-                throw new SteamException("Failed to start Steamworks (is Steam running and logged on?)");
+            // Ownership requires the in-process Steamworks ISteamApps check; the candidate list comes from the
+            // filesystem appcache. Both are deliberately required for this call.
+            EnsureSteamworksStarted();
 
             Steamworks.SteamApps steamApps = InnerApps;
             List<SteamLaunchableApp> apps = new List<SteamLaunchableApp>();
 
-            foreach (SteamAppInfo app in SteamAppInfoDataFile.GetApps())
+            IReadOnlyList<SteamAppInfo> candidates;
+            try { candidates = SteamAppInfoDataFile.GetApps(); }
+            catch { return apps; } // no appcache available -> no candidates (degrade, don't throw)
+
+            foreach (SteamAppInfo app in candidates)
             {
                 if (string.IsNullOrWhiteSpace(app.Type) || app.Type == "config")
                     continue;
@@ -206,137 +214,172 @@ namespace SteamVent
 
         #region Configurable sources (built-in + optional Bridge/SteamCmd modules)
 
-        /// <summary>Options driving which sources are composed and how; set before first use.</summary>
-        public SteamVentOptions Options { get; } = SteamVentOptions.Default;
+        private SteamVentOptions _options = SteamVentOptions.Default;
 
-        private SourcePipeline? _pipeline;
-        private readonly object _pipelineLock = new object();
-
-        private SourcePipeline Pipeline
+        /// <summary>
+        /// Options driving which subsystems each top-level function may use. Set before first use; a disabled
+        /// subsystem is never used (and, for Steamworks, never instantiated).
+        /// </summary>
+        public SteamVentOptions Options
         {
-            get
+            get => _options;
+            set
             {
-                lock (_pipelineLock)
+                if (value == null) throw new ArgumentNullException(nameof(value));
+                lock (_childLock)
                 {
-                    if (_pipeline == null)
-                    {
-                        var assemblies = new List<Assembly> { typeof(SteamContext).Assembly };
-                        foreach (string name in Options.ModuleAssemblyNames)
-                        {
-                            try
-                            {
-                                var loaded = Assembly.Load(new AssemblyName(name));
-                                if (loaded != null) assemblies.Add(loaded);
-                            }
-                            catch { /* an optional module may simply be absent - that's the point */ }
-                        }
-                        assemblies.AddRange(Options.AdditionalAssemblies);
-
-                        var sources = new List<ISource>
-                        {
-                            new FileSystemAppSource(),
-                            new SteamworksAppSource(),
-                            new FileSystemWorkshopSource(),
-                        };
-                        sources.AddRange(SourceDiscovery.Discover(assemblies));
-                        foreach (var s in Options.SourceInstances) sources.Add(s);
-                        _pipeline = new SourcePipeline(Options, sources);
-                    }
-                    return _pipeline;
+                    _options = value;
+                    // New options take effect immediately for the lazily-built facades. (A started Steamworks
+                    // context cannot rebind its AppID, so set SteamworksAppId before first use.)
+                    _appsBox = null;
+                    _workshopBox = null;
                 }
             }
         }
 
-        /// <summary>The resolved sources (built-in + any discovered optional module) in query order.</summary>
-        public IReadOnlyList<ISource> Sources => Pipeline.Sources;
-
-        /// <summary>The best available appid-context workshop command provider (Bridge, else SteamCmd), or null.</summary>
-        public IWorkshopCommands? WorkshopCommands => Pipeline.GetWorkshopCommands();
-
-        /// <summary>Merged workshop items for an appid across all available workshop sources.</summary>
-        public Task<IReadOnlyCollection<PublishedFileData>> GetWorkshopItemsAsync(int appid, CancellationToken cancellationToken = default)
-            => Pipeline.GetWorkshopItemsAsync(appid, cancellationToken);
+        /// <summary>
+        /// Gate for calls that fundamentally require the in-process Steamworks subsystem. Throws a clear
+        /// <see cref="SteamException"/> when it is disabled or cannot start, and - when an AppID was forced via
+        /// <see cref="SteamVentOptions.SteamworksAppId"/> - when the live context is not actually running under
+        /// it (something else got in the way).
+        /// </summary>
+        private void EnsureSteamworksStarted()
+        {
+            if (!Options.UseSteamworks)
+                throw new SteamException("The Steamworks subsystem is disabled (Options.UseSteamworks is false).");
+            if (!Client.EnsureSteamworks())
+                throw new SteamException("Failed to start Steamworks (is Steam running and logged on?)");
+            if (Options.SteamworksAppId is { } forcedId && forcedId > 0 && Client.AppId != forcedId)
+                throw new SteamException($"Steamworks is running under AppID {Client.AppId}, but {forcedId} was forced via Options.SteamworksAppId; another context interfered.");
+        }
 
         /// <summary>
-        /// Owned apps, async-first and streaming. Candidate ids come from every candidate source (the
-        /// FileSystem appcache by default); each is ownership-checked in parallel against the available
-        /// ownership source (Steamworks per-id BIsSubscribedApp). Yields one app at a time as they resolve,
-        /// so a UI can fill in over time instead of waiting for the whole set.
+        /// Deliberately create a specific, known child module by its assembly and type name (NOT auto-discovery:
+        /// the caller names exactly which module it wants). Returns null when the assembly is absent (excised)
+        /// or the type cannot be constructed, so a missing optional module degrades the calling function instead
+        /// of breaking it.
+        /// </summary>
+        private static T? CreateModule<T>(string assemblyName, string typeName) where T : class
+        {
+            try
+            {
+                Assembly? assembly = Assembly.Load(new AssemblyName(assemblyName));
+                Type? type = assembly?.GetType(typeName, throwOnError: false);
+                ConstructorInfo? ctor = type?.GetConstructor(Type.EmptyTypes);
+                return ctor?.Invoke(null) as T;
+            }
+            catch
+            {
+                return null; // excised / failed to load -> degrade, don't throw
+            }
+        }
+
+        /// <summary>Bridge adapter (optional assembly) as an appid-context command provider, or null when excised.</summary>
+        private IWorkshopCommands? TryBridgeCommands()
+            => CreateModule<IWorkshopCommands>("SteamVent.Bridge", "SteamVent.Bridge.BridgeSource");
+
+        /// <summary>Bridge adapter (optional assembly) as a workshop source, or null when excised.</summary>
+        private IWorkshopSource? TryBridgeWorkshop()
+            => CreateModule<IWorkshopSource>("SteamVent.Bridge", "SteamVent.Bridge.BridgeSource");
+
+        /// <summary>SteamCmd adapter (optional assembly) as a workshop source, or null when excised.</summary>
+        private IWorkshopSource? TrySteamCmdWorkshop()
+            => CreateModule<IWorkshopSource>("SteamVent.SteamCmd", "SteamVent.SteamCmd.SteamCmdSource");
+
+        /// <summary>
+        /// Workshop items for <paramref name="appid"/>, in a deliberate per-call order: in-process Steamworks
+        /// (when we are actually running under that app), else the Bridge, else SteamCmd, else the local
+        /// filesystem. Each step is option-gated and degrades to the next when the subsystem is disabled or its
+        /// assembly is excised.
+        /// </summary>
+        public Task<IReadOnlyCollection<PublishedFileData>> GetWorkshopItems(UInt32 appid, CancellationToken cancellationToken = default)
+        {
+            int appId = (int)appid;
+
+            if (Options.UseSteamworks && UsesInProcessWorkshop(appid))
+                return InnerWorkshop.GetInstalledWorkshopItems(appId, cancellationToken);
+
+            if (Options.UseBridge && TryBridgeWorkshop() is IWorkshopSource bridge)
+                return bridge.GetInstalledWorkshopItems(appId, cancellationToken);
+
+            if (Options.UseSteamCmd && TrySteamCmdWorkshop() is IWorkshopSource cmd)
+                return cmd.GetInstalledWorkshopItems(appId, cancellationToken);
+
+            // Final fallback: whatever is physically on disk under this app's workshop content dir.
+            return Task.FromResult(GetWorkshopItemsFromDisk(appid));
+        }
+
+        /// <summary>Local workshop items physically present under <c>&lt;library&gt;/steamapps/workshop/content/{appid}</c>.</summary>
+        private static IReadOnlyCollection<PublishedFileData> GetWorkshopItemsFromDisk(UInt32 appid)
+        {
+            var result = new List<PublishedFileData>();
+            var seen = new HashSet<ulong>();
+            foreach (var library in SteamProcessInfo.GetSteamLibraryPaths())
+            {
+                if (string.IsNullOrEmpty(library)) continue;
+                string contentDir = Path.Combine(library, "steamapps", "workshop", "content", appid.ToString());
+                if (!Directory.Exists(contentDir)) continue;
+                foreach (var dir in Directory.EnumerateDirectories(contentDir))
+                {
+                    if (!ulong.TryParse(Path.GetFileName(dir), out var id)) continue;
+                    if (!seen.Add(id)) continue;
+                    result.Add(new PublishedFileData(id, EItemState.k_EItemStateInstalled) { Folder = dir });
+                }
+            }
+            return result;
+        }
+
+        /// <summary>
+        /// Owned apps, streaming. Stage 1 (synchronous) enumerates the candidate ids from the filesystem
+        /// appcache; stage 2 checks ownership of each candidate against the in-process Steamworks ISteamApps,
+        /// bounded by a small concurrency gate so the spot-checks can overlap. Yields one app at a time as they
+        /// resolve, so a UI can fill in over time instead of waiting for the whole set.
         /// </summary>
         public async IAsyncEnumerable<SteamLaunchableApp> GetOwnedAppsAsync(CancellationToken cancellationToken = default)
         {
-            var candidates = await Pipeline.GetCandidateAppsAsync(cancellationToken);
-            int degree = Math.Max(1, Options.MaxParallelism);
-            using var gate = new SemaphoreSlim(degree);
-            using var enumerator = candidates.GetEnumerator();
-            try
+            if (!Options.UseFileSystem)
+                throw new SteamException("The FileSystem subsystem is disabled (Options.UseFileSystem is false), so candidate apps cannot be enumerated.");
+            if (!Options.UseSteamworks)
+                throw new SteamException("The Steamworks subsystem is disabled (Options.UseSteamworks is false), so ownership cannot be determined.");
+
+            IReadOnlyList<SteamAppInfo> candidates;
+            try { candidates = SteamAppInfoDataFile.GetApps(); }
+            catch { yield break; } // no appcache -> no candidates (degrade, don't throw)
+
+            const int concurrency = 4; // bounded parallelism for the ownership spot-checks
+            using var gate = new SemaphoreSlim(concurrency);
+            foreach (var app in candidates)
             {
-                while (true)
+                if (string.IsNullOrWhiteSpace(app.Type) || app.Type == "config" || string.IsNullOrWhiteSpace(app.Name))
+                    continue;
+
+                // A synchronous Steamworks interop call, run under the gate so the batch of spot-checks overlap.
+                bool? owned = null;
+                await gate.WaitAsync(cancellationToken).ConfigureAwait(false);
+                try
                 {
-                    var batch = new List<OwnedAppInfo>();
-                    while (batch.Count < degree && !cancellationToken.IsCancellationRequested)
-                    {
-                        if (enumerator.MoveNext()) batch.Add(enumerator.Current);
-                        else break;
-                    }
-
-                    if (batch.Count == 0) break;
-
-                    var tasks = new Task<(OwnedAppInfo App, bool? Owned)>[batch.Count];
-                    for (int i = 0; i < batch.Count; i++)
-                    {
-                        var app = batch[i];
-                        tasks[i] = CheckOwnedAsync(app, gate, cancellationToken);
-                    }
-                    await Task.WhenAll(tasks);
-                    for (int i = 0; i < tasks.Length; i++)
-                    {
-                        var (app, owned) = tasks[i].Result;
-                        if (owned == true)
-                        {
-                            var launchable = ToSteamLaunchable(app);
-                            if (launchable != null) yield return launchable;
-                        }
-                    }
+                    owned = await Task.Run(() => InnerApps.IsSubscribed(app.AppId), cancellationToken).ConfigureAwait(false);
                 }
-            }
-            finally
-            {
-                enumerator.Dispose();
-            }
-        }
+                finally
+                {
+                    gate.Release();
+                }
 
-        private async Task<(OwnedAppInfo App, bool? Owned)> CheckOwnedAsync(OwnedAppInfo app, SemaphoreSlim gate, CancellationToken cancellationToken)
-        {
-            await gate.WaitAsync(cancellationToken);
-            try
-            {
-                bool? owned = await Pipeline.IsOwnedAsync(app.AppId, cancellationToken);
-                return (app, owned);
+                if (owned == true)
+                    yield return new SteamLaunchableApp(app.AppId)
+                    {
+                        Name = app.Name!.TrimEnd(),
+                        appIcon = app.IconPath,
+                        appType = app.Type,
+                    };
             }
-            finally
-            {
-                gate.Release();
-            }
-        }
-
-        private static SteamLaunchableApp? ToSteamLaunchable(OwnedAppInfo app)
-        {
-            if (string.IsNullOrWhiteSpace(app.Name)) return null;
-            return new SteamLaunchableApp(app.AppId)
-            {
-                Name = app.Name,
-                appType = app.Type,
-                appIcon = string.IsNullOrWhiteSpace(app.Icon) ? null : app.Icon,
-            };
         }
 
         #endregion Configurable sources
 
         public List<SteamLaunchableApp> GetAppsWithMetadata(UInt64[]? AppIDs = null)
         {
-            if (!Client.EnsureSteamworks())
-                throw new SteamException("Failed to start Steamworks (is Steam running and logged on?)");
+            EnsureSteamworksStarted();
 
             List<SteamLaunchableApp> apps = new List<SteamLaunchableApp>();
 
@@ -654,19 +697,15 @@ namespace SteamVent
 
         public string? GetAppInstallDir(UInt32 appID)
         {
-            if (Client.EnsureSteamworks())
+            // Prefer the in-process Steamworks answer when that subsystem is enabled and running.
+            if (Options.UseSteamworks && Client.EnsureSteamworks() && InnerApps.GetAppInstalled(appID) == true)
             {
-                // Steamworks is active, ask Steam for the install path
-                if (InnerApps.GetAppInstalled(appID) == true)
-                {
-                    string? dir = InnerApps.GetAppInstallDir(appID);
-                    if (!string.IsNullOrWhiteSpace(dir))
-                        return dir;
-                }
-                return null;
+                string? dir = InnerApps.GetAppInstallDir(appID);
+                if (!string.IsNullOrWhiteSpace(dir))
+                    return dir;
             }
 
-            // Steamworks isn't active, time to slum it in the file system
+            // Otherwise fall back to the filesystem (appmanifest), which serves as guidance for locating the app.
             return FileSystem.SteamApps.GetAppInstallDir(appID);
         }
 
@@ -698,18 +737,18 @@ namespace SteamVent
         #region Workshop routing (in-process interproc vs Bridge)
 
         /// <summary>
-        /// The workshop command provider to use for <paramref name="appid"/>. When the Steamworks source is
-        /// enabled and <paramref name="appid"/> is exactly the app the local interproc context is running under
-        /// (<see cref="SteamVentOptions.SteamworksAppId"/>), the fast in-process <see cref="Steamworks.SteamWorkshop"/>
-        /// is used; otherwise the Bridge (if enabled). Returns null when neither applies.
+        /// The workshop command provider to use for <paramref name="appid"/>, in a deliberate order: in-process
+        /// Steamworks when we are actually running under that app (fast, no child process), else the Bridge
+        /// (default-off, optional assembly). SteamCmd does not provide appid-context commands, so it is not part
+        /// of this path. Returns null when no provider applies, so callers can report the command as unavailable.
         /// </summary>
         public IWorkshopCommands? GetWorkshopCommands(UInt32 appid)
         {
-            if (UsesInProcessWorkshop(appid))
+            if (Options.UseSteamworks && UsesInProcessWorkshop(appid))
                 return InnerWorkshop;
 
-            if (Options.Sources.HasFlag(SteamSource.Bridge))
-                return Pipeline.GetWorkshopCommands();
+            if (Options.UseBridge)
+                return TryBridgeCommands();
 
             return null;
         }
