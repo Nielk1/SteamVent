@@ -72,6 +72,11 @@ namespace SteamVent
 
             if (disposing)
             {
+                lock (_childLock)
+                {
+                    _appsBox = null;
+                    _workshopBox = null;
+                }
                 _client?.Dispose();
                 _client = null;
             }
@@ -92,24 +97,52 @@ namespace SteamVent
         public bool SteamIsRunning { get { return SteamProcessInfo.GetSteamPid() > 0; } }
 
 
-        #region Steamworks facade
+        #region Child services (SteamVent facades over the Steamworks child implementation)
 
         private Steamworks.SteamClient? _client;
+        private readonly object _childLock = new object();
+        private SteamApps? _appsBox;
+        private SteamWorkshop? _workshopBox;
 
         /// <summary>
-        /// The shared Steamworks lifecycle wrapper (a ref-counted singleton). Constructed lazily on first
-        /// use and never requires Steam to be running. Owns the interproc pipe, user and the thin
-        /// <see cref="Steamworks.SteamApps"/> / <see cref="Steamworks.SteamWorkshop"/> wrappers.
+        /// The shared Steamworks lifecycle wrapper (a ref-counted singleton), owned by the context. Lazily
+        /// constructed and never requires Steam to be running. This is an internal building block, not part of
+        /// the public surface - the facades below are how you reach it. If you want the raw client directly, use
+        /// <c>Steamworks.SteamClient</c> yourself.
         /// </summary>
-        public Steamworks.SteamClient Client => _client ??= Steamworks.SteamClient.Construct();
+        private Steamworks.SteamClient Client => _client ??= Steamworks.SteamClient.Construct();
 
-        /// <summary>Thin Steamworks wrapper over <c>ISteamApps</c> (ownership / install dir).</summary>
-        public Steamworks.SteamApps Apps => Client.GetSteamApps();
+        /// <summary>The in-process <see cref="Steamworks.SteamApps"/> child (lazily owned by the client).</summary>
+        private Steamworks.SteamApps InnerApps => Client.GetSteamApps();
 
-        /// <summary>Thin Steamworks wrapper over <c>ISteamUGC</c> (in-process workshop commands).</summary>
-        public Steamworks.SteamWorkshop Workshop => Client.GetSteamWorkshop();
+        /// <summary>The in-process <see cref="Steamworks.SteamWorkshop"/> child (lazily owned by the client).</summary>
+        private Steamworks.SteamWorkshop InnerWorkshop => Client.GetSteamWorkshop();
 
-        #endregion Steamworks facade
+        /// <summary>
+        /// The SteamVent <b>app</b> facade (a latched box over the in-process Steamworks app queries). The context
+        /// maintains the underlying client and hands the box the <see cref="Steamworks.SteamApps"/> it needs;
+        /// callers only see this facade and its answers come from the configured sources.
+        /// </summary>
+        public SteamApps SteamApps
+        {
+            get { lock (_childLock) { return _appsBox ??= new SteamApps(InnerApps); } }
+        }
+
+        /// <summary>
+        /// The SteamVent <b>workshop</b> facade (a latched box over workshop reads + commands). The context routes
+        /// each call in-process, via the Bridge, or via SteamCmd according to <see cref="Options"/>; callers only
+        /// see this facade and never which module answered.
+        /// </summary>
+        public SteamWorkshop SteamWorkshop
+        {
+            get { lock (_childLock) { return _workshopBox ??= new SteamWorkshop(this, InnerWorkshop); } }
+        }
+
+        /// <summary>True when in-process (Steamworks) workshop is the eligible path for <paramref name="appid"/>.</summary>
+        internal bool UsesInProcessWorkshop(UInt32 appid)
+            => Options.Sources.HasFlag(SteamSource.Steamworks) && Options.SteamworksAppId == appid;
+
+        #endregion Child services
 
 
         // TODO use a better AppID source, the AppInfo.vtf file only holds data the client has actually seen
@@ -120,7 +153,7 @@ namespace SteamVent
             if (!Client.EnsureSteamworks())
                 throw new SteamException("Failed to start Steamworks (is Steam running and logged on?)");
 
-            Steamworks.SteamApps steamApps = Apps;
+            Steamworks.SteamApps steamApps = InnerApps;
             List<SteamLaunchableApp> apps = new List<SteamLaunchableApp>();
 
             foreach (SteamAppInfo app in SteamAppInfoDataFile.GetApps())
@@ -294,8 +327,8 @@ namespace SteamVent
                     //if (type == "demo" || type == "game")
                     if (!string.IsNullOrWhiteSpace(type) && type != "config")
                     {
-                        bool isInstalled = Apps.GetAppInstalled(chunk.AppID) == true;
-                        bool isSubscribed = Apps.IsSubscribed(chunk.AppID) == true;
+                        bool isInstalled = InnerApps.GetAppInstalled(chunk.AppID) == true;
+                        bool isSubscribed = InnerApps.IsSubscribed(chunk.AppID) == true;
 
                         string? name = common?["name"]?.GetValue<string>();
                         //string oslist = common?["oslist"]?.GetValue<string>();
@@ -453,7 +486,7 @@ namespace SteamVent
                             if (!UInt32.TryParse(appID.ToString(), out appIdCheck)) return;
                             if (appIdCheck == 0) return;
 
-                            string? AppInstallDir = Apps.GetAppInstallDir(appIdCheck);
+                            string? AppInstallDir = InnerApps.GetAppInstallDir(appIdCheck);
                             if (!string.IsNullOrWhiteSpace(AppInstallDir))
                             {
                                 SteamLaunchableModSource mod = SteamLaunchableModSource.Make(appIdCheck, dr, rootObj);
@@ -474,7 +507,7 @@ namespace SteamVent
             {
                 // Basic Steam App
                 case CGameID.EGameID.k_EGameIDTypeApp:
-                    return Apps.GetAppInstalled(gameID.AppID) == true;
+                    return InnerApps.GetAppInstalled(gameID.AppID) == true;
                 //return SteamApps.BIsAppInstalled(gameID.AppID().m_AppId);
 
                 // Mod Steam App
@@ -482,7 +515,7 @@ namespace SteamVent
                     return true;
 
                     // If the base game isn't installed, just say no
-                    if (Apps.GetAppInstalled(gameID.AppID) != true) return false;
+                    if (InnerApps.GetAppInstalled(gameID.AppID) != true) return false;
                     //if (!SteamApps.BIsAppInstalled(gameID.AppID().m_AppId)) return false;
 
                     // Root app is GoldSrc
@@ -594,9 +627,9 @@ namespace SteamVent
             if (Client.EnsureSteamworks())
             {
                 // Steamworks is active, ask Steam for the install path
-                if (Apps.GetAppInstalled(appID) == true)
+                if (InnerApps.GetAppInstalled(appID) == true)
                 {
-                    string? dir = Apps.GetAppInstallDir(appID);
+                    string? dir = InnerApps.GetAppInstallDir(appID);
                     if (!string.IsNullOrWhiteSpace(dir))
                         return dir;
                 }
@@ -626,7 +659,7 @@ namespace SteamVent
             if (LibraryPath == null)
                 return null;
 
-            return await SteamWorkshop.WorkshopStatusAsync(LibraryPath, AppId, Progress);
+            return await FileSystem.SteamWorkshop.WorkshopStatusAsync(LibraryPath, AppId, Progress);
         }
 
 
@@ -642,8 +675,8 @@ namespace SteamVent
         /// </summary>
         public IWorkshopCommands? GetWorkshopCommands(UInt32 appid)
         {
-            if (Options.Sources.HasFlag(SteamSource.Steamworks) && Options.SteamworksAppId == appid)
-                return Workshop;
+            if (UsesInProcessWorkshop(appid))
+                return InnerWorkshop;
 
             if (Options.Sources.HasFlag(SteamSource.Bridge))
                 return Pipeline.GetWorkshopCommands();

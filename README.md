@@ -32,7 +32,9 @@ SteamVent/
 │   ├── Interfaces/              # ISteamApps / ISteamUtils / ISteamUGC command contracts
 │   └── InterProc/               # SteamAPICall_t, Callback<T>, generated proxies + result structs
 └── SteamVent/                   # net10.0, depends on Core + Bridge
-    ├── SteamContext.cs          # Public facade: options, pipeline, sources, routing
+    ├── SteamContext.cs          # Public facade / gateway: options, pipeline, sources, child-service facades
+    ├── SteamApps.cs             # SteamVent app facade — a box over Steamworks.SteamApps (ctx.SteamApps)
+    ├── SteamWorkshop.cs         # SteamVent workshop facade — a box over Steamworks.SteamWorkshop, routed (ctx.SteamWorkshop)
     ├── SteamVentOptions.cs      # Source selection, SteamworksAppId, Bridge command config
     ├── SteamLaunchable.cs       # SteamLaunchable* POCOs returned by the context
     ├── Steamworks/              # In-process Steamworks layer (namespace SteamVent.Steamworks)
@@ -80,6 +82,12 @@ SteamVent/
 ## The Steamworks layer (`SteamVent.Steamworks`)
 
 This is the in-process, native-interproc layer (renamed from the former `SteamVent.InterProc` namespace to `SteamVent.Steamworks` / `SteamVent.Steamworks.Native`).
+
+> **Prefer the `SteamContext` facades.** In normal use you do not touch this layer directly — `SteamContext` owns the
+> `SteamClient` for you (it is no longer exposed publicly) and hands you the **`SteamVent.SteamApps`** (`ctx.SteamApps`)
+> and **`SteamVent.SteamWorkshop`** (`ctx.SteamWorkshop`) facades, which route every call in accordance with your
+> configured sources (see the `SteamContext` section below). The raw types documented here remain available if you want
+> to drive a child implementation directly.
 
 ### `SteamClient` — owns the Steamworks lifecycle
 
@@ -193,6 +201,35 @@ ctx.Options.BridgeCommand = "dotnet";    // optional Bridge child-process overri
 
 IReadOnlyList<ISource> active  = ctx.Sources;   // the enabled sources
 SourcePipeline pipeline        = ctx.Pipeline;  // the merged / filtered source pipeline
+```
+
+### Child service facades — `ctx.SteamApps` and `ctx.SteamWorkshop`
+
+`SteamContext` is the single gateway to Steam. It maintains the `Steamworks` client itself (never exposed) and offers two
+**latched** facades — the same instance is returned on every access until the context is disposed — each of which routes
+through the sources you enabled, so you get the answer without knowing which module produced it:
+
+- **`ctx.SteamApps`** (type `SteamVent.SteamApps`) — app queries (ownership / install state / install dir), over the in-process Steamworks child.
+- **`ctx.SteamWorkshop`** (type `SteamVent.SteamWorkshop`) — workshop reads and appid-context commands (subscribe / download / unsubscribe), routed in-process when this process runs under the target app, else via the Bridge, SteamCmd, or the FileSystem fallback.
+
+```csharp
+using SteamVent;
+using SteamVent.Core;
+
+SteamContext ctx = SteamContext.GetInstance();
+ctx.Options.Sources        = SteamSource.Bridge | SteamSource.Steamworks;  // which sources to include
+ctx.Options.SteamworksAppId = 1091500;   // eligible for the in-process path (Battlezone: Redux)
+
+SteamApps apps         = ctx.SteamApps;      // latched — one instance, owned by the context
+SteamWorkshop workshop = ctx.SteamWorkshop;  // latched — routes per appid
+
+bool?   installed = apps.GetAppInstalled(appId);   // null when Steamworks is unavailable
+bool?   owned     = apps.IsSubscribed(appId);
+string? dir       = apps.GetAppInstallDir(appId);
+
+await workshop.SubscribeAsync(publishedFileId, (int)appId);   // routed in-process vs Bridge vs SteamCmd
+var items   = await workshop.GetInstalledWorkshopItems((int)appId);
+var status  = await workshop.WorkshopStatusAsync(appId);
 ```
 
 ### Workshop routing: in-process (`Steamworks`) vs `Bridge`
