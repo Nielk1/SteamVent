@@ -32,9 +32,9 @@ SteamVent/
 │   ├── Interfaces/              # ISteamApps / ISteamUtils / ISteamUGC command contracts
 │   └── InterProc/               # SteamAPICall_t, Callback<T>, generated proxies + result structs
 └── SteamVent/                   # net10.0, depends on Core
-    ├── SteamContext.cs          # Public facade / gateway: per-operation composition of the enabled subsystems
-    ├── SteamApps.cs             # SteamVent app facade — a box over Steamworks.SteamApps (ctx.SteamApps)
-    ├── SteamWorkshop.cs         # SteamVent workshop facade — routes reads/commands in-process, Bridge, SteamCmd, or disk (ctx.SteamWorkshop)
+    ├── SteamContext.cs          # Public gateway / orchestrator: owns Options + the Steamworks lifecycle + optional-module resolution; delegates to the facades
+    ├── SteamApps.cs             # SteamVent app facade (ctx.SteamApps) — OWNS app queries (owned apps, metadata, install dir, engine mods); composes in-process Steamworks with the filesystem fallback
+    ├── SteamWorkshop.cs         # SteamVent workshop facade (ctx.SteamWorkshop) — OWNS workshop reads + appid-context commands; composes in-process, Bridge, SteamCmd, or disk
     ├── SteamLaunchable.cs       # SteamLaunchable* POCOs returned by the context
     ├── Steamworks/              # In-process Steamworks layer (namespace SteamVent.Steamworks)
     │   ├── SteamClient.cs       #   Owned lifecycle: pipe/user + appid (request→latch) + interop factory + wrappers
@@ -181,7 +181,7 @@ Other helpers: `SteamAppInfoDataFile.GetSteamAppInfoDataFile(path?)` (raw chunks
 
 ## Configuration & routing (`SteamContext`)
 
-`SteamContext` (singleton, `SteamContext.GetInstance()`) is the public facade and the single gateway to Steam. It is **tightly coupled** to its subsystems: each top-level method deliberately composes the specific children it wants — in its own order, with its own concurrency and fallbacks — gated by `ctx.Options`, so a disabled or excised subsystem degrades the call instead of breaking it. `ctx.Options` is the settable **`SteamVentOptions`** settings object:
+`SteamContext` (singleton, `SteamContext.GetInstance()`) is the public gateway to Steam. It **owns** the configuration (`ctx.Options`), the in-process Steamworks lifecycle, and the optional-module (Bridge/SteamCmd) resolution — and delegates the actual per-operation composition to the two child facades below (it also re-exposes them as thin passthroughs). Each facade deliberately composes the enabled subsystems in its own order, with its own concurrency and fallbacks, gated by `ctx.Options`, so a disabled or excised subsystem degrades the call instead of breaking it. `ctx.Options` is the settable **`SteamVentOptions`** settings object:
 
 ```csharp
 using SteamVent;
@@ -206,7 +206,7 @@ ctx.Options.SteamworksAppId = 1091500;   // e.g. Battlezone: Redux; the live val
 **latched** facades — the same instance is returned on every access until the context is disposed — each of which routes
 through the sources you enabled, so you get the answer without knowing which module produced it:
 
-- **`ctx.SteamApps`** (type `SteamVent.SteamApps`) — app queries (ownership / install state / install dir), over the in-process Steamworks child.
+- **`ctx.SteamApps`** (type `SteamVent.SteamApps`) — app queries (owned apps / install state / install dir / metadata / engine mods), composing the in-process Steamworks child with the filesystem fallback.
 - **`ctx.SteamWorkshop`** (type `SteamVent.SteamWorkshop`) — workshop reads and appid-context commands (subscribe / download / unsubscribe), routed in-process when this process runs under the target app, else via the Bridge, SteamCmd, or the FileSystem fallback.
 
 ```csharp

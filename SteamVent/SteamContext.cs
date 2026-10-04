@@ -182,35 +182,7 @@ namespace SteamVent
         // Requires: Steam is installed and has AppCache data
         // Requires: Steam is running for SteamApps interface
         public List<SteamLaunchableApp>? GetOwnedApps()
-        {
-            // Ownership requires the in-process Steamworks ISteamApps check; the candidate list comes from the
-            // filesystem appcache. Both are deliberately required for this call.
-            EnsureSteamworksStarted();
-
-            Steamworks.SteamApps steamApps = InnerApps;
-            List<SteamLaunchableApp> apps = new List<SteamLaunchableApp>();
-
-            IReadOnlyList<SteamAppInfo> candidates;
-            try { candidates = SteamAppInfoDataFile.GetApps(); }
-            catch { return apps; } // no appcache available -> no candidates (degrade, don't throw)
-
-            foreach (SteamAppInfo app in candidates)
-            {
-                if (string.IsNullOrWhiteSpace(app.Type) || app.Type == "config")
-                    continue;
-                if (steamApps.IsSubscribed(app.AppId) != true || string.IsNullOrWhiteSpace(app.Name))
-                    continue;
-
-                apps.Add(new SteamLaunchableApp(app.AppId)
-                {
-                    Name = app.Name!.TrimEnd(),
-                    appIcon = app.IconPath,
-                    appType = app.Type,
-                });
-            }
-
-            return apps;
-        }
+            => SteamApps.GetOwnedApps();
 
         #region Configurable sources (built-in + optional Bridge/SteamCmd modules)
 
@@ -243,7 +215,7 @@ namespace SteamVent
         /// <see cref="SteamVentOptions.SteamworksAppId"/> - when the live context is not actually running under
         /// it (something else got in the way).
         /// </summary>
-        private void EnsureSteamworksStarted()
+        internal void EnsureSteamworksStarted()
         {
             if (!Options.UseSteamworks)
                 throw new SteamException("The Steamworks subsystem is disabled (Options.UseSteamworks is false).");
@@ -251,6 +223,32 @@ namespace SteamVent
                 throw new SteamException("Failed to start Steamworks (is Steam running and logged on?)");
             if (Options.SteamworksAppId is { } forcedId && forcedId > 0 && Client.AppId != forcedId)
                 throw new SteamException($"Steamworks is running under AppID {Client.AppId}, but {forcedId} was forced via Options.SteamworksAppId; another context interfered.");
+        }
+
+        /// <summary>
+        /// Non-throwing readiness check for the in-process Steamworks subsystem: true when it is enabled and has
+        /// started successfully. Lets a caller (e.g. an app query) prefer the in-process answer and fall back to the
+        /// filesystem instead of throwing when Steamworks is unavailable.
+        /// </summary>
+        internal bool TryEnsureSteamworks()
+        {
+            if (!Options.UseSteamworks) return false;
+            try { return Client.EnsureSteamworks(); }
+            catch { return false; }
+        }
+
+        /// <summary>
+        /// The in-process <see cref="Steamworks.SteamClient"/> as a nullable - the raw client this context owns,
+        /// or null when the Steamworks subsystem is disabled or unavailable. This is what the child facades use to
+        /// reach the live client without forcing it to start.
+        /// </summary>
+        internal Steamworks.SteamClient? ClientIfEnabled
+        {
+            get
+            {
+                if (!Options.UseSteamworks) return null;
+                try { return Client; } catch { return null; }
+            }
         }
 
         /// <summary>
@@ -275,15 +273,15 @@ namespace SteamVent
         }
 
         /// <summary>Bridge adapter (optional assembly) as an appid-context command provider, or null when excised.</summary>
-        private IWorkshopCommands? TryBridgeCommands()
+        internal IWorkshopCommands? TryBridgeCommands()
             => CreateModule<IWorkshopCommands>("SteamVent.Bridge", "SteamVent.Bridge.BridgeSource");
 
         /// <summary>Bridge adapter (optional assembly) as a workshop source, or null when excised.</summary>
-        private IWorkshopSource? TryBridgeWorkshop()
+        internal IWorkshopSource? TryBridgeWorkshop()
             => CreateModule<IWorkshopSource>("SteamVent.Bridge", "SteamVent.Bridge.BridgeSource");
 
         /// <summary>SteamCmd adapter (optional assembly) as a workshop source, or null when excised.</summary>
-        private IWorkshopSource? TrySteamCmdWorkshop()
+        internal IWorkshopSource? TrySteamCmdWorkshop()
             => CreateModule<IWorkshopSource>("SteamVent.SteamCmd", "SteamVent.SteamCmd.SteamCmdSource");
 
         /// <summary>
@@ -293,41 +291,7 @@ namespace SteamVent
         /// assembly is excised.
         /// </summary>
         public Task<IReadOnlyCollection<PublishedFileData>> GetWorkshopItems(UInt32 appid, CancellationToken cancellationToken = default)
-        {
-            int appId = (int)appid;
-
-            if (Options.UseSteamworks && UsesInProcessWorkshop(appid))
-                return InnerWorkshop.GetInstalledWorkshopItems(appId, cancellationToken);
-
-            if (Options.UseBridge && TryBridgeWorkshop() is IWorkshopSource bridge)
-                return bridge.GetInstalledWorkshopItems(appId, cancellationToken);
-
-            if (Options.UseSteamCmd && TrySteamCmdWorkshop() is IWorkshopSource cmd)
-                return cmd.GetInstalledWorkshopItems(appId, cancellationToken);
-
-            // Final fallback: whatever is physically on disk under this app's workshop content dir.
-            return Task.FromResult(GetWorkshopItemsFromDisk(appid));
-        }
-
-        /// <summary>Local workshop items physically present under <c>&lt;library&gt;/steamapps/workshop/content/{appid}</c>.</summary>
-        private static IReadOnlyCollection<PublishedFileData> GetWorkshopItemsFromDisk(UInt32 appid)
-        {
-            var result = new List<PublishedFileData>();
-            var seen = new HashSet<ulong>();
-            foreach (var library in SteamProcessInfo.GetSteamLibraryPaths())
-            {
-                if (string.IsNullOrEmpty(library)) continue;
-                string contentDir = Path.Combine(library, "steamapps", "workshop", "content", appid.ToString());
-                if (!Directory.Exists(contentDir)) continue;
-                foreach (var dir in Directory.EnumerateDirectories(contentDir))
-                {
-                    if (!ulong.TryParse(Path.GetFileName(dir), out var id)) continue;
-                    if (!seen.Add(id)) continue;
-                    result.Add(new PublishedFileData(id, EItemState.k_EItemStateInstalled) { Folder = dir });
-                }
-            }
-            return result;
-        }
+            => SteamWorkshop.GetWorkshopItems(appid, cancellationToken);
 
         /// <summary>
         /// Owned apps, streaming. Stage 1 (synchronous) enumerates the candidate ids from the filesystem
@@ -335,290 +299,25 @@ namespace SteamVent
         /// bounded by a small concurrency gate so the spot-checks can overlap. Yields one app at a time as they
         /// resolve, so a UI can fill in over time instead of waiting for the whole set.
         /// </summary>
-        public async IAsyncEnumerable<SteamLaunchableApp> GetOwnedAppsAsync(CancellationToken cancellationToken = default)
-        {
-            if (!Options.UseFileSystem)
-                throw new SteamException("The FileSystem subsystem is disabled (Options.UseFileSystem is false), so candidate apps cannot be enumerated.");
-            if (!Options.UseSteamworks)
-                throw new SteamException("The Steamworks subsystem is disabled (Options.UseSteamworks is false), so ownership cannot be determined.");
-
-            IReadOnlyList<SteamAppInfo> candidates;
-            try { candidates = SteamAppInfoDataFile.GetApps(); }
-            catch { yield break; } // no appcache -> no candidates (degrade, don't throw)
-
-            const int concurrency = 4; // bounded parallelism for the ownership spot-checks
-            using var gate = new SemaphoreSlim(concurrency);
-            foreach (var app in candidates)
-            {
-                if (string.IsNullOrWhiteSpace(app.Type) || app.Type == "config" || string.IsNullOrWhiteSpace(app.Name))
-                    continue;
-
-                // A synchronous Steamworks interop call, run under the gate so the batch of spot-checks overlap.
-                bool? owned = null;
-                await gate.WaitAsync(cancellationToken).ConfigureAwait(false);
-                try
-                {
-                    owned = await Task.Run(() => InnerApps.IsSubscribed(app.AppId), cancellationToken).ConfigureAwait(false);
-                }
-                finally
-                {
-                    gate.Release();
-                }
-
-                if (owned == true)
-                    yield return new SteamLaunchableApp(app.AppId)
-                    {
-                        Name = app.Name!.TrimEnd(),
-                        appIcon = app.IconPath,
-                        appType = app.Type,
-                    };
-            }
-        }
+        public IAsyncEnumerable<SteamLaunchableApp> GetOwnedAppsAsync(CancellationToken cancellationToken = default)
+            => SteamApps.GetOwnedAppsAsync(cancellationToken);
 
         #endregion Configurable sources
 
         public List<SteamLaunchableApp> GetAppsWithMetadata(UInt64[]? AppIDs = null)
-        {
-            EnsureSteamworksStarted();
+            => SteamApps.GetAppsWithMetadata(AppIDs);
 
-            List<SteamLaunchableApp> apps = new List<SteamLaunchableApp>();
-
-            SteamAppInfoDataFile dataFile = SteamAppInfoDataFile.GetSteamAppInfoDataFile();
-
-            foreach(var chunk in dataFile.chunks)
-            {
-                if (chunk.data != null
-                 && chunk.data.Properties != null
-                 && chunk.data.Properties.Count > 0
-                 && ((AppIDs?.Length ?? 0) == 0 || AppIDs.Contains(chunk.AppID)))
-                {
-                    BVPropertyCollection? appinfo = ((BVPropertyCollection?)chunk.data?["appinfo"]);
-                    BVPropertyCollection? common = ((BVPropertyCollection?)appinfo?["common"]);
-                    BVPropertyCollection? extended = ((BVPropertyCollection?)appinfo?["extended"]);
-
-                    string? type = common?["type"]?.GetValue<string>()?.ToLowerInvariant();
-                    //if (type == "demo" || type == "game")
-                    if (!string.IsNullOrWhiteSpace(type) && type != "config")
-                    {
-                        bool isInstalled = InnerApps.GetAppInstalled(chunk.AppID) == true;
-                        bool isSubscribed = InnerApps.IsSubscribed(chunk.AppID) == true;
-
-                        string? name = common?["name"]?.GetValue<string>();
-                        //string oslist = common?["oslist"]?.GetValue<string>();
-                        //string icon = common?["icon"]?.GetValue<string>();
-                        //string clienttga = common?["clienttga"]?.GetValue<string>();
-                        string? clienticon = common?["clienticon"]?.GetValue<string>();
-                        //string logo = common?["logo"]?.GetValue<string>();
-                        //string logo_small = common?["logo_small"]?.GetValue<string>();
-                        //string releasestate = common?["releasestate"]?.GetValue<string>();
-                        //string linuxclienticon = common?["linuxclienticon"]?.GetValue<string>();
-                        //string controller_support = common?["controller_support"]?.GetValue<string>();
-                        //string clienticns = common?["clienticns"]?.GetValue<string>();
-                        //int metacritic_score = ((BVInt32Token)common?["metacritic_score"])?.Value ?? -1;
-                        //string metacritic_name = common?["metacritic_name"]?.GetValue<string>();
-                        //BVPropertyCollection small_capsule = ((BVPropertyCollection)common?["small_capsule"]);
-                        //BVPropertyCollection header_image = ((BVPropertyCollection)common?["header_image"]);
-                        //BVPropertyCollection languages = ((BVPropertyCollection)common?["languages"]);
-                        //bool community_visible_stats = common?["community_visible_stats"]?.GetValue<string>() == "1";
-                        //bool community_hub_visible = common?["community_hub_visible"]?.GetValue<string>() == "1";
-                        //bool workshop_visible = common?["workshop_visible"]?.GetValue<string>() == "1";
-                        //bool exfgls = common?["exfgls"]?.GetValue<string>() == "1";
-                        //string gamedir = extended?["gamedir"]?.GetValue<string>();
-                        List<string> developer = new List<string>();
-                        List<string> publisher = new List<string>();
-                        //string homepage = extended?["homepage"]?.GetValue<string>();
-                        //string gamemanualurl = extended?["gamemanualurl"]?.GetValue<string>();
-                        //bool showcdkeyonlaunch = extended?["showcdkeyonlaunch"]?.GetValue<string>() == "1";
-                        //bool dlcavailableonstore = extended?["dlcavailableonstore"]?.GetValue<string>() == "1";
-
-                        {
-                            List<BVProperty> props = (common?["associations"] as BVPropertyCollection)?.Properties;
-                            if (props != null)
-                            {
-                                foreach (BVProperty element in props)
-                                {
-                                    string elemType = (element.Value as BVPropertyCollection)?["type"].GetValue<string>();
-                                    string elemVal = (element.Value as BVPropertyCollection)?["name"].GetValue<string>();
-                                    if (string.IsNullOrWhiteSpace(elemVal))
-                                        continue;
-                                    if (elemType == "developer")// && string.IsNullOrWhiteSpace(developer))
-                                    {
-                                        developer.Add(elemVal);
-                                    }
-                                    if (elemType == "publisher")// && string.IsNullOrWhiteSpace(publisher))
-                                    {
-                                        publisher.Add(elemVal);
-                                    }
-                                }
-                            }
-                            string extended_dev = extended?["developer"]?.GetValue<string>();
-                            if (developer.Count == 0 && !string.IsNullOrWhiteSpace(extended_dev))
-                                developer.Add(extended_dev);
-                            string extended_pub = extended?["publisher"]?.GetValue<string>();
-                            if (publisher.Count == 0 && !string.IsNullOrWhiteSpace(extended_pub))
-                                publisher.Add(extended_pub);
-                        }
-
-                        long? _original_release_date = common?["original_release_date"]?.GetValue<long>();
-                        long? _steam_release_date = common?["steam_release_date"]?.GetValue<long>();
-                        DateTime? original_release_date = _original_release_date.HasValue ? DateTimeOffset.FromUnixTimeSeconds(_original_release_date.Value).UtcDateTime : (DateTime?)null;
-                        DateTime? steam_release_date = _steam_release_date.HasValue ? DateTimeOffset.FromUnixTimeSeconds(_steam_release_date.Value).UtcDateTime : (DateTime?)null;
-
-                        BVPropertyCollection library_assets = ((BVPropertyCollection)common?["library_assets"]);
-                        bool has_library_capsule = !string.IsNullOrWhiteSpace(library_assets?["library_capsule"]?.GetValue<string>());
-                        bool has_library_hero = !string.IsNullOrWhiteSpace(library_assets?["library_hero"]?.GetValue<string>());
-                        bool has_library_logo = !string.IsNullOrWhiteSpace(library_assets?["library_logo"]?.GetValue<string>());
-
-                        //Console.WriteLine($"{chunk.AppID}\t{(type ?? string.Empty).PadRight(4)} {(isInstalled ? 1 : 0)} {(isSubscribed ? 1 : 0)} {(releasestate ?? string.Empty).PadRight(11)} {(name ?? string.Empty).PadRight(90)} {(developer ?? string.Empty).PadRight(40)} {(publisher ?? string.Empty)}");
-                        //File.AppendAllText("SteamDump.txt",$"{chunk.appID}\t{(type ?? string.Empty).PadRight(4)} {(isInstalled ? 1 : 0)} {(isSubscribed ? 1 : 0)} {(releasestate ?? string.Empty).PadRight(11)} {(name ?? string.Empty).PadRight(90)} {(developer ?? string.Empty).PadRight(40)} {(publisher ?? string.Empty).PadRight(40)}\r\n");
-
-                        if (isSubscribed && !string.IsNullOrWhiteSpace(name) && !string.IsNullOrWhiteSpace(type))
-                        {
-                            apps.Add(new SteamLaunchableApp(chunk.AppID)
-                            {
-                                Name = name?.TrimEnd(),
-                                appIcon = string.IsNullOrWhiteSpace(clienticon) ? null : Path.Combine(SteamProcessInfo.SteamInstallPath, "steam", "games", clienticon + ".ico"),
-                                appType = type,
-
-                                extra_developer = developer.ToArray(),
-                                extra_publisher = publisher.ToArray(),
-                                extra_has_library_capsule = has_library_capsule,
-                                extra_has_library_hero = has_library_hero,
-                                extra_has_library_logo = has_library_logo,
-
-                                extra_original_release_date = original_release_date,
-                                extra_steam_release_date = steam_release_date,
-                            }); ;
-                        }
-                    }
-                }
-            }
-
-            return apps;
-        }
-
-        public static readonly string[] GoldSrcModSkipFolders = new string[] {
-            "valve", // "valve_hd", // Half-Life
-            "gearbox", // "gearbox_hd", // Opposing Force
-            "bshift", // "bshift_hd", // Blue Shift
-            "dmc", // Deathmatch Classic
-            "cstrike", // "cstrike_hd", // Counter-Strike
-            "czero", // Condition Zero
-            "czeror", // Condition-Zero: Deleted Scenes
-            "dod", // Day of Defeat
-            "ricochet", // Ricochet
-            //"htmlcache", "platform", "Soundtrack", // other
-            "before" // mod that even Steam accidently picks up, we're offically better than Steam itself now
-        };
+        public static readonly string[] GoldSrcModSkipFolders = SteamVent.SteamApps.GoldSrcModSkipFolders;
         public List<SteamLaunchableModGoldSrc> GetGoldSrcMods()
-        {
-            // gold source mods
-            List<SteamLaunchableModGoldSrc> GoldSourceMods = new List<SteamLaunchableModGoldSrc>();
-            string AppInstallDir = SteamProcessInfo.GetGoldSrcModPath();
-            UInt32 sourceModAppID = 70;
-
-            if (Directory.Exists(AppInstallDir))
-            {
-                Directory.GetDirectories(AppInstallDir)
-                    .Where(dr => !GoldSrcModSkipFolders.Contains(Path.GetFileName(dr)))
-                    .Where(dr => File.Exists(Path.Combine(dr, "liblist.gam")))
-                    .ToList().ForEach(dr =>
-                    {
-                        //VObject rootObj = VdfConvert.Deserialize("\"GameInfo\"\r\n{\r\n" + File.ReadAllText(Path.Combine(dr, "liblist.gam")) + "\r\n}");
-                        //VObject tmp = (VObject)rootObj["GameInfo"];
-                        //VToken tmp2 = tmp["gamedir"];
-                        //UInt64 tmpID = SteamLaunchableShortcut.GetModShortcutID(tmp2.ToString(), sourceModAppID);
-                        //if (tmpID > 0) GoldSourceMods.Add(tmpID);
-
-                        SteamLaunchableModGoldSrc mod = SteamLaunchableModGoldSrc.Make(sourceModAppID, dr, Path.Combine(dr, "liblist.gam"));
-                        if (mod != null) GoldSourceMods.Add(mod);
-                    });
-            }
-            return GoldSourceMods;
-        }
+            => SteamApps.GetGoldSrcMods();
 
         public List<SteamLaunchableModSource> GetSourceMods()
-        {
-            // source mods
-            List<SteamLaunchableModSource> SourceMods = new List<SteamLaunchableModSource>();
-            {
-                string sourceMods = SteamProcessInfo.GetSourceModPath();
-                if (Directory.Exists(sourceMods))
-                {
-                    Directory.GetDirectories(sourceMods)
-                        .Where(dr => File.Exists(Path.Combine(dr, "gameinfo.txt")))
-                        .ToList().ForEach(dr =>
-                        {
-                            VObject rootObj = new VObject();
-                            rootObj.Add(VdfConvert.Deserialize(File.ReadAllText(Path.Combine(dr, "gameinfo.txt"))));
-                            VObject GameInfoObj = (VObject)rootObj["GameInfo"];
-                            VObject FileSystemObj = (VObject)GameInfoObj["FileSystem"];
-                            VToken appID = FileSystemObj["SteamAppId"];
-
-                            UInt32 appIdCheck = 0;
-                            if (!UInt32.TryParse(appID.ToString(), out appIdCheck)) return;
-                            if (appIdCheck == 0) return;
-
-                            string? AppInstallDir = InnerApps.GetAppInstallDir(appIdCheck);
-                            if (!string.IsNullOrWhiteSpace(AppInstallDir))
-                            {
-                                SteamLaunchableModSource mod = SteamLaunchableModSource.Make(appIdCheck, dr, rootObj);
-                                if (mod != null) SourceMods.Add(mod);
-                            }
-                        });
-                }
-            }
-            return SourceMods;
-        }
+            => SteamApps.GetSourceMods();
 
 
 
         public bool IsInstalled(UInt64 GameID)
-        {
-            CGameID gameID = new CGameID(GameID);
-            switch (gameID.AppType)
-            {
-                // Basic Steam App
-                case CGameID.EGameID.k_EGameIDTypeApp:
-                    return InnerApps.GetAppInstalled(gameID.AppID) == true;
-                //return SteamApps.BIsAppInstalled(gameID.AppID().m_AppId);
-
-                // Mod Steam App
-                case CGameID.EGameID.k_EGameIDTypeGameMod:
-                    return true;
-
-                    // If the base game isn't installed, just say no
-                    if (InnerApps.GetAppInstalled(gameID.AppID) != true) return false;
-                    //if (!SteamApps.BIsAppInstalled(gameID.AppID().m_AppId)) return false;
-
-                    // Root app is GoldSrc
-                    //if (GoldSrcModHosts.Contains(gameID.AppID().m_AppId))
-                    if(gameID.AppID == 70)
-                    {
-                        // Get a list of known GoldSrc Mods
-                        List<SteamLaunchableModGoldSrc> mods = GetGoldSrcMods();
-
-                        // return if any of these mods match our ID
-                        return mods.Any(dr => dr.GetShortcutID() == GameID);
-                    }
-
-                    // Root app is Source
-                    // TODO add check for source engine IDs here
-                    {
-                        // Get a list of known GoldSrc Mods
-                        List<SteamLaunchableModSource> mods = GetSourceMods();
-
-                        // return if any of these mods match our ID
-                        return mods.Any(dr => dr.GetShortcutID() == GameID);
-                    }
-
-                    return false;
-                case CGameID.EGameID.k_EGameIDTypeShortcut:
-                    break;
-            }
-
-            return false;
-        }
+            => SteamApps.IsInstalled(GameID);
 
         /*public void InstallGame(UInt64 GameID)
         {
@@ -696,40 +395,13 @@ namespace SteamVent
         }*/
 
         public string? GetAppInstallDir(UInt32 appID)
-        {
-            // Prefer the in-process Steamworks answer when that subsystem is enabled and running.
-            if (Options.UseSteamworks && Client.EnsureSteamworks() && InnerApps.GetAppInstalled(appID) == true)
-            {
-                string? dir = InnerApps.GetAppInstallDir(appID);
-                if (!string.IsNullOrWhiteSpace(dir))
-                    return dir;
-            }
-
-            // Otherwise fall back to the filesystem (appmanifest), which serves as guidance for locating the app.
-            return FileSystem.SteamApps.GetAppInstallDir(appID);
-        }
+            => SteamApps.GetAppInstallDir(appID);
 
         public string? GetAppLibrary(UInt32 appId)
-        {
-            string? InstallDir = GetAppInstallDir(appId);
-            if (InstallDir != null)
-            {
-                var Paths = SteamProcessInfo.GetSteamLibraryPaths();
-                foreach (string path in Paths)
-                    if (!Path.GetRelativePath(path, InstallDir).Contains(".."))
-                        return path;
-            }
-            return null;
-        }
+            => SteamApps.GetAppLibrary(appId);
 
-        public async Task<List<WorkshopItemStatus>?> WorkshopStatusAsync(UInt32 AppId, IProgress<double?>? Progress = null, string LibraryPathOverride = null)
-        {
-            string? LibraryPath = LibraryPathOverride ?? GetAppLibrary(AppId);
-            if (LibraryPath == null)
-                return null;
-
-            return await FileSystem.SteamWorkshop.WorkshopStatusAsync(LibraryPath, AppId, Progress);
-        }
+        public Task<List<WorkshopItemStatus>?> WorkshopStatusAsync(UInt32 AppId, IProgress<double?>? Progress = null, string LibraryPathOverride = null)
+            => SteamWorkshop.WorkshopStatusAsync(AppId, Progress, LibraryPathOverride);
 
 
 
@@ -743,32 +415,19 @@ namespace SteamVent
         /// of this path. Returns null when no provider applies, so callers can report the command as unavailable.
         /// </summary>
         public IWorkshopCommands? GetWorkshopCommands(UInt32 appid)
-        {
-            if (Options.UseSteamworks && UsesInProcessWorkshop(appid))
-                return InnerWorkshop;
-
-            if (Options.UseBridge)
-                return TryBridgeCommands();
-
-            return null;
-        }
-
-        private IWorkshopCommands RequireWorkshopCommands(UInt32 appid)
-            => GetWorkshopCommands(appid)
-               ?? throw new SteamException($"No workshop command provider is available for appid {appid}. " +
-                                           "Enable the Bridge, or enable Steamworks and set Options.SteamworksAppId to this appid.");
+            => SteamWorkshop.GetWorkshopCommands(appid);
 
         /// <summary>Subscribes to a workshop item, routed in-process or via the Bridge for <paramref name="appid"/>.</summary>
         public Task<RemoteStorageSubscribePublishedFileResult_t> WorkshopSubscribeAsync(ulong publishedFileId, UInt32 appid, CancellationToken cancellationToken = default)
-            => RequireWorkshopCommands(appid).SubscribeAsync(publishedFileId, (int)appid, cancellationToken);
+            => SteamWorkshop.WorkshopSubscribeAsync(publishedFileId, appid, cancellationToken);
 
         /// <summary>Unsubscribes from a workshop item, routed in-process or via the Bridge for <paramref name="appid"/>.</summary>
         public Task<RemoteStorageUnsubscribePublishedFileResult_t> WorkshopUnsubscribeAsync(ulong publishedFileId, UInt32 appid, CancellationToken cancellationToken = default)
-            => RequireWorkshopCommands(appid).UnsubscribeAsync(publishedFileId, (int)appid, cancellationToken);
+            => SteamWorkshop.WorkshopUnsubscribeAsync(publishedFileId, appid, cancellationToken);
 
         /// <summary>Downloads a workshop item, routed in-process or via the Bridge for <paramref name="appid"/>.</summary>
         public Task<DownloadItemResult_t> WorkshopDownloadAsync(ulong publishedFileId, UInt32 appid, CancellationToken cancellationToken = default)
-            => RequireWorkshopCommands(appid).DownloadAsync(publishedFileId, (int)appid, cancellationToken);
+            => SteamWorkshop.WorkshopDownloadAsync(publishedFileId, appid, cancellationToken);
 
         #endregion Workshop routing
     }
