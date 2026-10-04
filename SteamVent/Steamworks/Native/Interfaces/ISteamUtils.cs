@@ -11,6 +11,14 @@ namespace SteamVent.Steamworks.Native.Interfaces
 {
     public interface ISteamUtils
     {
+        /// <summary>
+        /// The AppID this Steamworks context is bound to - i.e. the app id of the running process. This is the
+        /// source of truth for the active appid (as opposed to a manually configured value such as
+        /// <see cref="SteamVent.Core.SteamVentOptions.SteamworksAppId"/>, which only <i>requests</i> a context
+        /// before it starts).
+        /// </summary>
+        UInt32 GetAppID();
+
         bool IsAPICallCompleted(UInt64 hSteamAPICall, ref bool pbFailed);
     }
 }

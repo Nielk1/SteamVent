@@ -110,7 +110,26 @@ namespace SteamVent
         /// the public surface - the facades below are how you reach it. If you want the raw client directly, use
         /// <c>Steamworks.SteamClient</c> yourself.
         /// </summary>
-        private Steamworks.SteamClient Client => _client ??= Steamworks.SteamClient.Construct();
+        private Steamworks.SteamClient Client
+        {
+            get
+            {
+                if (_client == null)
+                {
+                    var client = Steamworks.SteamClient.Construct();
+                    // Request the configured appid context before the Steamworks context starts, so the
+                    // in-process context binds to that appid (via the SteamAppId env var). After it starts the
+                    // effective AppID is whatever ISteamUtils.GetAppID reports (see SteamClient.AppId).
+                    if (Options.SteamworksAppId.HasValue)
+                    {
+                        try { client.AppId = Options.SteamworksAppId.Value; }
+                        catch (InvalidOperationException) { /* context already active - keep the live value */ }
+                    }
+                    _client = client;
+                }
+                return _client;
+            }
+        }
 
         /// <summary>The in-process <see cref="Steamworks.SteamApps"/> child (lazily owned by the client).</summary>
         private Steamworks.SteamApps InnerApps => Client.GetSteamApps();
@@ -138,9 +157,20 @@ namespace SteamVent
             get { lock (_childLock) { return _workshopBox ??= new SteamWorkshop(this, InnerWorkshop); } }
         }
 
-        /// <summary>True when in-process (Steamworks) workshop is the eligible path for <paramref name="appid"/>.</summary>
+        /// <summary>
+        /// True when in-process (Steamworks) workshop is the eligible path for <paramref name="appid"/> - i.e.
+        /// the Steamworks source is enabled and the local context is actually running under that appid (the
+        /// effective AppID from <see cref="Steamworks.ISteamUtils.GetAppID"/>, not merely the configured one).
+        /// </summary>
         internal bool UsesInProcessWorkshop(UInt32 appid)
-            => Options.Sources.HasFlag(SteamSource.Steamworks) && Options.SteamworksAppId == appid;
+            => Options.Sources.HasFlag(SteamSource.Steamworks) && Client.AppId == appid;
+
+        /// <summary>
+        /// The AppID the local (in-process) Steamworks context is actually running under, as reported by
+        /// <see cref="Steamworks.ISteamUtils.GetAppID"/> once the context is active; null before it starts or
+        /// when Steamworks is unavailable. This is the source of truth used for in-process workshop routing.
+        /// </summary>
+        public UInt32? ActiveSteamworksAppId => Client.AppId;
 
         #endregion Child services
 

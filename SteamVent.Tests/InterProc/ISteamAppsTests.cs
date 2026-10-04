@@ -7,6 +7,7 @@ using Xunit;
 
 namespace SteamVent.Tests.InterProc
 {
+    [Collection("SteamInterProc")]
     public class ISteamAppsTests
     {
         public static IEnumerable<object[]> SteamClientAndAppsVersions()
@@ -23,6 +24,7 @@ namespace SteamVent.Tests.InterProc
         [MemberData(nameof(SteamClientAndAppsVersions))]
         public void BIsAppInstalledTest(Type SteamClientVersion, Type SteamAppsVersion)
         {
+            SteamTestGuard.EnsureNoAppIdOverride();
             Assert.SkipWhen(Attribute.IsDefined(SteamAppsVersion.GetMethod("BIsAppInstalled"), typeof(ObsoleteAttribute)), "BIsAppInstalled is marked obsolete / not implemented in this interface version");
 
             ISteamClient? SteamClient = null;

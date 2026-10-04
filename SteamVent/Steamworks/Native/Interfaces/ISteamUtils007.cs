@@ -18,6 +18,13 @@ namespace SteamVent.Steamworks.Native.Interfaces
     {
         public ISteamUtils007(IntPtr interfacePtr) : base(interfacePtr) { }
 
+        #region VTableIndex(2)
+        [VTableIndex(2), UnmanagedFunctionPointer(CallingConvention.ThisCall)]
+        private delegate UInt32 GetAppIDDelegate(IntPtr thisPtr);
+        #endregion
+        public UInt32 GetAppID() =>
+            GetDelegate<GetAppIDDelegate>()(InterfacePtr);
+
         #region VTableIndex(11)
         [VTableIndex(11), UnmanagedFunctionPointer(CallingConvention.ThisCall)]
         private delegate bool IsAPICallCompletedDelegate(IntPtr thisPtr, UInt64 hSteamAPICall, ref bool pbFailed);

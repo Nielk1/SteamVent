@@ -23,6 +23,11 @@ namespace SteamVent.Steamworks
         private Int32 Pipe { get; set; }
         private Int32 User { get; set; }
 
+        // _appId is the requested AppID before the context starts, and the latched (live) AppID afterwards.
+        // _contextStarted flips to true once the Steamworks context is up, making AppId read-only.
+        private UInt32? _appId;
+        private bool _contextStarted;
+
         private static object instanceLock = new object();
         private static SteamClient? instance = null;
         private static int instanceCounter = 0;
@@ -109,6 +114,29 @@ namespace SteamVent.Steamworks
         }
 
         /// <summary>
+        /// The AppID the local Steamworks context is bound to. Settable only <b>before</b> the context starts;
+        /// setting it requests that appid context (enforced via the <c>SteamAppId</c>/<c>StickySteamAppId</c>
+        /// environment variables - the same mechanism the Bridge child process uses). Once the context is active
+        /// it is read-only and reflects <see cref="ISteamUtils.GetAppID"/> (the source of truth). Null when no
+        /// context is active.
+        /// </summary>
+        public UInt32? AppId
+        {
+            get { lock (_lifecycleLock) { return _appId; } }
+            set
+            {
+                lock (_lifecycleLock)
+                {
+                    if (_contextStarted)
+                        throw new InvalidOperationException(
+                            "SteamClient.AppId is read-only after the Steamworks context has started. " +
+                            "Set AppId before calling EnsureSteamworks().");
+                    _appId = value;
+                }
+            }
+        }
+
+        /// <summary>
         /// Ensure Steamworks is initialized (once, thread-safe) when Steam is running, and report
         /// whether the interface is available for use afterwards. Idempotent: it is safe to call on
         /// every operation, and a failed start never wedges subsequent attempts (unlike the old
@@ -139,6 +167,15 @@ namespace SteamVent.Steamworks
         /// <exception cref="Exception"></exception>
         private void InitSteamworks()
         {
+            // If an AppID was requested before the context started, bind this process to that appid context
+            // via the SteamAppId / StickySteamAppId environment variables - the same mechanism the Bridge child
+            // process uses. These must be set before the Steam client interface is bound for this process.
+            if (_appId.HasValue)
+            {
+                Environment.SetEnvironmentVariable("StickySteamAppId", null);
+                Environment.SetEnvironmentVariable("SteamAppId", _appId.Value.ToString(CultureInfo.InvariantCulture));
+            }
+
             Steam.Load();
             InternalSteamClient = Steam.CreateInterface<ISteamClient017>();
             if (InternalSteamClient == null)
@@ -152,6 +189,20 @@ namespace SteamVent.Steamworks
             //SteamApps = InternalSteamClient.GetISteamApps<ISteamApps008>(User, Pipe);
             //if (SteamApps == null)
             //    throw new Exception();
+
+            // ISteamUtils.GetAppID is the source of truth for the appid this context is actually running under;
+            // latch it so AppId becomes immutable for the life of the context.
+            try
+            {
+                ISteamUtils? utils = InternalSteamClient.GetISteamUtils<ISteamUtils007>(Pipe);
+                if (utils != null)
+                    _appId = utils.GetAppID();
+            }
+            catch
+            {
+                // Best-effort: keep the requested value if the live value cannot be read (e.g. Steam not logged on).
+            }
+            _contextStarted = true;
         }
         
         /// <summary>
@@ -175,6 +226,8 @@ namespace SteamVent.Steamworks
                     InternalSteamClient = null;
                     Pipe = 0;
                     User = 0;
+                    _appId = null;
+                    _contextStarted = false;
                 }
             }
         }

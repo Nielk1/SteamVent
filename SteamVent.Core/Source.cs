@@ -84,12 +84,18 @@ namespace SteamVent.Core
         public SteamSource Sources { get; init; } = SteamSource.FileSystem | SteamSource.Steamworks;
 
         /// <summary>
-        /// The appid the local (in-process) Steamworks / interproc context is running under - i.e. the app
-        /// that owns the calling process (<c>steam_appid.txt</c> / <c>SteamAppId</c>). When set, workshop
-        /// commands for that exact appid are served in-process via <c>ISteamUGC</c> (fast, no child process);
-        /// any other appid is routed to the Bridge. When <c>null</c> (the default - a host that is not itself
-        /// a Steam game, e.g. a standalone mod manager) the in-process path is never eligible and the Bridge
-        /// is always used.
+        /// The appid to <b>request</b> the local (in-process) Steamworks / interproc context bind to before it
+        /// starts (i.e. the app that owns the calling process). When set, the context is established under that
+        /// appid via the <c>SteamAppId</c>/<c>StickySteamAppId</c> environment variables (the same mechanism the
+        /// Bridge child process uses), and workshop commands for that exact appid are served in-process via
+        /// <c>ISteamUGC</c> (fast, no child process); any other appid is routed to the Bridge.
+        /// <para>
+        /// This is the <i>request</i>, not the observed value: the authoritative AppID of the active context is
+        /// reported by <c>ISteamUtils.GetAppID</c> (exposed as <c>SteamClient.AppId</c> /
+        /// <c>SteamContext.ActiveSteamworksAppId</c>) once the context has started. When <c>null</c> (the default
+        /// - a host that is not itself a Steam game, e.g. a standalone mod manager) the in-process path is never
+        /// eligible and the Bridge is always used.
+        /// </para>
         /// </summary>
         public UInt32? SteamworksAppId { get; init; }
 

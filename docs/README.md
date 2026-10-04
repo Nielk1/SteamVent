@@ -1,12 +1,12 @@
 # SteamVent
 A .NET library for interfacing with the Steam client application via IPC (Steamworks interproc), the registry, and file-system access to the local Steam installation.
 
-SteamVent is the "eat your own dogfood" host for the **BZR Mod Manager** (`BZRNetMonitor` service). It is organized into three assemblies:
+SteamVent is the buisness logic for the **BZR Mod Manager**. It is organized into three assemblies:
 
 | Project | Target | Purpose |
 | --- | --- | --- |
-| `SteamVent.Core` | `netstandard2.0` | Framework-agnostic abstractions: `Source`, `PublishedFileData`, the workshop `IWorkshopSource` / `IWorkshopCommands` contracts, the `BVdf` binary-VDF reader, and the Steam result structs (`DownloadItemResult_t`, `RemoteStorage*Result_t`, `EItemState`, `EResult`, `SteamTypes`). |
-| `SteamVent.Bridge` | `netstandard2.0` | The process-isolated IPC **Bridge** (`BridgeContext` + the `ISteamApps`/`ISteamUtils`/`ISteamUGC` command wrappers and their generated proxies). |
+| `SteamVent.Core` | `net10.0` | Framework-agnostic abstractions: `Source`, `PublishedFileData`, the workshop `IWorkshopSource` / `IWorkshopCommands` contracts, the `BVdf` binary-VDF reader, and the Steam result structs (`DownloadItemResult_t`, `RemoteStorage*Result_t`, `EItemState`, `EResult`, `SteamTypes`). |
+| `SteamVent.Bridge` | `net10.0` | The process-isolated IPC **Bridge** (`BridgeContext` + the `ISteamApps`/`ISteamUtils`/`ISteamUGC` command wrappers and their generated proxies). |
 | `SteamVent` | `net10.0` | The main library: the `Steamworks` (native interproc) layer, the `FileSystem` layer, the `Sources` (Bridge / filesystem / Steamworks), `SteamVentOptions`, and the `SteamContext` facade. |
 
 > The two C++ projects (`steamcmdinj`, `steamcmdprox`) implement the `steamcmd` injection/proxy used by the Bridge child process and build with MSBuild, not the `dotnet` CLI.
@@ -17,7 +17,7 @@ SteamVent is the "eat your own dogfood" host for the **BZR Mod Manager** (`BZRNe
 
 ```
 SteamVent/
-├── SteamVent.Core/              # netstandard2.0
+├── SteamVent.Core/              # net10.0
 │   ├── Source.cs                # Source, PublishedFileData, IWorkshopSource, IWorkshopCommands
 │   ├── BVdf.cs                  # Binary VDF reader (BVdf, BVProperty, BVPropertyCollection, ...)
 │   └── InterProc/               # Steam IPC result enums/structs
@@ -26,7 +26,7 @@ SteamVent/
 │       ├── DownloadItemResult_t.cs
 │       ├── RemoteStorageSubscribePublishedFileResult_t.cs
 │       └── RemoteStorageUnsubscribePublishedFileResult_t.cs
-├── SteamVent.Bridge/            # netstandard2.0, depends on Core
+├── SteamVent.Bridge/            # net10.0, depends on Core
 │   ├── BridgeContext.cs         # IPC client: launches a Bridge child process, sends commands
 │   ├── BridgeSource.cs          # IWorkshopSource / IWorkshopCommands over the Bridge
 │   ├── Interfaces/              # ISteamApps / ISteamUtils / ISteamUGC command contracts
@@ -38,7 +38,7 @@ SteamVent/
     ├── SteamVentOptions.cs      # Source selection, SteamworksAppId, Bridge command config
     ├── SteamLaunchable.cs       # SteamLaunchable* POCOs returned by the context
     ├── Steamworks/              # In-process Steamworks layer (namespace SteamVent.Steamworks)
-    │   ├── SteamClient.cs       #   Owned lifecycle: pipe/user + interop interface factory + thin wrappers
+    │   ├── SteamClient.cs       #   Owned lifecycle: pipe/user + appid (request→latch) + interop factory + wrappers
     │   ├── SteamApps.cs         #   Thin, non-throwing wrapper over ISteamApps (ownership / install dir)
     │   ├── SteamWorkshop.cs     #   Thin wrapper over ISteamUGC (in-process IWorkshopCommands/IWorkshopSource)
     │   └── Native/              # namespace SteamVent.Steamworks.Native
@@ -106,6 +106,7 @@ try
 
     ISteamApps?   apps   = client.GetISteamApps();   // null when unavailable
     ISteamUtils?  utils  = client.GetISteamUtils();
+    UInt32 appId   = utils.GetAppID();     // the live appid this process runs under (source of truth)
     ISteamUGC?    ugc    = client.GetISteamUGC();
 }
 finally
@@ -194,7 +195,7 @@ using SteamVent.Core;
 SteamContext ctx = SteamContext.GetInstance();
 
 ctx.Options.Sources = SteamSource.Bridge | SteamSource.Steamworks;  // which sources to include
-ctx.Options.SteamworksAppId = 1091500;   // required when SteamSource.Steamworks is set (Battlezone: Redux)
+ctx.Options.SteamworksAppId = 1091500;   // request the in-process appid context (Battlezone: Redux); live value via ActiveSteamworksAppId
 ctx.Options.BridgeCommand = "dotnet";    // optional Bridge child-process overrides
 // ctx.Options.BridgeCommandArgs = new() { "SteamVentContextBridge.dll" };
 // ctx.Options.BridgeWorkingDirectory = @"C:\SteamVentBridge";
@@ -218,7 +219,8 @@ using SteamVent.Core;
 
 SteamContext ctx = SteamContext.GetInstance();
 ctx.Options.Sources        = SteamSource.Bridge | SteamSource.Steamworks;  // which sources to include
-ctx.Options.SteamworksAppId = 1091500;   // eligible for the in-process path (Battlezone: Redux)
+ctx.Options.SteamworksAppId = 1091500;   // request the in-process context (Battlezone: Redux); not authoritative
+UInt32 activeAppId         = ctx.ActiveSteamworksAppId;  // the appid the process actually runs under (latched live)
 
 SteamApps apps         = ctx.SteamApps;      // latched — one instance, owned by the context
 SteamWorkshop workshop = ctx.SteamWorkshop;  // latched — routes per appid
@@ -244,9 +246,11 @@ Workshop **commands** (subscribe / unsubscribe / download) can come from two pla
 ```csharp
 IWorkshopCommands? cmds = ctx.GetWorkshopCommands(appId);
 
-// SteamSource.Steamworks enabled AND Options.SteamworksAppId == appId  -> in-process SteamWorkshop
-// otherwise, if SteamSource.Bridge is enabled                          -> Bridge
+// SteamSource.Steamworks enabled AND the LIVE appid (ctx.ActiveSteamworksAppId) == appId -> in-process SteamWorkshop
+// otherwise, if SteamSource.Bridge is enabled                                          -> Bridge
 ```
+
+Routing is decided from the *live* appid, not the configured one: `SteamworksAppId` is only the request that established the context, so the configured value and the running process can never drift apart.
 
 Convenience methods apply the routing for you:
 
@@ -290,7 +294,11 @@ var un    = await bridge.SteamWorkshopUnsubscribeAsync(publishedFileId);
 
 `SteamVent.Tests` (xUnit, `net10.0`) covers the Core abstractions, the `BVdf` reader, the result-struct round-trips, the versioned `ISteamApps` interop, and a live **Bridge** workshop subscribe/download/unsubscribe round-trip.
 
+`ISteamUtilsTests` exercises `ISteamUtils.GetAppID` (the source of truth for the active appid) and `SteamClient.AppId`, which latches that value once the Steamworks context starts and is then read-only. `ISteamAppsTests` covers the versioned `BIsAppInstalled` interop, reading `SteamAppsTests:InstalledAppID` / `SteamAppsTests:UninstalledAppID` from configuration.
+
 The Bridge round-trip test reads `BridgeTests:AppID` and `BridgeTests:PublishedFileID` from configuration and requires a **running Steam session with a real workshop item** — swap in a valid item ID before running it. In an offline/headless environment it is expected to fail/skip.
+
+All the interproc tests (`ISteamAppsTests`, `ISteamUtilsTests`) share the `SteamInterProc` collection (serialized — the Steam client is a process-wide singleton) and a `SteamTestGuard` that fails fast if a local `steam_appid.txt` is present in the test working directory: such a file would silently override the environment-variable appid context (`SteamClient.AppId`) and make the results non-deterministic. The interproc tests require a **running Steam client**.
 
 ```
 dotnet test Deps\SteamVent\SteamVent.Tests\SteamVent.Tests.csproj
