@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Runtime.Serialization;
 using SteamVent.Core.BVdf;
 
 namespace SteamVent.FileSystem
@@ -12,12 +13,15 @@ namespace SteamVent.FileSystem
     public sealed class SteamAppInfoCommon : BvdfNode
     {
         /// <summary>App type (e.g. "game", "demo", "dlc"), lower-cased. Null/empty when unset.</summary>
+        [DataMember(Name = "type")]
         public string? Type { get; init; }
 
         /// <summary>Display name.</summary>
+        [DataMember(Name = "name")]
         public string? Name { get; init; }
 
         /// <summary>Raw client-icon key (no directory / extension).</summary>
+        [DataMember(Name = "clienticon")]
         public string? ClientIcon { get; init; }
 
         /// <summary>Developer names (the "associations" list, with the extended block as fallback).</summary>
@@ -27,9 +31,11 @@ namespace SteamVent.FileSystem
         public IReadOnlyList<string> Publishers { get; init; } = Array.Empty<string>();
 
         /// <summary>Original (non-Steam) release date, when present.</summary>
+        [DataMember(Name = "original_release_date")]
         public DateTime? OriginalReleaseDate { get; init; }
 
         /// <summary>Steam release date, when present.</summary>
+        [DataMember(Name = "steam_release_date")]
         public DateTime? SteamReleaseDate { get; init; }
 
         /// <summary>Whether a library capsule asset is present.</summary>
@@ -118,7 +124,9 @@ namespace SteamVent.FileSystem
     /// </summary>
     public sealed class SteamAppInfoExtended : BvdfNode
     {
+        [DataMember(Name = "developer")]
         public string? Developer { get; init; }
+        [DataMember(Name = "publisher")]
         public string? Publisher { get; init; }
 
         private static readonly string[] Mapped = { "developer", "publisher" };
@@ -150,35 +158,51 @@ namespace SteamVent.FileSystem
     }
 
     /// <summary>
-    /// A strongly-typed, <i>lossless</i> view of one app record from the Steam client appcache (appinfo.vdf),
-    /// mapping the binary VDF chunk onto a clean POCO so callers need not touch <see cref="BVPropertyCollection"/>.
-    /// Produce instances through <see cref="SteamAppInfoDataFile.GetApps"/> or <see cref="From"/>.
+    /// A strongly-typed view of one app record from the Steam client appcache (appinfo.vdf).
     ///
-    /// The record is available in three complementary forms: the strongly-typed properties here (plus
-    /// <see cref="Common"/> / <see cref="Extended"/>), a complete generic node in <see cref="AppInfo"/> /
-    /// <see cref="Dependencies"/> (every key preserved), and the raw BVDF in
-    /// <see cref="SteamAppInfoDataFile.GetSteamAppInfoDataFile"/>'s chunk. Any key not yet standardized lives in
-    /// <see cref="BvdfNode.Extra"/>; see <see cref="BvdfNode"/> for the elevation convention and the
-    /// <see cref="BvdfNode.this[string]"/> indexer.
+    /// A record is <b>not</b> itself a BVDF section: it pairs the <b>binary</b> chunk-header fields
+    /// (appid, state, checksum, ...) with the chunk's <b>BVDF</b> payload, the <c>data</c> field read as a
+    /// <see cref="BvdfNode"/> (<see cref="Data"/>, a JObject-equivalent root of the BVDF tree). The standardized
+    /// <c>appinfo.common</c> / <c>appinfo.extended</c> sections are exposed as strongly-typed Bvdf nodes
+    /// (<see cref="Common"/> / <see cref="Extended"/>), and <c>appinfo.dependencies</c> as a generic node.
+    /// Every key of the BVDF payload is still reachable (recursively) through <see cref="BvdfNode.Extra"/> —
+    /// nothing Valve (or a custom appinfo entry) writes is ever dropped. Produce instances through
+    /// <see cref="SteamAppInfoDataFile.GetApps"/> or <see cref="From"/>.
     /// </summary>
-    public sealed class SteamAppInfo : BvdfNode
+    public sealed class SteamAppInfo
     {
+        // -- binary chunk-header fields (read from the file, not from the BVDF payload) ---------------------------
+        /// <summary>Steam App ID.</summary>
         public UInt32 AppId { get; init; }
+        /// <summary>Per-app state flags from the appcache.</summary>
         public UInt32 State { get; init; }
+        /// <summary>Unix timestamp of the last update.</summary>
         public UInt32 LastUpdate { get; init; }
+        /// <summary>Per-app access token.</summary>
         public UInt64 AccessToken { get; init; }
+        /// <summary>20-byte content checksum.</summary>
         public byte[] Checksum { get; init; } = Array.Empty<byte>();
+        /// <summary>Last change number for this app's data.</summary>
         public UInt32 LastChangeNumber { get; init; }
 
+        // -- the BVDF payload (the chunk's `data` field) -------------------------------------------------------------
+        /// <summary>
+        /// The <c>data</c> field as a lossless generic Bvdf node — the root of the BVDF tree (a JObject-equivalent).
+        /// Its <c>appinfo</c> child holds <c>common</c> / <c>extended</c> / <c>dependencies</c>.
+        /// </summary>
+        [DataMember(Name = "data")]
+        public BvdfNode? Data { get; init; }
+
+        /// <summary>The strongly-typed <c>appinfo.common</c> section, or null when the app has no <c>common</c> block.</summary>
         public SteamAppInfoCommon? Common { get; init; }
+
+        /// <summary>The strongly-typed <c>appinfo.extended</c> section, or null when absent.</summary>
         public SteamAppInfoExtended? Extended { get; init; }
 
-        /// <summary>The complete <c>appinfo</c> section as a lossless generic node (every key preserved).</summary>
-        public BvdfNode? AppInfo { get; init; }
-
-        /// <summary>The <c>appinfo.dependencies</c> section as a generic node, or null when absent.</summary>
+        /// <summary>The <c>appinfo.dependencies</c> section as a generic Bvdf node, or null when absent.</summary>
         public BvdfNode? Dependencies { get; init; }
 
+        // -- shortcuts / derived -------------------------------------------------------------------------------------
         /// <summary>App type (shortcut into <see cref="Common"/>), lower-cased. Null when unavailable.</summary>
         public string? Type => Common?.Type;
 
@@ -188,30 +212,9 @@ namespace SteamVent.FileSystem
         /// <summary>Absolute on-disk icon path, or null when the app has no client icon / Steam install path.</summary>
         public string? IconPath { get; init; }
 
-        private static readonly string[] Mapped =
-        { "appid", "state", "lastupdate", "accesstoken", "checksum", "lastchangenumber", "appinfo" };
-        public override IReadOnlyCollection<string> MappedKeys => Mapped;
-
-        internal SteamAppInfo(IReadOnlyDictionary<string, object?> extra) : base(extra) { }
-
-        protected override bool TryGetMapped(string key, out object? value)
-        {
-            switch (key.ToLowerInvariant())
-            {
-                case "appid": value = AppId; return true;
-                case "state": value = State; return true;
-                case "lastupdate": value = LastUpdate; return true;
-                case "accesstoken": value = AccessToken; return true;
-                case "checksum": value = Checksum; return true;
-                case "lastchangenumber": value = LastChangeNumber; return true;
-                case "appinfo": value = AppInfo; return true;
-                default: value = null; return false;
-            }
-        }
-
         /// <summary>
-        /// Builds a <see cref="SteamAppInfo"/> from a raw appinfo.vdf chunk. Returns null when the chunk has no
-        /// <c>common</c> section (such entries are dropped by the filesystem app source).
+        /// Builds a <see cref="SteamAppInfo"/> from a raw appinfo.vdf chunk. Returns null when the chunk's
+        /// BVDF payload has no <c>common</c> section (such entries are dropped by the filesystem app source).
         /// </summary>
         public static SteamAppInfo? From(SteamAppInfoDataFile.SteamAppInfoDataFileChunk chunk)
         {
@@ -219,16 +222,16 @@ namespace SteamVent.FileSystem
             if (data is null)
                 return null;
 
-            BVPropertyCollection? appinfo = GetSection(data, "appinfo");
-            BVPropertyCollection? common = GetSection(appinfo, "common");
-            BVPropertyCollection? extended = GetSection(appinfo, "extended");
+            BVPropertyCollection? appinfo = data["appinfo"] as BVPropertyCollection;
+            BVPropertyCollection? common = appinfo?["common"] as BVPropertyCollection;
+            BVPropertyCollection? extended = appinfo?["extended"] as BVPropertyCollection;
             if (common is null)
                 return null;
 
             string? clientIcon = common["clienticon"]?.GetValue<string>();
             string? installPath = SteamProcessInfo.SteamInstallPath;
 
-            return new SteamAppInfo(BuildExtra(data, Mapped))
+            return new SteamAppInfo
             {
                 AppId = chunk.AppID,
                 State = chunk.State,
@@ -236,10 +239,10 @@ namespace SteamVent.FileSystem
                 AccessToken = chunk.AccessToken,
                 Checksum = chunk.Checksum ?? Array.Empty<byte>(),
                 LastChangeNumber = chunk.LastChangeNumber,
+                Data = BvdfNode.From(data),
                 Common = SteamAppInfoCommon.From(common, extended),
                 Extended = SteamAppInfoExtended.From(extended),
-                AppInfo = appinfo is null ? null : BvdfNode.From(appinfo),
-                Dependencies = GetSection(appinfo, "dependencies") is BVPropertyCollection deps
+                Dependencies = appinfo?["dependencies"] as BVPropertyCollection is { } deps
                     ? BvdfNode.From(deps)
                     : null,
                 IconPath = (string.IsNullOrWhiteSpace(clientIcon) || installPath is null)

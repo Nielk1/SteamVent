@@ -106,14 +106,14 @@ namespace SteamVent.Tests.FileSystem
             BVPropertyCollection extended = (BVPropertyCollection)appinfo["extended"];
             BVPropertyCollection dependencies = (BVPropertyCollection)appinfo["dependencies"];
 
-            // Losslessness: every raw key is exposed by the strongly-typed node (elevated OR in Extra).
-            AssertComplete(app, data);
+            // Losslessness: every raw key is exposed by the BVDF root node (elevated OR in Extra).
+            AssertComplete(app.Data, data);
             AssertComplete(app.Common, common);
             AssertComplete(app.Extended, extended);
             AssertComplete(app.Dependencies, dependencies);
 
             // No key is both elevated and duplicated inside Extra.
-            AssertNoDuplication(app);
+            AssertNoDuplication(app.Data);
             AssertNoDuplication(app.Common);
             AssertNoDuplication(app.Extended);
         }
@@ -185,8 +185,9 @@ namespace SteamVent.Tests.FileSystem
             SteamAppInfo app = SteamAppInfo.From(chunk)!;
             Assert.NotNull(app);
 
-            // elevated (strongly-typed) keys
-            Assert.Equal(12345u, (UInt32)(object)app["appid"]);
+            // the Bvdf root (the `data` field) is exposed as a lossless generic node
+            Assert.NotNull(app.Data);
+            Assert.Equal(12345, (int)(object)app.Data["appid"]);
             Assert.Equal("Test Game", (string)(object)app.Common!["name"]);
             Assert.Equal("game", (string)(object)app.Common["type"]);
 
@@ -197,8 +198,8 @@ namespace SteamVent.Tests.FileSystem
             // nested generic node reached through the indexer
             Assert.Equal("value", (string)(object)app.Common["custom_object"]["inner"]);
 
-            // appinfo is exposed as a generic (lossless) node
-            BvdfNode info = Assert.IsType<BvdfNode>(app["appinfo"]);
+            // appinfo is exposed as a generic (lossless) node under the Bvdf root
+            BvdfNode info = Assert.IsType<BvdfNode>(app.Data["appinfo"]);
             Assert.IsType<BvdfNode>((object)info["common"]);
             Assert.Equal("1690000000", (string)(object)info["lastchange"]);
 

@@ -18,7 +18,7 @@ namespace SteamVent.FileSystem
     /// <see cref="BvdfNode"/> is also used directly as the generic "unknown object" node: an instance with no
     /// elevated keys is just its <see cref="Extra"/> dictionary, reached through the same surface
     /// (<see cref="this[string]"/>, <see cref="Extra"/>, <see cref="Entries()"/>) as the typed nodes. This is how
-    /// unknown objects inside a strongly-typed collection are represented (e.g. <see cref="SteamAppInfo.AppInfo"/>).
+    /// unknown objects inside a strongly-typed collection are represented (e.g. <see cref="SteamAppInfo.Data"/>).
     ///
     /// A unified string-key view is provided by the <see cref="this[string]"/> indexer: it returns the
     /// strongly-typed value for an elevated key, otherwise the raw value from <see cref="Extra"/>, otherwise null.
