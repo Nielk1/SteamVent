@@ -82,26 +82,38 @@ namespace SteamVent
             Steamworks.SteamApps steamApps = _context.InnerApps;
             List<SteamLaunchableApp> apps = new List<SteamLaunchableApp>();
 
-            IReadOnlyList<SteamAppInfo> candidates;
+            IReadOnlyList<SteamAppInfoDataFile.SteamAppInfoDataFileChunk> candidates;
             try { candidates = SteamAppInfoDataFile.GetApps(); }
             catch { return apps; } // no appcache available -> no candidates (degrade, don't throw)
 
-            foreach (SteamAppInfo app in candidates)
+            foreach (SteamAppInfoDataFile.SteamAppInfoDataFileChunk chunk in candidates)
             {
-                if (string.IsNullOrWhiteSpace(app.Type) || app.Type == "config")
+                string? type = chunk.Data?.Common?.Type;
+                if (string.IsNullOrWhiteSpace(type) || type == "config")
                     continue;
-                if (steamApps.IsSubscribed(app.AppId) != true || string.IsNullOrWhiteSpace(app.Name))
+                string? name = chunk.Data?.Common?.Name;
+                if (steamApps.IsSubscribed(chunk.AppID) != true || string.IsNullOrWhiteSpace(name))
                     continue;
 
-                apps.Add(new SteamLaunchableApp(app.AppId)
+                apps.Add(new SteamLaunchableApp(chunk.AppID)
                 {
-                    Name = app.Name!.TrimEnd(),
-                    appIcon = app.IconPath,
-                    appType = app.Type,
+                    Name = name.TrimEnd(),
+                    appIcon = ResolveIconPath(chunk),
+                    appType = type,
                 });
             }
 
             return apps;
+        }
+
+        /// <summary>Resolves the absolute on-disk icon path for an app, or null when it has no client icon / Steam install path.</summary>
+        private static string? ResolveIconPath(SteamAppInfoDataFile.SteamAppInfoDataFileChunk chunk)
+        {
+            string? clientIcon = chunk.Data?.Common?.ClientIcon;
+            string? installPath = SteamProcessInfo.SteamInstallPath;
+            return string.IsNullOrWhiteSpace(clientIcon) || installPath is null
+                ? null
+                : Path.Combine(installPath, "steam", "games", clientIcon + ".ico");
         }
 
         /// <summary>
@@ -117,15 +129,17 @@ namespace SteamVent
             if (!_context.Options.UseSteamworks)
                 throw new SteamException("The Steamworks subsystem is disabled (Options.UseSteamworks is false), so ownership cannot be determined.");
 
-            IReadOnlyList<SteamAppInfo> candidates;
+            IReadOnlyList<SteamAppInfoDataFile.SteamAppInfoDataFileChunk> candidates;
             try { candidates = SteamAppInfoDataFile.GetApps(); }
             catch { yield break; } // no appcache -> no candidates (degrade, don't throw)
 
             const int concurrency = 4; // bounded parallelism for the ownership spot-checks
             using var gate = new SemaphoreSlim(concurrency);
-            foreach (var app in candidates)
+            foreach (var chunk in candidates)
             {
-                if (string.IsNullOrWhiteSpace(app.Type) || app.Type == "config" || string.IsNullOrWhiteSpace(app.Name))
+                string? type = chunk.Data?.Common?.Type;
+                string? name = chunk.Data?.Common?.Name;
+                if (string.IsNullOrWhiteSpace(type) || type == "config" || string.IsNullOrWhiteSpace(name))
                     continue;
 
                 // A synchronous Steamworks interop call, run under the gate so the batch of spot-checks overlap.
@@ -133,7 +147,7 @@ namespace SteamVent
                 await gate.WaitAsync(cancellationToken).ConfigureAwait(false);
                 try
                 {
-                    owned = await Task.Run(() => _context.InnerApps.IsSubscribed(app.AppId), cancellationToken).ConfigureAwait(false);
+                    owned = await Task.Run(() => _context.InnerApps.IsSubscribed(chunk.AppID), cancellationToken).ConfigureAwait(false);
                 }
                 finally
                 {
@@ -141,11 +155,11 @@ namespace SteamVent
                 }
 
                 if (owned == true)
-                    yield return new SteamLaunchableApp(app.AppId)
+                    yield return new SteamLaunchableApp(chunk.AppID)
                     {
-                        Name = app.Name!.TrimEnd(),
-                        appIcon = app.IconPath,
-                        appType = app.Type,
+                        Name = name.TrimEnd(),
+                        appIcon = ResolveIconPath(chunk),
+                        appType = type,
                     };
             }
         }
@@ -162,16 +176,16 @@ namespace SteamVent
 
             SteamAppInfoDataFile dataFile = SteamAppInfoDataFile.GetSteamAppInfoDataFile();
 
-            foreach(var chunk in dataFile.chunks)
+            foreach(var chunk in dataFile.Chunks)
             {
-                if (chunk.data != null
-                 && chunk.data.Properties != null
-                 && chunk.data.Properties.Count > 0
+                BVPropertyCollection? appinfo = chunk.Data?.Section;
+                if (appinfo != null
+                 && appinfo.Properties != null
+                 && appinfo.Properties.Count > 0
                  && ((AppIDs?.Length ?? 0) == 0 || AppIDs.Contains(chunk.AppID)))
                 {
-                    BVPropertyCollection? appinfo = ((BVPropertyCollection?)chunk.data?["appinfo"]);
-                    BVPropertyCollection? common = ((BVPropertyCollection?)appinfo?["common"]);
-                    BVPropertyCollection? extended = ((BVPropertyCollection?)appinfo?["extended"]);
+                    BVPropertyCollection? common = appinfo["common"] as BVPropertyCollection;
+                    BVPropertyCollection? extended = appinfo["extended"] as BVPropertyCollection;
 
                     string? type = common?["type"]?.GetValue<string>()?.ToLowerInvariant();
                     if (!string.IsNullOrWhiteSpace(type) && type != "config")

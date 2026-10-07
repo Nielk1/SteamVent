@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using SteamVent.Core.BVdf;
 using SteamVent.FileSystem;
@@ -7,10 +7,10 @@ using Xunit;
 namespace SteamVent.Tests.FileSystem
 {
     /// <summary>
-    /// Verifies the strongly-typed <see cref="SteamAppInfo"/> model is a <b>lossless</b> view of the raw BVDF data:
-    /// every key of a raw section is either elevated to a strongly-typed property or preserved in
-    /// <see cref="BvdfNode.Extra"/>, the string indexer reads from both, and non-standard data is moved into the
-    /// dictionary (with nested objects / arrays preserved).
+    /// Verifies the strongly-typed <see cref="SteamAppInfo"/> model (chunk.Data = the <c>appinfo</c> block) is a
+    /// <b>lossless</b> view of the raw BVDF data: <c>common</c> / <c>extended</c> are elevated to strongly-typed nodes, every
+    /// other key is preserved in <see cref="BvdfNode.Extra"/>, the string indexer reads from both, and non-standard
+    /// data (nested objects / arrays) is reachable through the lazy CLR view.
     /// </summary>
     public class SteamAppInfoTests
     {
@@ -65,7 +65,7 @@ namespace SteamVent.Tests.FileSystem
             var dependencies = new BVPropertyCollection();
             dependencies.Add("appid", depIds);
 
-            // appinfo
+            // appinfo (the block chunk.Data wraps)
             var appinfo = new BVPropertyCollection();
             appinfo.Add("appid", 12345);
             appinfo.Add("lastchange", "1690000000");
@@ -75,12 +75,6 @@ namespace SteamVent.Tests.FileSystem
 
             // chunk payload (data)
             var data = new BVPropertyCollection();
-            data.Add("appid", 12345);
-            data.Add("state", 1);
-            data.Add("lastupdate", 1690000000);
-            data.Add("accesstoken", "token-abc");
-            data.Add("checksum", "c1c2c3");
-            data.Add("lastchangenumber", 42);
             data.Add("appinfo", appinfo);
 
             var chunk = new SteamAppInfoDataFile.SteamAppInfoDataFileChunk(
@@ -98,22 +92,20 @@ namespace SteamVent.Tests.FileSystem
         public void Strongly_typed_node_preserves_every_raw_key()
         {
             var (chunk, data) = BuildSampleChunk();
-            SteamAppInfo app = SteamAppInfo.From(chunk)!;
+            SteamAppInfo app = chunk.Data!;
             Assert.NotNull(app);
 
             BVPropertyCollection appinfo = (BVPropertyCollection)data["appinfo"];
             BVPropertyCollection common = (BVPropertyCollection)appinfo["common"];
             BVPropertyCollection extended = (BVPropertyCollection)appinfo["extended"];
-            BVPropertyCollection dependencies = (BVPropertyCollection)appinfo["dependencies"];
 
-            // Losslessness: every raw key is exposed by the BVDF root node (elevated OR in Extra).
-            AssertComplete(app.Data, data);
+            // Losslessness: every raw key of appinfo / common / extended is exposed (elevated OR in Extra).
+            AssertComplete(app, appinfo);
             AssertComplete(app.Common, common);
             AssertComplete(app.Extended, extended);
-            AssertComplete(app.Dependencies, dependencies);
 
             // No key is both elevated and duplicated inside Extra.
-            AssertNoDuplication(app.Data);
+            AssertNoDuplication(app);
             AssertNoDuplication(app.Common);
             AssertNoDuplication(app.Extended);
         }
@@ -122,43 +114,36 @@ namespace SteamVent.Tests.FileSystem
         public void Typed_values_are_parsed_correctly()
         {
             var (chunk, _) = BuildSampleChunk();
-            SteamAppInfo app = SteamAppInfo.From(chunk)!;
+            SteamAppInfo app = chunk.Data!;
             Assert.NotNull(app);
 
-            // header (from the chunk envelope)
-            Assert.Equal(12345u, app.AppId);
-            Assert.Equal(1u, app.State);
-            Assert.Equal(0x1122334455667788UL, app.AccessToken);
-            Assert.Equal(new byte[] { 1, 2, 3 }, app.Checksum);
+            // header (from the chunk's binary envelope, not the BVDF payload)
+            Assert.Equal(12345u, chunk.AppID);
+            Assert.Equal(1u, chunk.State);
+            Assert.Equal(0x1122334455667788UL, chunk.AccessToken);
+            Assert.Equal(new byte[] { 1, 2, 3 }, chunk.Checksum);
 
-            // common (typed)
+            // common (typed, lazy)
             Assert.Equal("game", app.Common!.Type); // lower-cased
             Assert.Equal("Test Game", app.Common.Name);
             Assert.Equal("testgame", app.Common.ClientIcon);
-            Assert.Equal(new[] { "Valve" }, app.Common.Developers);
-            Assert.Equal(new[] { "Valve" }, app.Common.Publishers);
-            Assert.True(app.Common.HasLibraryCapsule);
-            Assert.True(app.Common.HasLibraryHero);
-            Assert.False(app.Common.HasLibraryLogo);
             Assert.Equal(DateTimeOffset.FromUnixTimeSeconds(1285977600).UtcDateTime, app.Common.OriginalReleaseDate);
+            Assert.Equal(DateTimeOffset.FromUnixTimeSeconds(1285977601).UtcDateTime, app.Common.SteamReleaseDate);
 
-            // extended (typed)
+            // extended (typed, lazy)
             Assert.Equal("Valve", app.Extended!.Developer);
             Assert.Equal("Valve", app.Extended.Publisher);
 
-            // root shortcuts
-            Assert.Equal("Test Game", app.Name);
-            Assert.Equal("game", app.Type);
+            // appinfo-level (weak) value
+            Assert.Equal(12345, (int)(object)app.Extra["appid"]);
         }
-
         [Fact]
         public void Non_standard_data_is_moved_into_the_dictionary()
         {
             var (chunk, _) = BuildSampleChunk();
-            SteamAppInfo app = SteamAppInfo.From(chunk)!;
-            Assert.NotNull(app);
+            SteamAppInfo app = chunk.Data!;
 
-            // scalars
+            // common scalars
             Assert.Equal("windows", app.Common!.Extra["oslist"]);
             Assert.Equal(7, (int)(object)app.Common.Extra["custom_count"]);
 
@@ -171,44 +156,47 @@ namespace SteamVent.Tests.FileSystem
             Assert.Equal("0", app.Extended!.Extra["is_free"]);
             Assert.Equal("on", app.Extended.Extra["custom_flag"]);
 
-            // dependencies array is preserved as a list
-            var depList = Assert.IsType<List<object?>>(app.Dependencies!.Extra["appid"]);
-            Assert.Equal(2, depList.Count);
-            Assert.Equal("570", (string)(object)depList[0]);
-            Assert.Equal("440", (string)(object)depList[1]);
+            // the deeper 'associations' block is preserved (weak path) even though its elevated 'Developers'
+            // field is in the reduction phase
+            var assoc = Assert.IsType<List<object?>>(app.Common.Extra["associations"]);
+            Assert.Equal(2, assoc.Count);
+            BvdfNode first = Assert.IsType<BvdfNode>(assoc[0]);
+            Assert.Equal("developer", (string)(object)first["type"]);
+            Assert.Equal("Valve", (string)(object)first["name"]);
         }
 
         [Fact]
         public void String_indexer_reads_elevated_and_extra_and_nested()
         {
             var (chunk, _) = BuildSampleChunk();
-            SteamAppInfo app = SteamAppInfo.From(chunk)!;
-            Assert.NotNull(app);
+            SteamAppInfo app = chunk.Data!;
 
-            // the Bvdf root (the `data` field) is exposed as a lossless generic node
-            Assert.NotNull(app.Data);
-            Assert.Equal(12345, (int)(object)app.Data["appid"]);
+            // elevated (strong) keys
             Assert.Equal("Test Game", (string)(object)app.Common!["name"]);
             Assert.Equal("game", (string)(object)app.Common["type"]);
+            Assert.Equal("Valve", (string)(object)app.Extended!["developer"]);
 
-            // extra (dictionary) keys
+            // extra (weak) keys
             Assert.Equal("windows", (string)(object)app.Common["oslist"]);
-            Assert.Equal("on", (string)(object)app.Extended!["custom_flag"]);
+            Assert.Equal("on", (string)(object)app.Extended["custom_flag"]);
+
+            // appinfo-level weak keys
+            Assert.Equal(12345, (int)(object)app["appid"]);
+            Assert.Equal("1690000000", (string)(object)app["lastchange"]);
+
+            // the [string] indexer walks elevated keys first, then the section; 'common' resolves to the strong node
+            BvdfNode common = (BvdfNode)(object)app["common"];
+            Assert.Equal("Test Game", (string)(object)common["name"]);
 
             // nested generic node reached through the indexer
             Assert.Equal("value", (string)(object)app.Common["custom_object"]["inner"]);
-
-            // appinfo is exposed as a generic (lossless) node under the Bvdf root
-            BvdfNode info = Assert.IsType<BvdfNode>(app.Data["appinfo"]);
-            Assert.IsType<BvdfNode>((object)info["common"]);
-            Assert.Equal("1690000000", (string)(object)info["lastchange"]);
 
             // unknown key -> null
             Assert.Null((object)app.Common["does_not_exist"]);
         }
 
         [Fact]
-        public void Developers_and_publishers_fall_back_to_extended_when_associations_are_empty()
+        public void Extended_block_is_the_fallback_source_via_the_weak_path()
         {
             var extended = new BVPropertyCollection();
             extended.Add("developer", "Solo Dev");
@@ -224,12 +212,19 @@ namespace SteamVent.Tests.FileSystem
             data.Add("appinfo", appinfo);
             var chunk = new SteamAppInfoDataFile.SteamAppInfoDataFileChunk(777, 1, 0, 0, new byte[20], 0, data);
 
-            SteamAppInfo app = SteamAppInfo.From(chunk)!;
+            SteamAppInfo app = chunk.Data!;
             Assert.NotNull(app);
-            Assert.Equal(new[] { "Solo Dev" }, app.Common!.Developers);
-            Assert.Equal(new[] { "Solo Pub" }, app.Common.Publishers);
+
+            // common / extended are elevated to strongly-typed nodes ...
+            Assert.Equal("game", app.Common!.Type);
+            Assert.Equal("Fallback App", app.Common.Name);
             Assert.Equal("Solo Dev", app.Extended!.Developer);
             Assert.Equal("Solo Pub", app.Extended.Publisher);
+
+            // ... and the same values stay reachable through the raw section (the developer/publisher fallback source).
+            BVPropertyCollection rawExtended = app.Section["extended"] as BVPropertyCollection;
+            Assert.NotNull(rawExtended);
+            Assert.Equal("Solo Dev", rawExtended["developer"]?.GetValue<string>());
         }
 
         // ---- helpers ----

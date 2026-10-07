@@ -34,23 +34,21 @@ namespace SteamVent.FileSystem
         }
 
         /// <summary>
-        /// Reads the appcache (appinfo.vdf) and returns every app as a strongly-typed
-        /// <see cref="SteamAppInfo"/> record. This is the filesystem-section function for app
-        /// enumeration: it only reads the file system and never touches Steamworks, so it works whether
-        /// or not Steam is running.
+        /// Reads the appcache (appinfo.vdf) and returns every chunk that carries an <c>appinfo.common</c> block.
+        /// This is the filesystem-section function for app enumeration: it only reads the file system and never
+        /// touches Steamworks, so it works whether or not Steam is running. Callers use the binary envelope
+        /// (<see cref="SteamAppInfoDataFileChunk.AppID"/> etc.) together with the strongly-typed
+        /// <see cref="SteamAppInfoDataFileChunk.Data"/> payload.
         /// </summary>
-        public static IReadOnlyList<SteamAppInfo> GetApps()
+        public static IReadOnlyList<SteamAppInfoDataFileChunk> GetApps()
         {
-            var result = new List<SteamAppInfo>();
+            var result = new List<SteamAppInfoDataFileChunk>();
             SteamAppInfoDataFile? file = GetSteamAppInfoDataFile();
-            if (file?.chunks == null)
+            if (file?.Chunks == null)
                 return result;
-            foreach (SteamAppInfoDataFileChunk chunk in file.chunks)
-            {
-                SteamAppInfo? info = SteamAppInfo.From(chunk);
-                if (info != null)
-                    result.Add(info);
-            }
+            foreach (SteamAppInfoDataFileChunk chunk in file.Chunks)
+                if (chunk.Data?.Common != null)
+                    result.Add(chunk);
             return result;
         }
 
@@ -62,7 +60,7 @@ namespace SteamVent.FileSystem
         public UInt16 Type; // 0x4456 ('DV')
         public byte Version2;
         public UInt32 Version3;
-        public List<SteamAppInfoDataFileChunk> chunks;
+        public List<SteamAppInfoDataFileChunk> Chunks;
 
         public SteamAppInfoDataFile(byte Version1, UInt16 Type, byte Version2, UInt32 Version3, List<SteamAppInfoDataFileChunk> chunks)
         {
@@ -70,18 +68,29 @@ namespace SteamVent.FileSystem
             this.Type = Type;
             this.Version2 = Version2;
             this.Version3 = Version3;
-            this.chunks = chunks;
+            this.Chunks = chunks;
         }
 
         public class SteamAppInfoDataFileChunk
         {
+            // -- binary envelope (the file's binary layout, not the BVDF payload) ----------------------------------
             public UInt32 AppID;
             public UInt32 State;
             public UInt32 LastUpdate;
             public UInt64 AccessToken;
             public byte[] Checksum;
             public UInt32 LastChangeNumber;
-            public BVPropertyCollection data;
+
+            private readonly BVPropertyCollection _rawData;
+            private SteamAppInfo? _data;
+
+            /// <summary>
+            /// The strongly-typed <c>appinfo</c> payload (the chunk's <c>data.appinfo</c> block), wrapping the raw
+            /// BVDF so <see cref="Data.Common"/> / <see cref="Data.Extended"/> overlay the raw <c>common</c> /
+            /// <c>extended</c> sections and every other key stays reachable through <see cref="BvdfNode.Extra"/>.
+            /// Null when the chunk's BVDF payload has no <c>appinfo</c> block.
+            /// </summary>
+            public SteamAppInfo? Data => _data ??= _rawData?["appinfo"] is BVPropertyCollection a ? new SteamAppInfo(a) : null;
 
             public SteamAppInfoDataFileChunk(UInt32 AppID, UInt32 State, UInt32 LastUpdate, UInt64 AccessToken, byte[] Checksum, UInt32 LastChangeNumber, BVPropertyCollection data)
             {
@@ -91,7 +100,7 @@ namespace SteamVent.FileSystem
                 this.AccessToken = AccessToken;
                 this.Checksum = Checksum;
                 this.LastChangeNumber = LastChangeNumber;
-                this.data = data;
+                this._rawData = data;
             }
         }
 
@@ -102,7 +111,7 @@ namespace SteamVent.FileSystem
             using (FileStream stream = File.OpenRead(steamAppInfoFilePath))
             using (BinaryReader reader = new BinaryReader(stream))
             {
-                List<SteamAppInfoDataFileChunk> Chunks = new List<SteamAppInfoDataFileChunk>();
+                List<SteamAppInfoDataFileChunk> chunks = new List<SteamAppInfoDataFileChunk>();
                 byte Version1 = reader.ReadByte();
                 UInt16 Type = reader.ReadUInt16();
                 byte Version2 = reader.ReadByte();
@@ -133,9 +142,9 @@ namespace SteamVent.FileSystem
                     //Console.WriteLine($"End Position: {(endPos):X8}");
 
                     SteamAppInfoDataFileChunk Chunk = new SteamAppInfoDataFileChunk(AppID, State, LastUpdate, AccessToken, Checksum, LastChangeNumber, Data);
-                    Chunks.Add(Chunk);
+                    chunks.Add(Chunk);
                 }
-                return new SteamAppInfoDataFile(Version1, Type, Version2, Version3, Chunks);
+                return new SteamAppInfoDataFile(Version1, Type, Version2, Version3, chunks);
             }
         }
     }
