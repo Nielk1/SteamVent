@@ -32,9 +32,14 @@ SteamVent/
 │   ├── Interfaces/              # ISteamApps / ISteamUtils / ISteamUGC command contracts
 │   └── InterProc/               # SteamAPICall_t, Callback<T>, generated proxies + result structs
 └── SteamVent/                   # net10.0, depends on Core
-    ├── SteamContext.cs          # Public gateway / orchestrator: owns Options + the Steamworks lifecycle + optional-module resolution; delegates to the facades
-    ├── SteamApps.cs             # SteamVent app facade (ctx.SteamApps) — OWNS app queries (owned apps, metadata, install dir, engine mods); composes in-process Steamworks with the filesystem fallback
-    ├── SteamWorkshop.cs         # SteamVent workshop facade (ctx.SteamWorkshop) — OWNS workshop reads + appid-context commands; composes in-process, Bridge, SteamCmd, or disk
+    ├── SteamContext.cs          # Public gateway / orchestrator: owns Options +
+    │                            # the Steamworks lifecycle + optional-module resolution;
+    │                            # delegates to the facades
+    ├── SteamApps.cs             # SteamVent app facade (ctx.SteamApps) — OWNS app queries
+    │                            # (owned apps, metadata, install dir, engine mods);
+    │                            # composes in-process Steamworks with the filesystem fallback
+    ├── SteamWorkshop.cs         # SteamVent workshop facade (ctx.SteamWorkshop) — OWNS workshop reads +
+    │                            # appid-context commands; composes in-process, Bridge, SteamCmd, or disk
     ├── SteamLaunchable.cs       # SteamLaunchable* POCOs returned by the context
     ├── Steamworks/              # In-process Steamworks layer (namespace SteamVent.Steamworks)
     │   ├── SteamClient.cs       #   Owned lifecycle: pipe/user + appid (request→latch) + interop factory + wrappers
@@ -139,44 +144,45 @@ Pure file-system access — no Steamworks required, so it works whether or not S
 
 ### The strongly-typed app model — `SteamAppInfo`
 
-`SteamAppInfoDataFile.GetApps()` reads the appcache (`appinfo.vdf`) and returns each app as a `SteamAppInfoDataFileChunk`: the *binary* envelope (`chunk.AppID`, `chunk.State`, `chunk.Checksum`, ...) plus the strongly-typed payload `chunk.Data` - the `appinfo` block as a lossless `BvdfNode`. `chunk.Data.Common` / `chunk.Data.Extended` are strongly-typed nodes that overlay the raw `common` / `extended` sections, and every other key stays reachable (recursively) through `BvdfNode.Extra` - so nothing Valve (or a custom appinfo entry) writes is ever dropped.
+`SteamAppInfoDataFile.GetApps()` parses the appcache (`appinfo.vdf`) into clean, **lossless** POCOs instead of exposing raw `BVPropertyCollection`. Each `SteamAppInfo` is a POCO pairing the *binary* chunk-header fields (`AppId`, `State`, `Checksum`, ...) with the chunk's *BVDF* payload, the `data` field, exposed as a `BvdfNode` (`app.Data`, a JObject-equivalent). The standardized `appinfo.common` / `appinfo.extended` sections are strongly-typed Bvdf nodes, and every other key is preserved (recursively) in a per-node `Extra` dictionary — so nothing Valve (or a custom appinfo entry) writes is ever dropped.
 
 ```csharp
 using SteamVent.FileSystem;
 
-foreach (SteamAppInfoDataFile.SteamAppInfoDataFileChunk chunk in SteamAppInfoDataFile.GetApps())
+foreach (SteamAppInfo app in SteamAppInfoDataFile.GetApps())
 {
-    uint appid = chunk.AppID;                    // binary envelope (not in the BVDF)
-    if (chunk.Data.Common is { } common)
+    // app.AppId, app.Name, app.Type ("game"/"app"/"demo"/"dlc"...), app.IconPath
+    if (app.Common is { } common)
     {
-        common.Type;                 // "game"/"app"/"demo"/"dlc"... (lazy)
-        common.Name;                 // string?
-        common.OriginalReleaseDate;  // DateTime?
-        common.Extra["oslist"];      // string  - non-standard keys live in the Extra dictionary
+        common.Developers;          // IReadOnlyList<string>
+        common.Publishers;          // IReadOnlyList<string>
+        common.OriginalReleaseDate; // DateTime?
+        common.HasLibraryCapsule;   // bool
+        common.Extra["oslist"];     // string  — non-standard keys live in the Extra dictionary
     }
-    chunk.Data.Extended.Developer;   // string?
-    chunk.Data.Extra["appid"];       // appinfo-level (weak) value
+    app.Data;             // BvdfNode — the `data` field, root of the BVDF tree, lossless (every key)
+    app.Dependencies;     // BvdfNode — the appinfo.dependencies section
 }
 ```
 
-**Two halves, one chunk.** A `SteamAppInfoDataFileChunk` is (a) the *binary* envelope - plain fields (`chunk.AppID`, `chunk.State`, `chunk.Checksum`, ...) that live in the file's binary layout, **not** in the BVDF - plus (b) the *BVDF* payload, `chunk.Data` (the `appinfo` block as a `BvdfNode`). `chunk.Data` elevates `common` / `extended` to `chunk.Data.Common` / `chunk.Data.Extended`; unknown objects become child `BvdfNode`s and VDF arrays become `List<object>`. The raw `BVPropertyCollection` is still reachable via `chunk.Data.Section`.
+**Two halves, one record.** A `SteamAppInfo` is (a) the *binary* chunk header — plain POCO properties (`app.AppId`, `app.State`, `app.Checksum`, ...) that live in the file's binary layout, **not** in the BVDF — plus (b) the *BVDF* payload (`app.Data`, a lossless `BvdfNode` whose `appinfo` child holds `app.Common` / `app.Extended` / `app.Dependencies`), where unknown objects become child `BvdfNode`s and VDF arrays become `List<object>`. The raw `BVPropertyCollection` is still available in `SteamAppInfoDataFile.GetSteamAppInfoDataFile()`'s chunks.
 
-**`BvdfNode` - the shared base + generic object node.** `SteamAppInfo` (the `appinfo` block), `SteamAppInfoCommon`, and `SteamAppInfoExtended` all derive from `BvdfNode` (they genuinely *are* the `appinfo` / `common` / `extended` BVDF sections). `BvdfNode` lazily wraps the raw `BVPropertyCollection` (`node.Section`) and exposes a `dynamic` string-key indexer over both the elevated properties and `node.Extra`; nothing deep in the tree is boxed until read. A plain `BvdfNode` (no elevated keys) is the generic "unknown object" used for nested sections that are not yet standardized.
+**`BvdfNode` — the shared base + generic object node.** `SteamAppInfoCommon` and `SteamAppInfoExtended` derive from `BvdfNode` (they genuinely *are* the `common` / `extended` BVDF sections); `SteamAppInfo` itself is **not** a `BvdfNode` — it is a POCO that *holds* the BVDF payload as `BvdfNode`s (`app.Data`, `app.Dependencies`). `BvdfNode` owns the `Extra` dictionary and exposes a `dynamic` string-key indexer over both the elevated properties and `Extra`. A plain `BvdfNode` (no elevated keys) is the generic "unknown object" used for nested sections that are not yet standardized.
 
 ```csharp
-SteamAppInfo app = chunk.Data!;  // the appinfo block
-app["common"]["name"];           // elevated 'common' -> the strong node; indexer walks elevated keys then the section
-app.HasKey("oslist");            // true if the key is elevated OR present in the section
-app.MappedKeys;                  // the standardized keys this node type elevates (common, extended)
-foreach (KeyValuePair<string, object?> kv in app.Extra)  // every non-elevated key, lazily converted
+BvdfNode node = app.Data!;
+node["appinfo"]["common"]["name"]; // the [string] indexer walks elevated keys then Extra, nested nodes included
+node.HasKey("oslist");             // true if the key is elevated OR present in Extra
+node.MappedKeys;                   // the standardized keys this node type elevates
+foreach (KeyValuePair<string, object?> kv in node.Entries())  // elevated keys, then Extra
     System.Console.WriteLine($"{kv.Key} = {kv.Value}");
 ```
 
-**Elevating a key.** When a key that currently lives in `Extra` becomes standardized, add it to the node's `MappedKeys`, add a strongly-typed (lazy) property, and return it from `TryGetMapped`. From that point on it no longer appears in `Extra` and the indexer returns its typed value.
+**Elevating a key.** When a key that currently lives in `Extra` becomes standardized, add it to the node's `MappedKeys`, add a strongly-typed property, and return it from `TryGetMapped`. From that point on it no longer appears in `Extra` and the indexer returns its typed value.
 
-**Serialization names.** Each property that maps to a single BVDF key carries a `[DataMember(Name = ...)]` (from `System.Runtime.Serialization`) whose `Name` is the *original* key - e.g. `Type` -> `"type"`, `OriginalReleaseDate` -> `"original_release_date"`, `Developer` -> `"developer"`, `Common` -> `"common"`. So a contract-based serializer (e.g. `DataContractJsonSerializer`) round-trips these properties under the same key names Valve writes. The binary envelope fields (`AppID`, `State`, `LastUpdate`, `AccessToken`, `Checksum`, `LastChangeNumber`) live on the chunk, *not* the BVDF, and are unannotated; derived properties with no single backing key are unannotated too. When you elevate a new key, add the matching `[DataMember(Name = "...")]` alongside it.
-
-Other helpers: `SteamAppInfoDataFile.GetSteamAppInfoDataFile(path?)` (raw chunks), `SteamProcessInfo.GetSteamInstallPath()`, `SteamProcessInfo.GetSteamLibraryPaths()`, `SteamProcessInfo.GetSteamPid()`.
+**Serialization names.** Each property that maps to a single BVDF key carries a `[DataMember(Name = ...)]` (from `System.Runtime.Serialization`) whose `Name` is the *original* key — e.g. `OriginalReleaseDate` → `"original_release_date"`, `Developer` → `"developer"`, and `SteamAppInfo.Data` → `"data"`. So a contract-based serializer (e.g. `DataContractJsonSerializer`) round-trips these properties under the same key names Valve writes. The binary chunk-header fields (`AppId`, `State`, `LastUpdate`, `AccessToken`, `Checksum`, `LastChangeNumber`) are *not* BVDF keys and are unannotated, as are computed/derived properties with no single backing key (`Developers`, `Publishers`, `HasLibraryCapsule`, `Common`, `Extended`, `IconPath`, `Dependencies`, …). When you elevate a new key, add the matching `[DataMember(Name = "...")]` alongside it.
+ies with no single backing key are unannotated too. When you elevate a new key, add the matching `[DataMember(Name = "...")]` alongside it.
+cessInfo.GetSteamPid()`.
 
 ---
 
