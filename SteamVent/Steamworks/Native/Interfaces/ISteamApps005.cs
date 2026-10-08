@@ -117,7 +117,7 @@ namespace SteamVent.Steamworks.Native.Interfaces
         //GetInstalledDepots
 
         #region VTableIndex(18)
-        [VTableIndex(18), UnmanagedFunctionPointer(CallingConvention.ThisCall, CharSet = CharSet.Ansi)]
+        [VTableIndex(18), UnmanagedFunctionPointer(CallingConvention.ThisCall)]
         private delegate UInt32 GetAppInstallDirDelegate(IntPtr thisPtr, UInt32 nAppId, IntPtr pchFolder, UInt32 cchFolderBufferSize);
         #endregion
         public string GetAppInstallDir(UInt32 nAppId)

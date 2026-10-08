@@ -55,29 +55,29 @@ namespace SteamVent.Steamworks.Native.Interfaces
             GetDelegate<ReleaseUserDelegate>()(InterfacePtr, hSteamPipe, hUser);
 
         #region VTableIndex(5)
-        [VTableIndex(5), UnmanagedFunctionPointer(CallingConvention.ThisCall, CharSet = CharSet.Ansi)]
-        private delegate IntPtr GetISteamUserDelegate(IntPtr thisPtr, Int32 hSteamUser, Int32 hSteamPipe, string pchVersion);
+        [VTableIndex(5), UnmanagedFunctionPointer(CallingConvention.ThisCall)]
+        private delegate IntPtr GetISteamUserDelegate(IntPtr thisPtr, Int32 hSteamUser, Int32 hSteamPipe, IntPtr pchVersion);
         #endregion
         public TInterface GetISteamUser<TInterface>(Int32 hSteamUser, Int32 hSteamPipe) where TInterface : SteamInterfaceWrapper =>
             GetInterface<GetISteamAppsDelegate, TInterface>(InterfacePtr, hSteamUser, hSteamPipe);
         
         #region VTableIndex(9)
-        [VTableIndex(9), UnmanagedFunctionPointer(CallingConvention.ThisCall, CharSet = CharSet.Ansi)]
-        private delegate IntPtr GetISteamUtilsDelegate(IntPtr thisPtr, Int32 hSteamPipe, string pchVersion);
+        [VTableIndex(9), UnmanagedFunctionPointer(CallingConvention.ThisCall)]
+        private delegate IntPtr GetISteamUtilsDelegate(IntPtr thisPtr, Int32 hSteamPipe, IntPtr pchVersion);
         #endregion
         public TInterface GetISteamUtils<TInterface>(Int32 hSteamPipe) where TInterface : SteamInterfaceWrapper =>
             GetInterface<GetISteamUtilsDelegate, TInterface>(InterfacePtr, hSteamPipe);
 
         #region VTableIndex(15)
-        [VTableIndex(15), UnmanagedFunctionPointer(CallingConvention.ThisCall, CharSet = CharSet.Ansi)]
-        private delegate IntPtr GetISteamAppsDelegate(IntPtr thisPtr, Int32 hSteamUser, Int32 hSteamPipe, string pchVersion);
+        [VTableIndex(15), UnmanagedFunctionPointer(CallingConvention.ThisCall)]
+        private delegate IntPtr GetISteamAppsDelegate(IntPtr thisPtr, Int32 hSteamUser, Int32 hSteamPipe, IntPtr pchVersion);
         #endregion
         public TInterface GetISteamApps<TInterface>(Int32 hSteamUser, Int32 hSteamPipe) where TInterface : SteamInterfaceWrapper =>
             GetInterface<GetISteamAppsDelegate, TInterface>(InterfacePtr, hSteamUser, hSteamPipe);
 
         #region VTableIndex(26)
-        [VTableIndex(26), UnmanagedFunctionPointer(CallingConvention.ThisCall, CharSet = CharSet.Ansi)]
-        private delegate IntPtr GetISteamUGCDelegate(IntPtr thisPtr, Int32 hSteamUser, Int32 hSteamPipe, string pchVersion);
+        [VTableIndex(26), UnmanagedFunctionPointer(CallingConvention.ThisCall)]
+        private delegate IntPtr GetISteamUGCDelegate(IntPtr thisPtr, Int32 hSteamUser, Int32 hSteamPipe, IntPtr pchVersion);
         #endregion
         public TInterface GetISteamUGC<TInterface>(Int32 hSteamUser, Int32 hSteamPipe) where TInterface : SteamInterfaceWrapper =>
             GetInterface<GetISteamUGCDelegate, TInterface>(InterfacePtr, hSteamUser, hSteamPipe);

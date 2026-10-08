@@ -3,12 +3,12 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading.Tasks;
 using SteamVent.FileSystem;
 using SteamVent.Steamworks.Native.Attributes;
 using SteamVent.Steamworks.Native.Interfaces;
-using SteamVent.Steamworks.Native;
 using SteamVent.Steamworks.Native;
 
 namespace SteamVent.Steamworks.Native
@@ -131,10 +131,19 @@ namespace SteamVent.Steamworks.Native
 
             string version = ((InterfaceVersion)typeof(ISteamClient017).GetCustomAttribute(typeof(InterfaceVersion))).Version;
 
-            IntPtr ptr = _callCreateInterface(version, IntPtr.Zero);
-            if (ptr == null) return null;
-            if (ptr == IntPtr.Zero) return null;
-            return (TInterface)Activator.CreateInstance(typeof(TInterface), ptr);
+            IntPtr versionUtf8 = Marshal.StringToCoTaskMemUTF8(version);
+            try
+            {
+                IntPtr ptr = _callCreateInterface(versionUtf8, IntPtr.Zero);
+                if (ptr == IntPtr.Zero)
+                    return null;
+
+                return (TInterface)Activator.CreateInstance(typeof(TInterface), ptr);
+            }
+            finally
+            {
+                Marshal.ZeroFreeCoTaskMemUTF8(versionUtf8);
+            }
         }
 
         /// <summary>

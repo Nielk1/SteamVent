@@ -83,6 +83,8 @@ SteamVent/
 
 This is the in-process, native-interproc layer (renamed from the former `SteamVent.InterProc` namespace to `SteamVent.Steamworks` / `SteamVent.Steamworks.Native`).
 
+> **String marshaling is UTF-8.** Steam's interop wire format is UTF-8, so any string that crosses the native boundary is marshaled explicitly as UTF-8: outgoing arguments are converted with `Marshal.StringToCoTaskMemUTF8` (released with `Marshal.ZeroFreeCoTaskMemUTF8` after the call) and returned strings are read back with `Marshal.PtrToStringUTF8`. This keeps non-ASCII content (accents, CJK, emoji, …) intact instead of being mangled through the Windows ANSI code page.
+
 > **Prefer the `SteamContext` facades.** In normal use you do not touch this layer directly — `SteamContext` owns the
 > `SteamClient` for you (it is no longer exposed publicly) and hands you the **`SteamVent.SteamApps`** (`ctx.SteamApps`)
 > and **`SteamVent.SteamWorkshop`** (`ctx.SteamWorkshop`) facades, which route every call in accordance with your

@@ -7,12 +7,12 @@ namespace SteamVent.Steamworks.Native
     public struct SteamNative
     {
         // Creates an interface from Steam
-        [UnmanagedFunctionPointer(CallingConvention.Cdecl, CharSet = CharSet.Ansi)]
-        public delegate IntPtr _f(string version);
+        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+        public delegate IntPtr _f(IntPtr version);
 
         // Creates an interface from Steam Client
-        [UnmanagedFunctionPointer(CallingConvention.Cdecl, CharSet = CharSet.Ansi)]
-        public delegate IntPtr CreateInterface(string version, IntPtr returnCode);
+        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+        public delegate IntPtr CreateInterface(IntPtr version, IntPtr returnCode);
 
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
         [return: MarshalAs(UnmanagedType.I1)]

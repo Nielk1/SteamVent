@@ -1,11 +1,9 @@
-using SteamVent.Core.Tools;
 using SteamVent.Steamworks.Native.Attributes;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using System.Runtime.InteropServices;
-using System.Text;
 
 namespace SteamVent.Steamworks.Native
 {
@@ -32,15 +30,27 @@ namespace SteamVent.Steamworks.Native
 
         protected Dictionary<Type, Delegate> DelegateCache { get; } = new Dictionary<Type, Delegate>();
 
-        protected TInterface GetInterface<TDelegate, TInterface>(params object[] paramaters)
+        protected TInterface GetInterface<TDelegate, TInterface>(params object[] parameters)
             where TDelegate : Delegate
             where TInterface : SteamInterfaceWrapper
         {
-            IntPtr ptr = (IntPtr)GetDelegate<TDelegate>()
-                .DynamicInvoke(paramaters.Concat(new object[] {
-                    ((InterfaceVersion)typeof(TInterface).GetCustomAttribute(typeof(InterfaceVersion))).Version.ToUtf8()
-                }).ToArray());
-            if (ptr == null) return null;
+            string version = ((InterfaceVersion)typeof(TInterface).GetCustomAttribute(typeof(InterfaceVersion))).Version;
+
+            IntPtr versionUtf8 = Marshal.StringToCoTaskMemUTF8(version);
+            IntPtr ptr;
+            try
+            {
+                ptr = (IntPtr)GetDelegate<TDelegate>()
+                    .DynamicInvoke(parameters.Concat(new object[] { versionUtf8 }).ToArray());
+            }
+            finally
+            {
+                Marshal.ZeroFreeCoTaskMemUTF8(versionUtf8);
+            }
+
+            if (ptr == IntPtr.Zero)
+                return null;
+
             return (TInterface)Activator.CreateInstance(typeof(TInterface), ptr);
         }
 
@@ -83,16 +93,9 @@ namespace SteamVent.Steamworks.Native
         /// <summary>
         /// Converts a UTF-8 string stored at the provided pointer into a normal string object. This is needed because Steam stores strings in UTF-8.
         /// </summary>
-        /// <param name="stringPtr">A pointer referencing a null-terminated UTF-8 string.</param>
-        /// <returns>A properly encoded string object.</returns>
-        protected static string DecodeUtf8String(IntPtr stringPtr)
-        {
-            if (stringPtr == IntPtr.Zero)
-                return null;
-
-            var unencodedString = Marshal.PtrToStringAnsi(stringPtr);
-
-            return unencodedString == null ? null : Encoding.UTF8.GetString(Encoding.Default.GetBytes(unencodedString));
-        }
+        /// <param name="stringPtr">A pointer referencing a null-terminated UTF-8 string (or null/zero for an empty result).</param>
+        /// <returns>A properly decoded string object, or null when <paramref name="stringPtr"/> is null or zero.</returns>
+        protected static string DecodeUtf8String(IntPtr stringPtr) =>
+            Marshal.PtrToStringUTF8(stringPtr);
     }
 }
