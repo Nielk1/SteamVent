@@ -129,7 +129,7 @@ internal static class Program
         }
         catch (Exception ex)
         {
-            await RespondErrorAsync(callbackId, ex.Message);
+            await RespondErrorAsync(callbackId, ex);
         }
     }
 
@@ -314,6 +314,15 @@ internal static class Program
 
     private static Task RespondErrorAsync(string callbackId, string message)
         => RespondAsync(callbackId, new { type = "error", message });
+
+    private static Task RespondErrorAsync(string callbackId, Exception ex)
+        => RespondAsync(callbackId, new
+        {
+            type = "error",
+            message = ex.Message,
+            errorType = ex.GetType().FullName,
+            stackTrace = ex.StackTrace,
+        });
 
     private static async Task RespondAsync(string callbackId, object envelope)
     {

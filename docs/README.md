@@ -293,6 +293,21 @@ var dl    = await bridge.SteamWorkshopDownloadAsync(publishedFileId);
 var un    = await bridge.SteamWorkshopUnsubscribeAsync(publishedFileId);
 ```
 
+### Bridge diagnostics & error reporting
+
+A failing request throws a `BridgeException` that carries the context needed to diagnose it without reaching for the logs. The **message itself** is self-describing — e.g. `[workshop download 3718541406, app 624970, bridge error] System.InvalidOperationException: The Steam API call failed before completing.` — so it stays informative even in runners (like xUnit) that only print the message. In addition, the exception exposes these fields for programmatic access, and `ToString()` appends the deeper context:
+
+- `Command` / `CallbackId` / `AppId` — what was in flight;
+- `Reason` — how the failure was detected: `bridge error`, `timeout`, `process exit`, `malformed response`, or `decode failure`;
+- `ExitCode` — the bridge process exit code (for `process exit`);
+- `RawResponse` — the raw envelope/payload the bridge sent (when one was received);
+- `BridgeExceptionType` / `BridgeStackTrace` — the exception the *bridge process* threw (for `bridge error`);
+- `BridgeOutput` — the recent tail of bridge diagnostics: `progress` updates (e.g. download `state` + `bytesDownloaded` / `bytesTotal`), `stderr`, and any non-protocol stdout.
+
+`progress` lines and `stderr` are always routed to the `BridgeOutput` event (`EventHandler<string>`), so a host can log them live; the client also retains the most recent few hundred lines so they ride along on the next exception.
+
+The wire protocol's `error` envelope is `{ "type": "error", "message", "errorType", "stackTrace" }` — `message` is the human summary, while `errorType` / `stackTrace` carry the bridge-side exception for the failure.
+
 ---
 
 ## Testing
@@ -301,7 +316,7 @@ var un    = await bridge.SteamWorkshopUnsubscribeAsync(publishedFileId);
 
 `ISteamUtilsTests` exercises `ISteamUtils.GetAppID` (the source of truth for the active appid) and `SteamClient.AppId`, which latches that value once the Steamworks context starts and is then read-only. `ISteamAppsTests` covers the versioned `BIsAppInstalled` interop, reading `SteamAppsTests:InstalledAppID` / `SteamAppsTests:UninstalledAppID` from configuration.
 
-The Bridge round-trip test reads `BridgeTests:AppID` and `BridgeTests:PublishedFileID` from configuration and requires a **running Steam session with a real workshop item** — swap in a valid item ID before running it. In an offline/headless environment it is expected to fail/skip.
+The Bridge round-trip test reads `BridgeTests:AppID` and `BridgeTests:PublishedFileID` from configuration and requires a **running Steam session with a real workshop item** — swap in a valid item ID before running it. In an offline/headless environment it is expected to fail/skip. When it fails, the thrown `BridgeException` includes the command, app ID, reason, raw response, and the captured bridge `progress`/`stderr` tail (see "Bridge diagnostics & error reporting").
 
 All the interproc tests (`ISteamAppsTests`, `ISteamUtilsTests`) share the `SteamInterProc` collection (serialized — the Steam client is a process-wide singleton) and a `SteamTestGuard` that fails fast if a local `steam_appid.txt` is present in the test working directory: such a file would silently override the environment-variable appid context (`SteamClient.AppId`) and make the results non-deterministic. The interproc tests require a **running Steam client**.
 

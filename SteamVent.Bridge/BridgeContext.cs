@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Globalization;
 using System.Reflection;
@@ -28,16 +29,19 @@ public sealed class BridgeContext : IDisposable
 {
     private static readonly TimeSpan DefaultTimeout = TimeSpan.FromSeconds(30);
     private static readonly TimeSpan DownloadTimeout = TimeSpan.FromMinutes(10);
+    private const int MaxDiagnosticsLines = 200;
 
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web)
     {
         DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
     };
 
+    private readonly UInt32 _appId;
     private readonly Process _process;
     private readonly SemaphoreSlim _writeLock = new(1, 1);
     private readonly object _pendingLock = new();
-    private readonly Dictionary<string, TaskCompletionSource<string>> _pending = new();
+    private readonly Dictionary<string, PendingRequest> _pending = new();
+    private readonly ConcurrentQueue<string> _recentOutput = new();
     private int _nextCallbackId;
     private bool _disposed;
 
@@ -49,6 +53,8 @@ public sealed class BridgeContext : IDisposable
     /// </summary>
     public BridgeContext(UInt32 appId)
     {
+        _appId = appId;
+
         string? entryAssemblyPath = Assembly.GetEntryAssembly()?.Location;
         if (entryAssemblyPath is null)
             throw new InvalidOperationException("Unable to resolve the entry assembly to locate SteamVentContextBridge.exe.");
@@ -111,6 +117,14 @@ public sealed class BridgeContext : IDisposable
         public string? type { get; set; }
         public JsonElement? payload { get; set; }
         public string? message { get; set; }
+        public string? errorType { get; set; }
+        public string? stackTrace { get; set; }
+    }
+
+    private sealed class PendingRequest
+    {
+        public required TaskCompletionSource<string> Completion { get; init; }
+        public string Command { get; init; } = string.Empty;
     }
 
     private async Task<T> SendAsync<T>(string command, TimeSpan timeout)
@@ -119,7 +133,7 @@ public sealed class BridgeContext : IDisposable
         string callbackId = Interlocked.Increment(ref _nextCallbackId).ToString(CultureInfo.InvariantCulture);
 
         lock (_pendingLock)
-            _pending[callbackId] = completion;
+            _pending[callbackId] = new PendingRequest { Completion = completion, Command = command };
 
         try
         {
@@ -127,19 +141,29 @@ public sealed class BridgeContext : IDisposable
         }
         catch (Exception ex)
         {
-            FailCallback(callbackId, ex);
+            FailCallback(callbackId, "write failure", "Unable to send the request to the bridge.", ex);
             throw;
         }
 
-        string payload = await completion.Task.WaitAsync(timeout); // throws TimeoutException when the bridge never answers
+        string payload;
+        try
+        {
+            payload = await completion.Task.WaitAsync(timeout); // throws TimeoutException when the bridge never answers
+        }
+        catch (TimeoutException)
+        {
+            throw CreateException(command, callbackId, "timeout",
+                $"Timed out after {timeout} waiting for the bridge to complete.");
+        }
 
         try
         {
-            return JsonSerializer.Deserialize<T>(payload, JsonOptions);
+            return JsonSerializer.Deserialize<T>(payload, JsonOptions)!;
         }
         catch (JsonException ex)
         {
-            throw new BridgeException($"Unable to decode the response to '{command}'.", ex);
+            throw CreateException(command, callbackId, "decode failure",
+                "The bridge sent a response that could not be decoded.", ex, raw: payload);
         }
     }
 
@@ -180,13 +204,13 @@ public sealed class BridgeContext : IDisposable
                 }
                 catch (JsonException ex)
                 {
-                    FailCallback(callbackId, new BridgeException("The bridge sent a malformed response.", ex));
+                    FailCallback(callbackId, "malformed response", "The bridge sent a malformed response.", ex, raw: json);
                     continue;
                 }
 
                 if (envelope is null)
                 {
-                    FailCallback(callbackId, new BridgeException("The bridge sent an empty response."));
+                    FailCallback(callbackId, "malformed response", "The bridge sent an empty response.");
                     continue;
                 }
 
@@ -196,12 +220,18 @@ public sealed class BridgeContext : IDisposable
                         if (envelope.payload is not null)
                             CompleteCallback(callbackId, envelope.payload.Value.GetRawText());
                         else
-                            FailCallback(callbackId, new BridgeException("The bridge sent a result without a payload."));
+                            FailCallback(callbackId, "protocol error", "The bridge sent a result without a payload.", raw: json);
                         break;
 
                     case "error":
-                        FailCallback(callbackId, new BridgeException(envelope.message ?? "The bridge reported an error."));
+                    {
+                        string detail = envelope.message ?? "The bridge reported an error.";
+                        if (envelope.errorType is not null)
+                            detail = $"{envelope.errorType}: {detail}";
+                        FailCallback(callbackId, "bridge error", detail,
+                            errorType: envelope.errorType, stackTrace: envelope.stackTrace, raw: json);
                         break;
+                    }
 
                     case "progress":
                         OnBridgeOutput(envelope.payload?.GetRawText() ?? string.Empty);
@@ -219,10 +249,14 @@ public sealed class BridgeContext : IDisposable
         }
         finally
         {
-            FailAllPending(new BridgeException(
-                _process.HasExited && _process.ExitCode == 0
-                    ? "The SteamVentContextBridge process exited."
-                    : $"The SteamVentContextBridge process exited unexpectedly (code {_process.ExitCode})."));
+            int? exitCode = null;
+            if (_process.HasExited)
+            {
+                try { exitCode = _process.ExitCode; }
+                catch (InvalidOperationException) { /* process not fully reaped yet */ }
+            }
+
+            FailAllPending(exitCode);
         }
     }
 
@@ -241,41 +275,101 @@ public sealed class BridgeContext : IDisposable
 
     private void CompleteCallback(string callbackId, string payload)
     {
-        if (TryRemovePending(callbackId, out TaskCompletionSource<string>? completion))
-            completion!.TrySetResult(payload);
+        if (TryRemovePending(callbackId, out PendingRequest? pending))
+            pending!.Completion.TrySetResult(payload);
     }
 
-    private void FailCallback(string callbackId, Exception exception)
+    private void FailCallback(
+        string callbackId,
+        string reason,
+        string detail,
+        Exception? innerException = null,
+        string? errorType = null,
+        string? stackTrace = null,
+        string? raw = null)
     {
-        if (TryRemovePending(callbackId, out TaskCompletionSource<string>? completion))
-            completion!.TrySetException(exception);
+        if (!TryRemovePending(callbackId, out PendingRequest? pending))
+            return;
+
+        pending!.Completion.TrySetException(CreateException(pending.Command, callbackId, reason, detail, innerException,
+            errorType: errorType, stackTrace: stackTrace, raw: raw));
     }
 
-    private bool TryRemovePending(string callbackId, out TaskCompletionSource<string>? completion)
+    private bool TryRemovePending(string callbackId, out PendingRequest? pending)
     {
         lock (_pendingLock)
         {
-            bool found = _pending.TryGetValue(callbackId, out completion);
+            bool found = _pending.TryGetValue(callbackId, out pending);
             if (found)
                 _pending.Remove(callbackId);
             return found;
         }
     }
 
-    private void FailAllPending(Exception exception)
+    private void FailAllPending(int? exitCode)
     {
-        List<TaskCompletionSource<string>> abandoned;
+        List<KeyValuePair<string, PendingRequest>> abandoned;
         lock (_pendingLock)
         {
-            abandoned = _pending.Values.ToList();
+            abandoned = _pending.ToList();
             _pending.Clear();
         }
 
-        foreach (TaskCompletionSource<string> completion in abandoned)
-            completion.TrySetException(exception);
+        string detail = exitCode == 0
+            ? "The SteamVentContextBridge process exited."
+            : $"The SteamVentContextBridge process exited unexpectedly (code {exitCode}).";
+
+        foreach (KeyValuePair<string, PendingRequest> entry in abandoned)
+            entry.Value.Completion.TrySetException(CreateException(entry.Value.Command, entry.Key, "process exit", detail,
+                exitCode: exitCode));
     }
 
-    private void OnBridgeOutput(string message) => BridgeOutput?.Invoke(this, message);
+    /// <summary>
+    /// Builds a self-describing <see cref="BridgeException"/>: the message carries the command, app id, reason
+    /// and last bridge output (so it is informative even in runners that only print the message), while the
+    /// individual fields stay available for programmatic access and <see cref="BridgeException.ToString"/>.
+    /// </summary>
+    private BridgeException CreateException(
+        string command,
+        string callbackId,
+        string reason,
+        string detail,
+        Exception? innerException = null,
+        int? exitCode = null,
+        string? errorType = null,
+        string? stackTrace = null,
+        string? raw = null)
+    {
+        return new BridgeException(BuildFailureMessage(command, reason, detail), innerException)
+        {
+            Command = command,
+            CallbackId = callbackId,
+            AppId = _appId,
+            Reason = reason,
+            ExitCode = exitCode,
+            BridgeExceptionType = errorType,
+            BridgeStackTrace = stackTrace,
+            RawResponse = raw,
+            BridgeOutput = _recentOutput.ToArray(),
+        };
+    }
+
+    private string BuildFailureMessage(string command, string reason, string detail)
+    {
+        string message = $"[{command}, app {_appId}, {reason}] {detail}";
+        string? tail = _recentOutput.Reverse().FirstOrDefault(l => l.Trim().Length > 0);
+        if (tail is not null)
+            message += $"  (last bridge output: {tail})";
+        return message;
+    }
+
+    private void OnBridgeOutput(string message)
+    {
+        _recentOutput.Enqueue(message);
+        while (_recentOutput.Count > MaxDiagnosticsLines)
+            _recentOutput.TryDequeue(out _);
+        BridgeOutput?.Invoke(this, message);
+    }
 
     #endregion Request/response plumbing
 
