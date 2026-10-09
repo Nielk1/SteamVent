@@ -25,7 +25,7 @@ namespace SteamVent.Bridge;
 /// <c>result</c>/<c>error</c> line for a callback ID completes the task the request is awaiting.
 /// </para>
 /// </summary>
-public sealed class BridgeContext : IDisposable
+public sealed class BridgeContext : IDisposable, IWorkshopSource, IWorkshopCommands
 {
     private static readonly TimeSpan DefaultTimeout = TimeSpan.FromSeconds(30);
     private static readonly TimeSpan DownloadTimeout = TimeSpan.FromMinutes(10);
@@ -47,6 +47,12 @@ public sealed class BridgeContext : IDisposable
 
     /// <summary>Raised with mid-work updates from the bridge (progress payloads, stderr output, ...).</summary>
     public event EventHandler<string>? BridgeOutput;
+
+    /// <summary>The Steam app ID this bridge process is scoped to.</summary>
+    public UInt32 AppId => _appId;
+
+    /// <summary>True once <see cref="Dispose"/> has been called (used by the pool to skip dead entries).</summary>
+    public bool IsDisposed => _disposed;
 
     /// <summary>
     /// Starts a new bridge process scoped to the given app.
@@ -89,26 +95,75 @@ public sealed class BridgeContext : IDisposable
     #region Workshop
 
     /// <summary>Subscribes to a workshop item. The call completes when Steam acknowledges the subscription.</summary>
-    public Task<RemoteStorageSubscribePublishedFileResult_t> SteamWorkshopSubscribeAsync(UInt64 publishedFileId)
-        => SendAsync<RemoteStorageSubscribePublishedFileResult_t>($"workshop subscribe {publishedFileId}", DefaultTimeout);
+    public Task<RemoteStorageSubscribePublishedFileResult_t> SteamWorkshopSubscribeAsync(UInt64 publishedFileId, CancellationToken cancellationToken = default)
+        => SendAsync<RemoteStorageSubscribePublishedFileResult_t>($"workshop subscribe {publishedFileId}", DefaultTimeout, null, cancellationToken);
 
     /// <summary>
-    /// Downloads (installs) a workshop item's content. Emits <c>progress</c> updates on
-    /// <see cref="BridgeOutput"/> while the content is transferring; the task completes when the
-    /// item is fully installed.
+    /// Downloads (installs) a workshop item's content, completing only once it is fully installed. Emits
+    /// <see cref="WorkshopItemProgress"/> samples on <paramref name="progress"/> (and on <see cref="BridgeOutput"/>)
+    /// while the content is transferring.
     /// </summary>
-    public Task<DownloadItemResult_t> SteamWorkshopDownloadAsync(UInt64 publishedFileId)
-        => SendAsync<DownloadItemResult_t>($"workshop download {publishedFileId}", DownloadTimeout);
+    public Task<DownloadItemResult_t> SteamWorkshopDownloadAsync(UInt64 publishedFileId, IProgress<WorkshopItemProgress>? progress = null, CancellationToken cancellationToken = default)
+        => SendAsync<DownloadItemResult_t>($"workshop download {publishedFileId}", DownloadTimeout, progress, cancellationToken);
 
     /// <summary>Unsubscribes from a workshop item, removing its installed content.</summary>
-    public Task<RemoteStorageUnsubscribePublishedFileResult_t> SteamWorkshopUnsubscribeAsync(UInt64 publishedFileId)
-        => SendAsync<RemoteStorageUnsubscribePublishedFileResult_t>($"workshop unsubscribe {publishedFileId}", DefaultTimeout);
+    public Task<RemoteStorageUnsubscribePublishedFileResult_t> SteamWorkshopUnsubscribeAsync(UInt64 publishedFileId, CancellationToken cancellationToken = default)
+        => SendAsync<RemoteStorageUnsubscribePublishedFileResult_t>($"workshop unsubscribe {publishedFileId}", DefaultTimeout, null, cancellationToken);
 
     /// <summary>Lists all subscribed workshop items with their install/download state.</summary>
-    public Task<PublishedFileData[]> SteamWorkshopListAsync()
-        => SendAsync<PublishedFileData[]>("workshop list", DefaultTimeout);
+    public Task<PublishedFileData[]> SteamWorkshopListAsync(CancellationToken cancellationToken = default)
+        => SendAsync<PublishedFileData[]>("workshop list", DefaultTimeout, null, cancellationToken);
 
     #endregion Workshop
+
+    #region IWorkshopSource / IWorkshopCommands (shared surface with the in-process SteamVent.Steamworks.SteamWorkshop)
+
+    /// <summary>
+    /// The shared workshop command surface. <see cref="BridgeContext"/> is scoped to a single app (its
+    /// <see cref="AppId"/>), so the <c>appid</c> argument is validated against that scope rather than used to pick a
+    /// target - same operations, same behavior as the in-process backend.
+    /// </summary>
+    public Task<RemoteStorageSubscribePublishedFileResult_t> SubscribeAsync(ulong publishedFileId, int appid, CancellationToken cancellationToken = default)
+    {
+        CheckAppId(appid);
+        return SteamWorkshopSubscribeAsync(publishedFileId, cancellationToken);
+    }
+
+    public Task<RemoteStorageUnsubscribePublishedFileResult_t> UnsubscribeAsync(ulong publishedFileId, int appid, CancellationToken cancellationToken = default)
+    {
+        CheckAppId(appid);
+        return SteamWorkshopUnsubscribeAsync(publishedFileId, cancellationToken);
+    }
+
+    /// <summary>
+    /// Downloads (installs) a workshop item and completes only once it is fully installed - the same contract as the
+    /// in-process backend. Reports <paramref name="progress"/> samples while the content transfers.
+    /// </summary>
+    public Task<DownloadItemResult_t> DownloadAsync(ulong publishedFileId, int appid, IProgress<WorkshopItemProgress>? progress = null, CancellationToken cancellationToken = default)
+    {
+        CheckAppId(appid);
+        return SteamWorkshopDownloadAsync(publishedFileId, progress, cancellationToken);
+    }
+
+    public Task<IReadOnlyCollection<PublishedFileData>> GetInstalledWorkshopItems(int appid, CancellationToken cancellationToken = default)
+    {
+        CheckAppId(appid);
+        return ToReadOnlyAsync(SteamWorkshopListAsync(cancellationToken));
+    }
+
+    public Task<IReadOnlyCollection<PublishedFileData>> GetSubscribedWorkshopItems(int appid, CancellationToken cancellationToken = default)
+        => GetInstalledWorkshopItems(appid, cancellationToken);
+
+    private static async Task<IReadOnlyCollection<PublishedFileData>> ToReadOnlyAsync(Task<PublishedFileData[]> items)
+        => await items;
+
+    private void CheckAppId(int appid)
+    {
+        if (appid != 0 && appid != (int)_appId)
+            throw new ArgumentException($"This bridge is scoped to app {_appId}, but {appid} was requested.", nameof(appid));
+    }
+
+    #endregion IWorkshopSource / IWorkshopCommands
 
     #region Request/response plumbing
 
@@ -125,15 +180,25 @@ public sealed class BridgeContext : IDisposable
     {
         public required TaskCompletionSource<string> Completion { get; init; }
         public string Command { get; init; } = string.Empty;
+        public IProgress<WorkshopItemProgress>? Progress { get; init; }
+        public ulong? PublishedFileId { get; init; }
     }
 
-    private async Task<T> SendAsync<T>(string command, TimeSpan timeout)
+    private async Task<T> SendAsync<T>(string command, TimeSpan timeout, IProgress<WorkshopItemProgress>? progress = null, CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
+
         TaskCompletionSource<string> completion = new(TaskCreationOptions.RunContinuationsAsynchronously);
         string callbackId = Interlocked.Increment(ref _nextCallbackId).ToString(CultureInfo.InvariantCulture);
 
         lock (_pendingLock)
-            _pending[callbackId] = new PendingRequest { Completion = completion, Command = command };
+            _pending[callbackId] = new PendingRequest
+            {
+                Completion = completion,
+                Command = command,
+                Progress = progress,
+                PublishedFileId = TryParsePublishedFileId(command),
+            };
 
         try
         {
@@ -148,10 +213,19 @@ public sealed class BridgeContext : IDisposable
         string payload;
         try
         {
-            payload = await completion.Task.WaitAsync(timeout); // throws TimeoutException when the bridge never answers
+            // Throws TimeoutException when the bridge never answers, OperationCanceledException when the caller cancels.
+            payload = await completion.Task.WaitAsync(timeout, cancellationToken);
+        }
+        catch (OperationCanceledException)
+        {
+            // Caller cancelled: abandon this in-flight request. The bridge child may keep working in the background;
+            // it is isolated, and the pool reaps it once it (and any other commands) go idle.
+            TryRemovePending(callbackId, out _);
+            throw;
         }
         catch (TimeoutException)
         {
+            TryRemovePending(callbackId, out _);
             throw CreateException(command, callbackId, "timeout",
                 $"Timed out after {timeout} waiting for the bridge to complete.");
         }
@@ -165,6 +239,15 @@ public sealed class BridgeContext : IDisposable
             throw CreateException(command, callbackId, "decode failure",
                 "The bridge sent a response that could not be decoded.", ex, raw: payload);
         }
+    }
+
+    private static ulong? TryParsePublishedFileId(string command)
+    {
+        // e.g. "workshop download 12345" -> 12345
+        int i = command.LastIndexOf(' ');
+        if (i < 0 || i + 1 >= command.Length)
+            return null;
+        return ulong.TryParse(command[(i + 1)..], NumberStyles.None, CultureInfo.InvariantCulture, out ulong id) ? id : null;
     }
 
     private async Task WriteLineAsync(string line)
@@ -234,6 +317,7 @@ public sealed class BridgeContext : IDisposable
                     }
 
                     case "progress":
+                        DeliverProgress(callbackId, envelope.payload);
                         OnBridgeOutput(envelope.payload?.GetRawText() ?? string.Empty);
                         break;
 
@@ -370,6 +454,43 @@ public sealed class BridgeContext : IDisposable
             _recentOutput.TryDequeue(out _);
         BridgeOutput?.Invoke(this, message);
     }
+
+    private bool TryGetPending(string callbackId, out PendingRequest? pending)
+    {
+        lock (_pendingLock)
+            return _pending.TryGetValue(callbackId, out pending);
+    }
+
+    /// <summary>
+    /// Routes a <c>progress</c> envelope to the awaiting request's <see cref="IProgress{T}"/> (when one was supplied
+    /// for the download), so a caller sees live transfer status. Non-download commands have no progress sink, so this
+    /// is a no-op for them.
+    /// </summary>
+    private void DeliverProgress(string callbackId, JsonElement? payload)
+    {
+        if (payload is not { } element)
+            return;
+        if (!TryGetPending(callbackId, out PendingRequest? pending) || pending!.Progress is not { } progress)
+            return;
+
+        progress.Report(new WorkshopItemProgress
+        {
+            PublishedFileId = pending.PublishedFileId ?? 0,
+            State = ReadProgressState(element),
+            BytesDownloaded = ReadProgressBytes(element, "bytesDownloaded"),
+            BytesTotal = ReadProgressBytes(element, "bytesTotal"),
+        });
+    }
+
+    private static EItemState ReadProgressState(JsonElement element)
+    {
+        if (element.TryGetProperty("state", out var state) && state.ValueKind == JsonValueKind.Number)
+            return (EItemState)state.GetInt64();
+        return EItemState.k_EItemStateNone;
+    }
+
+    private static ulong ReadProgressBytes(JsonElement element, string name)
+        => element.TryGetProperty(name, out var value) && value.ValueKind == JsonValueKind.Number ? value.GetUInt64() : 0;
 
     #endregion Request/response plumbing
 

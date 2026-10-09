@@ -145,12 +145,12 @@ internal static class Program
                 {
                     case "subscribe":
                         await RunCallAsync<RemoteStorageSubscribePublishedFileResult_t>(
-                            callbackId, SteamUGC.SubscribeItem(publishedFileId), RemoteStorageSubscribePublishedFileResult_t.k_iCallback);
+                            callbackId, SteamUGC.SubscribeItem(publishedFileId), RemoteStorageSubscribePublishedFileResult_t.k_iCallback, publishedFileId);
                         break;
 
                     case "unsubscribe":
                         await RunCallAsync<RemoteStorageUnsubscribePublishedFileResult_t>(
-                            callbackId, SteamUGC.UnsubscribeItem(publishedFileId), RemoteStorageUnsubscribePublishedFileResult_t.k_iCallback);
+                            callbackId, SteamUGC.UnsubscribeItem(publishedFileId), RemoteStorageUnsubscribePublishedFileResult_t.k_iCallback, publishedFileId);
                         break;
 
                     default: // download
@@ -187,11 +187,24 @@ internal static class Program
             return;
         }
 
-        DownloadItemResult_t result = await WaitForCallAsync<DownloadItemResult_t>(
-            SteamUGC.DownloadItem(publishedFileId), DownloadItemResult_t.k_iCallback);
+        UInt64 call = SteamUGC.DownloadItem(publishedFileId);
+        DownloadItemResult_t? maybeResult = await WaitForCallAsync<DownloadItemResult_t>(call, DownloadItemResult_t.k_iCallback);
 
-        if (result.m_eResult != EResult.k_EResultOK)
-            throw new InvalidOperationException($"DownloadItem({publishedFileId}) returned {result.m_eResult}.");
+        // The acknowledgement is the fast path. A transiently-reported failure (e.g. the item is already
+        // DownloadPending because the subscription just applied) is not a dead end: if a download is actually in
+        // flight we rely on the *installed* end-state below rather than the ACK, so the caller sees a clean
+        // "started, then done" instead of a spurious failure.
+        if (maybeResult is null || maybeResult.Value.m_eResult != EResult.k_EResultOK)
+        {
+            if (!IsDownloadActive(SteamUGC.GetItemState(publishedFileId)))
+            {
+                string detail = maybeResult is { } r ? $"returned {r.m_eResult}" : "failed before completing";
+                throw new InvalidOperationException($"DownloadItem({publishedFileId}) {detail} (item {DescribeWorkshopItem(publishedFileId)}).");
+            }
+        }
+
+        DownloadItemResult_t result = maybeResult
+            ?? new DownloadItemResult_t { m_eResult = EResult.k_EResultOK, m_nPublishedFileId = publishedFileId };
 
         DateTime deadline = DateTime.UtcNow + DownloadDeadline;
         while (true)
@@ -204,9 +217,7 @@ internal static class Program
                 return;
             }
 
-            bool active = state.HasFlag(EItemState.k_EItemStateDownloading)
-                || state.HasFlag(EItemState.k_EItemStateDownloadPending);
-            if (!active)
+            if (!IsDownloadActive(state))
                 throw new InvalidOperationException($"The download for {publishedFileId} stopped before completing (item state: {state}).");
 
             UInt64 bytesDownloaded = 0;
@@ -223,6 +234,9 @@ internal static class Program
 
     private static bool IsInstalledAndCurrent(EItemState state)
         => state.HasFlag(EItemState.k_EItemStateInstalled) && !state.HasFlag(EItemState.k_EItemStateNeedsUpdate);
+
+    private static bool IsDownloadActive(EItemState state)
+        => state.HasFlag(EItemState.k_EItemStateDownloading) || state.HasFlag(EItemState.k_EItemStateDownloadPending);
 
     private static async Task ListAsync(string callbackId)
     {
@@ -268,22 +282,27 @@ internal static class Program
         await RespondResultAsync(callbackId, items);
     }
 
-    private static async Task RunCallAsync<T>(string callbackId, UInt64 call, int k_iCallback) where T : unmanaged
+    private static async Task RunCallAsync<T>(string callbackId, UInt64 call, int k_iCallback, ulong? publishedFileId = null) where T : unmanaged
     {
-        T result = await WaitForCallAsync<T>(call, k_iCallback);
+        T? result = await WaitForCallAsync<T>(call, k_iCallback);
+        if (result is null)
+        {
+            string item = publishedFileId is { } id ? $" (item {DescribeWorkshopItem(id)})" : string.Empty;
+            throw new InvalidOperationException($"The Steam API call for {typeof(T).Name} failed before completing.{item}");
+        }
+
         await RespondResultAsync(callbackId, result);
     }
 
-    private static async Task<T> WaitForCallAsync<T>(UInt64 call, int k_iCallback) where T : unmanaged
+    private static async Task<T?> WaitForCallAsync<T>(UInt64 call, int k_iCallback) where T : unmanaged
     {
         bool failed = false;
         while (!SteamUtils.IsAPICallCompleted(call, ref failed) && !failed)
             await Task.Delay(PollIntervalMs);
 
-        if (failed)
-            throw new InvalidOperationException("The Steam API call failed before completing.");
-
-        return ReadCallResult<T>(call, k_iCallback);
+        // A reported failure is not a dead end: the caller can still inspect the live workshop
+        // state to work out *why* (e.g. subscribe not yet applied vs. download rejected).
+        return failed ? null : ReadCallResult<T>(call, k_iCallback);
     }
 
     private static T ReadCallResult<T>(UInt64 call, int k_iCallback) where T : unmanaged
@@ -304,6 +323,46 @@ internal static class Program
         {
             pinned.Free();
         }
+    }
+
+    /// <summary>
+    /// Captures the live Steam state of a workshop item for diagnostic messages after a failed
+    /// call. <c>GetItemState</c>/<c>GetItemDownloadInfo</c>/<c>GetItemInstallInfo</c> are synchronous
+    /// local queries, so they keep working even when the async call itself reports a failure.
+    /// </summary>
+    private static string DescribeWorkshopItem(ulong publishedFileId)
+    {
+        EItemState state = SteamUGC.GetItemState(publishedFileId);
+        StringBuilder info = new($"state=[{DescribeState(state)}]");
+
+        UInt64 bytesDownloaded = 0, bytesTotal = 0;
+        if (SteamUGC.GetItemDownloadInfo(publishedFileId, ref bytesDownloaded, ref bytesTotal))
+            info.Append($", download={bytesDownloaded}/{bytesTotal} bytes");
+
+        UInt64 sizeOnDisk = 0;
+        UInt32 timeStamp = 0;
+        StringBuilder folder = new(1024);
+        if (SteamUGC.GetItemInstallInfo(publishedFileId, ref sizeOnDisk, folder, (UInt32)folder.Capacity, ref timeStamp))
+            info.Append($", onDisk={sizeOnDisk} bytes, folder=\"{folder}\"");
+
+        return info.ToString();
+    }
+
+    private static string DescribeState(EItemState state)
+    {
+        if (state == EItemState.k_EItemStateNone)
+            return "none";
+
+        List<string> parts = new();
+        if (state.HasFlag(EItemState.k_EItemStateSubscribed)) parts.Add("Subscribed");
+        if (state.HasFlag(EItemState.k_EItemStateLegacyItem)) parts.Add("LegacyItem");
+        if (state.HasFlag(EItemState.k_EItemStateInstalled)) parts.Add("Installed");
+        if (state.HasFlag(EItemState.k_EItemStateNeedsUpdate)) parts.Add("NeedsUpdate");
+        if (state.HasFlag(EItemState.k_EItemStateDownloading)) parts.Add("Downloading");
+        if (state.HasFlag(EItemState.k_EItemStateDownloadPending)) parts.Add("DownloadPending");
+        if (state.HasFlag(EItemState.k_EItemStateDisabledLocally)) parts.Add("DisabledLocally");
+
+        return parts.Count > 0 ? string.Join("|", parts) : state.ToString();
     }
 
     private static Task RespondResultAsync<T>(string callbackId, T payload)

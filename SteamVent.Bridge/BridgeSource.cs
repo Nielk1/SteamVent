@@ -9,47 +9,47 @@ namespace SteamVent.Bridge
 {
     /// <summary>
     /// Adapts <see cref="BridgeContext"/> to the shared workshop contracts (<see cref="IWorkshopSource"/> and
-    /// <see cref="IWorkshopCommands"/>). This assembly is optional: when it is absent the top-level context
-    /// simply degrades to the other subsystems instead of failing. Each operation opens a fresh Bridge child
-    /// process scoped to the requested appid.
+    /// <see cref="IWorkshopCommands"/>), routing through the shared <see cref="BridgePool"/> so repeated work on the
+    /// same appid reuses one warm child process (reaped after it goes idle) instead of spawning one per command.
+    /// This assembly is optional: when it is absent the top-level context simply degrades to the other subsystems.
     /// </summary>
-    public sealed class BridgeSource : IWorkshopSource, IWorkshopCommands, IDisposable
+    public sealed class BridgeSource : IWorkshopSource, IWorkshopCommands
     {
-        #region IWorkshopSource
+        private readonly BridgePool _pool;
 
-        public async Task<IReadOnlyCollection<PublishedFileData>> GetInstalledWorkshopItems(int appid, CancellationToken cancellationToken = default)
+        /// <summary>Creates a source backed by the shared <see cref="BridgePool.Default"/>.</summary>
+        public BridgeSource()
+            : this(BridgePool.Default)
         {
-            using var bridge = new BridgeContext((UInt32)appid);
-            return await bridge.SteamWorkshopListAsync();
         }
 
+        /// <summary>Creates a source backed by a specific pool (mainly for testing).</summary>
+        public BridgeSource(BridgePool pool)
+        {
+            _pool = pool ?? throw new ArgumentNullException(nameof(pool));
+        }
+
+        #region IWorkshopSource
+
+        public Task<IReadOnlyCollection<PublishedFileData>> GetInstalledWorkshopItems(int appid, CancellationToken cancellationToken = default)
+            => _pool.WithAsync((UInt32)appid, ctx => ctx.GetInstalledWorkshopItems(appid, cancellationToken));
+
         public Task<IReadOnlyCollection<PublishedFileData>> GetSubscribedWorkshopItems(int appid, CancellationToken cancellationToken = default)
-            => GetInstalledWorkshopItems(appid, cancellationToken);
+            => _pool.WithAsync((UInt32)appid, ctx => ctx.GetSubscribedWorkshopItems(appid, cancellationToken));
 
         #endregion IWorkshopSource
 
         #region IWorkshopCommands
 
-        public async Task<RemoteStorageSubscribePublishedFileResult_t> SubscribeAsync(ulong publishedFileId, int appid, CancellationToken cancellationToken = default)
-        {
-            using var bridge = new BridgeContext((UInt32)appid);
-            return await bridge.SteamWorkshopSubscribeAsync(publishedFileId);
-        }
+        public Task<RemoteStorageSubscribePublishedFileResult_t> SubscribeAsync(ulong publishedFileId, int appid, CancellationToken cancellationToken = default)
+            => _pool.WithAsync((UInt32)appid, ctx => ctx.SubscribeAsync(publishedFileId, appid, cancellationToken));
 
-        public async Task<RemoteStorageUnsubscribePublishedFileResult_t> UnsubscribeAsync(ulong publishedFileId, int appid, CancellationToken cancellationToken = default)
-        {
-            using var bridge = new BridgeContext((UInt32)appid);
-            return await bridge.SteamWorkshopUnsubscribeAsync(publishedFileId);
-        }
+        public Task<RemoteStorageUnsubscribePublishedFileResult_t> UnsubscribeAsync(ulong publishedFileId, int appid, CancellationToken cancellationToken = default)
+            => _pool.WithAsync((UInt32)appid, ctx => ctx.UnsubscribeAsync(publishedFileId, appid, cancellationToken));
 
-        public async Task<DownloadItemResult_t> DownloadAsync(ulong publishedFileId, int appid, CancellationToken cancellationToken = default)
-        {
-            using var bridge = new BridgeContext((UInt32)appid);
-            return await bridge.SteamWorkshopDownloadAsync(publishedFileId);
-        }
+        public Task<DownloadItemResult_t> DownloadAsync(ulong publishedFileId, int appid, IProgress<WorkshopItemProgress>? progress = null, CancellationToken cancellationToken = default)
+            => _pool.WithAsync((UInt32)appid, ctx => ctx.DownloadAsync(publishedFileId, appid, progress, cancellationToken));
 
         #endregion IWorkshopCommands
-
-        public void Dispose() { /* BridgeContext instances are scoped to each operation */ }
     }
 }

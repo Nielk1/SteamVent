@@ -39,9 +39,12 @@ namespace SteamVent
         public Task<RemoteStorageUnsubscribePublishedFileResult_t> UnsubscribeAsync(ulong publishedFileId, int appid, CancellationToken cancellationToken = default)
             => WorkshopUnsubscribeAsync(publishedFileId, (UInt32)appid, cancellationToken);
 
-        /// <summary>Downloads a workshop item for <paramref name="appid"/> via the best available subsystem.</summary>
-        public Task<DownloadItemResult_t> DownloadAsync(ulong publishedFileId, int appid, CancellationToken cancellationToken = default)
-            => WorkshopDownloadAsync(publishedFileId, (UInt32)appid, cancellationToken);
+        /// <summary>
+        /// Downloads a workshop item for <paramref name="appid"/> via the best available subsystem, completing
+        /// only when it is fully installed. Reports <paramref name="progress"/> samples while it transfers.
+        /// </summary>
+        public Task<DownloadItemResult_t> DownloadAsync(ulong publishedFileId, int appid, IProgress<WorkshopItemProgress>? progress = null, CancellationToken cancellationToken = default)
+            => WorkshopDownloadAsync(publishedFileId, (UInt32)appid, progress, cancellationToken);
 
         #endregion IWorkshopCommands
 
@@ -146,9 +149,12 @@ namespace SteamVent
         public Task<RemoteStorageUnsubscribePublishedFileResult_t> WorkshopUnsubscribeAsync(ulong publishedFileId, UInt32 appid, CancellationToken cancellationToken = default)
             => RequireWorkshopCommands(appid).UnsubscribeAsync(publishedFileId, (int)appid, cancellationToken);
 
-        /// <summary>Downloads a workshop item, routed in-process or via the Bridge for <paramref name="appid"/>.</summary>
-        public Task<DownloadItemResult_t> WorkshopDownloadAsync(ulong publishedFileId, UInt32 appid, CancellationToken cancellationToken = default)
-            => RequireWorkshopCommands(appid).DownloadAsync(publishedFileId, (int)appid, cancellationToken);
+        /// <summary>
+        /// Downloads a workshop item, routed in-process or via the Bridge for <paramref name="appid"/>, completing
+        /// only when it is fully installed. Reports <paramref name="progress"/> samples while it transfers.
+        /// </summary>
+        public Task<DownloadItemResult_t> WorkshopDownloadAsync(ulong publishedFileId, UInt32 appid, IProgress<WorkshopItemProgress>? progress = null, CancellationToken cancellationToken = default)
+            => RequireWorkshopCommands(appid).DownloadAsync(publishedFileId, (int)appid, progress, cancellationToken);
 
         #endregion Workshop commands
     }

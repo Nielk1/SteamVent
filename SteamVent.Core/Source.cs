@@ -24,7 +24,17 @@ namespace SteamVent.Core
     {
         Task<RemoteStorageSubscribePublishedFileResult_t> SubscribeAsync(ulong publishedFileId, int appid, CancellationToken cancellationToken = default);
         Task<RemoteStorageUnsubscribePublishedFileResult_t> UnsubscribeAsync(ulong publishedFileId, int appid, CancellationToken cancellationToken = default);
-        Task<DownloadItemResult_t> DownloadAsync(ulong publishedFileId, int appid, CancellationToken cancellationToken = default);
+        /// <summary>
+        /// Downloads (installs) a workshop item and completes only once it is fully installed and up to date - not
+        /// merely when Steam acknowledges the request. Both backends honor this contract, so the caller sees the
+        /// same "started, then done / failed / cancelled" behavior regardless of which module answered.
+        /// <para>
+        /// Pass a non-null <paramref name="progress"/> to receive live <see cref="WorkshopItemProgress"/> samples
+        /// (state + bytes transferred) while the content downloads; the samples are throttled to change. The caller
+        /// does not need to track the individual transfer chunks - only that it started and that it finished.
+        /// </para>
+        /// </summary>
+        Task<DownloadItemResult_t> DownloadAsync(ulong publishedFileId, int appid, IProgress<WorkshopItemProgress>? progress = null, CancellationToken cancellationToken = default);
     }
 
     /// <summary>
@@ -53,6 +63,14 @@ namespace SteamVent.Core
         /// subscribe / unsubscribe / download commands). Optional assembly; off by default.
         /// </summary>
         public bool UseBridge { get; init; }
+
+        /// <summary>
+        /// How long a pooled Bridge child process for an appid stays warm after its last command before it is
+        /// reaped. Keep this short: an idle bridge still holds a Steam app-context alive (it can make Steam treat
+        /// that app as running), so a long hang time is actively harmful. Applies only to the Bridge module;
+        /// null = the <c>SteamVent.Bridge.BridgePool</c> default (30s).
+        /// </summary>
+        public TimeSpan? BridgeIdleTimeout { get; init; }
 
         /// <summary>
         /// Use the SteamCmd module (workshop status via the SteamCmd automation pipe). Optional assembly; off

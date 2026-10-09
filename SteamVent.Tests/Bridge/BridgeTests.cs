@@ -1,3 +1,4 @@
+using System.Threading;
 using SteamVent.Bridge;
 using SteamVent.Core;
 using SteamVent.Core.Steamworks;
@@ -7,8 +8,7 @@ namespace SteamVent.Tests.Bridge;
 
 public class BridgeTests
 {
-    [Fact]
-    public async Task WorkshopItemSubscribeDownloadUnsubscribe()
+    private static (UInt32 AppId, UInt64 PublishedFileId) ReadConfig()
     {
         UInt32 appId = UInt32.Parse(Core.Configuration["BridgeTests:AppID"]!);
         Assert.True(appId > 0, "InstalledAppID is missing from the test configuration.");
@@ -16,6 +16,14 @@ public class BridgeTests
         // Penciled-in placeholder - swap in a real workshop item ID before running.
         UInt64 publishedFileId = UInt64.Parse(Core.Configuration["BridgeTests:PublishedFileID"]!);
         Assert.True(publishedFileId > 0, "PublishedFileID is missing from the test configuration.");
+
+        return (appId, publishedFileId);
+    }
+
+    [Fact]
+    public async Task WorkshopItemSubscribeDownloadUnsubscribe()
+    {
+        (UInt32 appId, UInt64 publishedFileId) = ReadConfig();
 
         using BridgeContext bridge = new(appId);
 
@@ -25,9 +33,21 @@ public class BridgeTests
             subscribed.m_eResult is EResult.k_EResultOK or EResult.k_EResultDuplicateRequest,
             $"Subscribe to {publishedFileId} returned {subscribed.m_eResult}.");
 
-        DownloadItemResult_t downloaded = await bridge.SteamWorkshopDownloadAsync(publishedFileId);
+        // Exercise the shared progress surface. Sample count is timing-dependent (0 for an already-current item),
+        // so we only assert the callback contract (the item id) rather than a specific count.
+        int sampleCount = 0;
+        ulong? observedId = null;
+        IProgress<WorkshopItemProgress> progress = new Progress<WorkshopItemProgress>(sample =>
+        {
+            Interlocked.Increment(ref sampleCount);
+            observedId = sample.PublishedFileId;
+        });
+
+        DownloadItemResult_t downloaded = await bridge.SteamWorkshopDownloadAsync(publishedFileId, progress);
         Assert.Equal(publishedFileId, downloaded.m_nPublishedFileId);
         Assert.Equal(EResult.k_EResultOK, downloaded.m_eResult);
+        if (observedId is { } id)
+            Assert.Equal(publishedFileId, id);
 
         PublishedFileData[] items = await bridge.SteamWorkshopListAsync();
         PublishedFileData? item = items.FirstOrDefault(i => i.PublishedFileId == publishedFileId);
@@ -41,5 +61,26 @@ public class BridgeTests
         Assert.True(
             unsubscribed.m_eResult is EResult.k_EResultOK or EResult.k_EResultNoMatch,
             $"Unsubscribe from {publishedFileId} returned {unsubscribed.m_eResult}.");
+    }
+
+    [Fact]
+    public void BridgePoolReusesTheSameContextForTheSameAppId()
+    {
+        (UInt32 appId, _) = ReadConfig();
+
+        using BridgePool pool = new(TimeSpan.FromMinutes(1));
+
+        BridgeContext first = pool.Acquire(appId);
+        try
+        {
+            BridgeContext second = pool.Acquire(appId);
+            Assert.True(ReferenceEquals(first, second), "A second Acquire for the same appid should reuse the warm bridge, not spawn a new one.");
+            pool.Release(appId);
+            pool.Release(appId);
+        }
+        finally
+        {
+            pool.Dispose();
+        }
     }
 }

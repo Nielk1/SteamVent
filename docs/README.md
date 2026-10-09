@@ -19,6 +19,7 @@ SteamVent is the buisness logic for the **BZR Mod Manager**. It is organized int
 SteamVent/
 ├── SteamVent.Core/              # net10.0
 │   ├── Source.cs                # Source, PublishedFileData, IWorkshopSource, IWorkshopCommands
+│   ├── WorkshopItemProgress.cs  # live download-progress sample (state + bytes + Percent)
 │   ├── BVdf.cs                  # Binary VDF reader (BVdf, BVProperty, BVPropertyCollection, ...)
 │   └── InterProc/               # Steam IPC result enums/structs
 │       ├── SteamTypes.cs        # EResult, CallResult<T>, ISteamAPICall
@@ -28,7 +29,8 @@ SteamVent/
 │       └── RemoteStorageUnsubscribePublishedFileResult_t.cs
 ├── SteamVent.Bridge/            # net10.0, depends on Core
 │   ├── BridgeContext.cs         # IPC client: launches a Bridge child process, sends commands
-│   ├── BridgeSource.cs          # IWorkshopSource / IWorkshopCommands over the Bridge
+│   ├── BridgePool.cs            # warm per-AppId BridgeContext pool with idle reaping
+│   ├── BridgeSource.cs          # IWorkshopSource / IWorkshopCommands over the Bridge (via the pool)
 │   ├── Interfaces/              # ISteamApps / ISteamUtils / ISteamUGC command contracts
 │   └── InterProc/               # SteamAPICall_t, Callback<T>, generated proxies + result structs
 └── SteamVent/                   # net10.0, depends on Core
@@ -64,6 +66,7 @@ SteamVent/
 ## Core abstractions (`SteamVent.Core`)
 
 - **`PublishedFileData`** — a lightweight snapshot of one Steam Workshop item: `PublishedFileId`, `State` (`EItemState` flags), plus optional `Folder`, `SizeOnDisk`, `TimeStamp`, `BytesDownloaded`, `BytesTotal`.
+- **`WorkshopItemProgress`** — a point-in-time sample of an in-flight download: `PublishedFileId`, live `State`, `BytesDownloaded` / `BytesTotal`, and a `Percent` convenience. Raised through `IProgress<WorkshopItemProgress>` by both backends so a caller can surface live transfer status.
 - **`IWorkshopSource`** — read-side workshop listing:
   ```csharp
   Task<IReadOnlyCollection<PublishedFileData>> GetInstalledWorkshopItems(int appid, CancellationToken ct = default);
@@ -73,7 +76,8 @@ SteamVent/
   ```csharp
   Task<RemoteStorageSubscribePublishedFileResult_t> SubscribeAsync(ulong publishedFileId, int appid, CancellationToken ct = default);
   Task<RemoteStorageUnsubscribePublishedFileResult_t> UnsubscribeAsync(ulong publishedFileId, int appid, CancellationToken ct = default);
-  Task<DownloadItemResult_t> DownloadAsync(ulong publishedFileId, int appid, CancellationToken ct = default);
+  // Completes only when the item is fully installed (not on the ACK); reports live progress when given.
+  Task<DownloadItemResult_t> DownloadAsync(ulong publishedFileId, int appid, IProgress<WorkshopItemProgress>? progress = null, CancellationToken ct = default);
   ```
 - **`BVdf`** — a reader for Valve's binary `.vdf` format (the appcache `appinfo.vdf`), exposing `BVPropertyCollection` / `BVProperty` with typed `GetValue<T>()` accessors.
 
@@ -295,18 +299,58 @@ var un    = await bridge.SteamWorkshopUnsubscribeAsync(publishedFileId);
 
 ### Bridge diagnostics & error reporting
 
-A failing request throws a `BridgeException` that carries the context needed to diagnose it without reaching for the logs. The **message itself** is self-describing — e.g. `[workshop download 3718541406, app 624970, bridge error] System.InvalidOperationException: The Steam API call failed before completing.` — so it stays informative even in runners (like xUnit) that only print the message. In addition, the exception exposes these fields for programmatic access, and `ToString()` appends the deeper context:
+A failing request throws a `BridgeException` that carries the context needed to diagnose it without reaching for the logs. The **message itself** is self-describing — e.g. `[workshop download 3718541406, app 624970, bridge error] System.InvalidOperationException: DownloadItem(3718541406) failed before completing (item state=[Subscribed|NeedsUpdate], download=0/0 bytes).` — so it stays informative even in runners (like xUnit) that only print the message. In addition, the exception exposes these fields for programmatic access, and `ToString()` appends the deeper context:
 
 - `Command` / `CallbackId` / `AppId` — what was in flight;
 - `Reason` — how the failure was detected: `bridge error`, `timeout`, `process exit`, `malformed response`, or `decode failure`;
 - `ExitCode` — the bridge process exit code (for `process exit`);
 - `RawResponse` — the raw envelope/payload the bridge sent (when one was received);
 - `BridgeExceptionType` / `BridgeStackTrace` — the exception the *bridge process* threw (for `bridge error`);
-- `BridgeOutput` — the recent tail of bridge diagnostics: `progress` updates (e.g. download `state` + `bytesDownloaded` / `bytesTotal`), `stderr`, and any non-protocol stdout.
+- `BridgeOutput` — the recent tail of bridge diagnostics: `progress` updates (e.g. download `state` + `bytesDownloaded` / `bytesTotal`), `stderr`, and any non-protocol stdout;
+- **Item state** — for workshop commands the bridge additionally captures the *live* Steam state of the item at the moment of failure and embeds it in the message (e.g. `item state=[Subscribed|NeedsUpdate], download=0/0 bytes`). These come from `GetItemState` / `GetItemDownloadInfo` / `GetItemInstallInfo`, which are synchronous local queries and keep working even when the async Steam call itself reports a failure. How to read it: `state=[none]` → the subscribe had not yet applied (a subscribe→download race); `Subscribed|NeedsUpdate` → Steam accepted the subscription but rejected the download call (transient / Steam-side); `Subscribed|Installed` → it actually landed (a timing issue in the completion check); a non-zero `download=X/Y` → the transfer started and aborted.
 
 `progress` lines and `stderr` are always routed to the `BridgeOutput` event (`EventHandler<string>`), so a host can log them live; the client also retains the most recent few hundred lines so they ride along on the next exception.
 
 The wire protocol's `error` envelope is `{ "type": "error", "message", "errorType", "stackTrace" }` — `message` is the human summary, while `errorType` / `stackTrace` carry the bridge-side exception for the failure.
+
+Design intent: the bridge stays deliberately **thin** — it does not retry, gate, or otherwise "fix" a failed Steam call. It reports the failure (with the item-state detail above) and leaves the decision to invoke again to the caller. This is what keeps the in-process `Steamworks` path and the `Bridge` path behaviourally equivalent: both implement the same `IWorkshopCommands` / `IWorkshopSource` contract (`SteamVent.Core`), so a caller can rely on one API surface without knowing which backend served the call.
+
+### Downloads complete when they're actually done
+
+`DownloadAsync` on **both** backends honors the same contract: the call completes only when the item is **fully installed and up to date** (`Installed && !NeedsUpdate`) — not when Steam merely acknowledges the `DownloadItem` request. So neither the in-process `Steamworks` path nor the `Bridge` path can report a premature "done"; a failed or stalled transfer surfaces as an exception carrying the live item state (`state=[...], download=X/Y bytes`), or the caller cancels it via `CancellationToken`.
+
+Both also report live progress through `IProgress<WorkshopItemProgress>` (state + bytes + `Percent`), throttled to change, so a caller can drive a progress bar without knowing which backend answered:
+
+```csharp
+IProgress<WorkshopItemProgress> progress = new(sample =>
+    System.Console.WriteLine($"  {sample.Percent:0.#}%  {sample.BytesDownloaded}/{sample.BytesTotal}"));
+
+await ctx.SteamWorkshop.WorkshopDownloadAsync(publishedFileId, appId, progress);
+```
+
+### Bridge lifetime (per-AppId pool)
+
+A `BridgeContext` is a child process scoped to one AppID. Rather than spawn one per command, `SteamVent.Bridge.BridgePool` keeps a **warm process per AppID**:
+
+- Repeated work on the same AppID **reuses the same child process** (no per-command spawn); reservations are reference-counted so concurrent commands on one AppID share it safely.
+- Different AppIDs run **concurrently**, each with its own child process — work on two AppIDs at once yields two live bridges.
+- Each entry **decays independently** once idle for `BridgePool.IdleTimeout` (default **30s**). Keep it short: an idle bridge still holds a Steam app-context alive (it can make Steam treat that app as running), so a long hang time is actively harmful. Tune it via `SteamVentOptions.BridgeIdleTimeout` or `BridgePool.IdleTimeout`.
+
+The adaptive `BridgeSource` routes through the shared `BridgePool.Default`; direct users can drive the pool too:
+
+```csharp
+using BridgePool pool = new(TimeSpan.FromSeconds(15));
+BridgeContext bridge = pool.Acquire(appId);
+try
+{
+    await bridge.SubscribeAsync(publishedFileId, (int)appId);
+    await bridge.DownloadAsync(publishedFileId, (int)appId, progress);
+}
+finally
+{
+    pool.Release(appId); // or simply let the pool reap it after IdleTimeout
+}
+```
 
 ---
 

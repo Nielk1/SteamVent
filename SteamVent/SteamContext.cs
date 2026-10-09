@@ -425,9 +425,12 @@ namespace SteamVent
         public Task<RemoteStorageUnsubscribePublishedFileResult_t> WorkshopUnsubscribeAsync(ulong publishedFileId, UInt32 appid, CancellationToken cancellationToken = default)
             => SteamWorkshop.WorkshopUnsubscribeAsync(publishedFileId, appid, cancellationToken);
 
-        /// <summary>Downloads a workshop item, routed in-process or via the Bridge for <paramref name="appid"/>.</summary>
-        public Task<DownloadItemResult_t> WorkshopDownloadAsync(ulong publishedFileId, UInt32 appid, CancellationToken cancellationToken = default)
-            => SteamWorkshop.WorkshopDownloadAsync(publishedFileId, appid, cancellationToken);
+        /// <summary>
+        /// Downloads a workshop item, routed in-process or via the Bridge for <paramref name="appid"/>, completing
+        /// only when it is fully installed. Reports <paramref name="progress"/> samples while it transfers.
+        /// </summary>
+        public Task<DownloadItemResult_t> WorkshopDownloadAsync(ulong publishedFileId, UInt32 appid, IProgress<WorkshopItemProgress>? progress = null, CancellationToken cancellationToken = default)
+            => SteamWorkshop.WorkshopDownloadAsync(publishedFileId, appid, progress, cancellationToken);
 
         #endregion Workshop routing
     }

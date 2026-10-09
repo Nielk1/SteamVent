@@ -26,6 +26,8 @@ namespace SteamVent.Steamworks
     public sealed class SteamWorkshop : IWorkshopCommands, IWorkshopSource
     {
         private static readonly int PollIntervalMs = 100;
+        private static readonly int InstallPollIntervalMs = 500;
+        private static readonly TimeSpan DownloadDeadline = TimeSpan.FromMinutes(10);
 
         private readonly SteamClient _client;
 
@@ -52,12 +54,64 @@ namespace SteamVent.Steamworks
             return AwaitCallAsync<RemoteStorageUnsubscribePublishedFileResult_t>(utils, call, RemoteStorageUnsubscribePublishedFileResult_t.k_iCallback, cancellationToken);
         }
 
-        /// <summary>Downloads (installs) a workshop item's content; the task completes when it is fully installed.</summary>
-        public Task<DownloadItemResult_t> DownloadAsync(ulong publishedFileId, int appid, CancellationToken cancellationToken = default)
+        /// <summary>
+        /// Downloads (installs) a workshop item and completes only once it is fully installed and up to date - the
+        /// same "started, then done / failed / cancelled" contract as the Bridge, so the caller cannot observe a
+        /// premature "done". Reports <paramref name="progress"/> samples while the content transfers.
+        /// </summary>
+        public async Task<DownloadItemResult_t> DownloadAsync(ulong publishedFileId, int appid, IProgress<WorkshopItemProgress>? progress = null, CancellationToken cancellationToken = default)
         {
             var (ugc, utils) = RequireUgcAndUtils();
+
+            if (IsInstalledAndCurrent(ugc.GetItemState(publishedFileId)))
+                return new DownloadItemResult_t { m_eResult = EResult.k_EResultOK, m_nPublishedFileId = publishedFileId };
+
             UInt64 call = ugc.DownloadItem(publishedFileId);
-            return AwaitCallAsync<DownloadItemResult_t>(utils, call, DownloadItemResult_t.k_iCallback, cancellationToken);
+            DownloadItemResult_t? maybeResult = await TryAwaitCallAsync<DownloadItemResult_t>(utils, call, DownloadItemResult_t.k_iCallback, cancellationToken);
+
+            // The acknowledgement is the fast path. A transiently-reported failure (e.g. the item is already
+            // DownloadPending because the subscription just applied) is not a dead end: if a download is actually
+            // in flight we rely on the *installed* end-state below rather than the ACK, so the caller sees a clean
+            // "started, then done" instead of a spurious failure.
+            if (maybeResult is null || maybeResult.Value.m_eResult != EResult.k_EResultOK)
+            {
+                if (!IsDownloadActive(ugc.GetItemState(publishedFileId)))
+                {
+                    string detail = maybeResult is { } r ? $"returned {r.m_eResult}" : "failed before completing";
+                    throw new SteamException($"DownloadItem({publishedFileId}) {detail} (item {DescribeItem(publishedFileId)}).");
+                }
+            }
+
+            DownloadItemResult_t result = maybeResult
+                ?? new DownloadItemResult_t { m_eResult = EResult.k_EResultOK, m_nPublishedFileId = publishedFileId };
+
+            DateTime deadline = DateTime.UtcNow + DownloadDeadline;
+            while (true)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+
+                EItemState state = ugc.GetItemState(publishedFileId);
+                if (IsInstalledAndCurrent(state))
+                    return result;
+
+                if (!IsDownloadActive(state))
+                    throw new SteamException($"The download for {publishedFileId} stopped before completing (item {DescribeItem(publishedFileId)}).");
+
+                UInt64 bytesDownloaded = 0, bytesTotal = 0;
+                ugc.GetItemDownloadInfo(publishedFileId, ref bytesDownloaded, ref bytesTotal);
+                progress?.Report(new WorkshopItemProgress
+                {
+                    PublishedFileId = publishedFileId,
+                    State = state,
+                    BytesDownloaded = bytesDownloaded,
+                    BytesTotal = bytesTotal,
+                });
+
+                if (DateTime.UtcNow > deadline)
+                    throw new TimeoutException($"Timed out waiting for the download of {publishedFileId} to finish.");
+
+                await Task.Delay(InstallPollIntervalMs, cancellationToken);
+            }
         }
 
         #endregion IWorkshopCommands
@@ -134,6 +188,14 @@ namespace SteamVent.Steamworks
 
         private async Task<T> AwaitCallAsync<T>(ISteamUtils utils, UInt64 call, int k_iCallback, CancellationToken cancellationToken) where T : unmanaged
         {
+            T? result = await TryAwaitCallAsync<T>(utils, call, k_iCallback, cancellationToken);
+            return result ?? throw new SteamException("The Steam API call failed before completing.");
+        }
+
+        /// <summary>Like <see cref="AwaitCallAsync{T}"/> but returns null instead of throwing when the call fails, so a
+        /// caller can inspect the live state and decide whether to recover (e.g. the download is still in flight).</summary>
+        private async Task<T?> TryAwaitCallAsync<T>(ISteamUtils utils, UInt64 call, int k_iCallback, CancellationToken cancellationToken) where T : unmanaged
+        {
             bool failed = false;
             while (!utils.IsAPICallCompleted(call, ref failed) && !failed)
             {
@@ -142,7 +204,7 @@ namespace SteamVent.Steamworks
             }
 
             if (failed)
-                throw new SteamException("The Steam API call failed before completing.");
+                return null;
 
             int size = Marshal.SizeOf<T>();
             byte[] buffer = new byte[size];
@@ -152,13 +214,63 @@ namespace SteamVent.Steamworks
                 IntPtr address = pinned.AddrOfPinnedObject();
                 bool failedResult = false;
                 if (!Steam.GetAPICallResult(_client.SteamPipe, call, address, size, k_iCallback, ref failedResult) || failedResult)
-                    throw new SteamException($"Steam_GetAPICallResult for {typeof(T).Name} failed.");
+                    return null;
                 return Marshal.PtrToStructure<T>(address);
             }
             finally
             {
                 pinned.Free();
             }
+        }
+
+        private static bool IsInstalledAndCurrent(EItemState state)
+            => state.HasFlag(EItemState.k_EItemStateInstalled) && !state.HasFlag(EItemState.k_EItemStateNeedsUpdate);
+
+        private static bool IsDownloadActive(EItemState state)
+            => state.HasFlag(EItemState.k_EItemStateDownloading) || state.HasFlag(EItemState.k_EItemStateDownloadPending);
+
+        /// <summary>
+        /// Captures the live Steam state of a workshop item for diagnostics after a failed call, mirroring the
+        /// Bridge's messages. <c>GetItemState</c>/<c>GetItemDownloadInfo</c>/<c>GetItemInstallInfo</c> are
+        /// synchronous local queries, so they keep working even when the async call itself reports a failure.
+        /// </summary>
+        private string DescribeItem(ulong publishedFileId)
+        {
+            ISteamUGC? ugc = _client.GetISteamUGC();
+            if (ugc is null)
+                return "state=[unavailable]";
+
+            EItemState state = ugc.GetItemState(publishedFileId);
+            StringBuilder info = new($"state=[{DescribeState(state)}]");
+
+            UInt64 bytesDownloaded = 0, bytesTotal = 0;
+            if (ugc.GetItemDownloadInfo(publishedFileId, ref bytesDownloaded, ref bytesTotal))
+                info.Append($", download={bytesDownloaded}/{bytesTotal} bytes");
+
+            UInt64 sizeOnDisk = 0;
+            UInt32 timeStamp = 0;
+            StringBuilder folder = new(1024);
+            if (ugc.GetItemInstallInfo(publishedFileId, ref sizeOnDisk, folder, (UInt32)folder.Capacity, ref timeStamp))
+                info.Append($", onDisk={sizeOnDisk} bytes, folder=\"{folder}\"");
+
+            return info.ToString();
+        }
+
+        private static string DescribeState(EItemState state)
+        {
+            if (state == EItemState.k_EItemStateNone)
+                return "none";
+
+            List<string> parts = new();
+            if (state.HasFlag(EItemState.k_EItemStateSubscribed)) parts.Add("Subscribed");
+            if (state.HasFlag(EItemState.k_EItemStateLegacyItem)) parts.Add("LegacyItem");
+            if (state.HasFlag(EItemState.k_EItemStateInstalled)) parts.Add("Installed");
+            if (state.HasFlag(EItemState.k_EItemStateNeedsUpdate)) parts.Add("NeedsUpdate");
+            if (state.HasFlag(EItemState.k_EItemStateDownloading)) parts.Add("Downloading");
+            if (state.HasFlag(EItemState.k_EItemStateDownloadPending)) parts.Add("DownloadPending");
+            if (state.HasFlag(EItemState.k_EItemStateDisabledLocally)) parts.Add("DisabledLocally");
+
+            return parts.Count > 0 ? string.Join("|", parts) : state.ToString();
         }
 
         #endregion Helpers
