@@ -1,0 +1,10 @@
+# Project Context: SteamVent steam interface library
+You are assisting with the SteamVent library which interfaces with Steam, the Steam Client, and other Steam related systems.
+
+## Project Layout & Reference Paths
+- **Workspace:** Contains the Solution file and documentation.
+
+## Operational Rules
+1. **Tool use:** Avoid executing terminal commands when existing tools are sufficent such as editing or reading file contents. Terminal is powershell.
+2. **Maintain documentation:** When making changes to code always keep the documentation at `{workspace}\docs` up to date.
+  * `{workspace}\docs\README.md` - Current full docs, will be split up later
