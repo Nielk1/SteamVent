@@ -42,7 +42,6 @@ namespace SteamVent.Steamworks
         public Task<RemoteStorageSubscribePublishedFileResult_t> SubscribeAsync(ulong publishedFileId, int appid, CancellationToken cancellationToken = default)
         {
             var (ugc, utils) = RequireUgcAndUtils();
-            EnsureAppIdContext(appid, utils, "workshop subscribe", publishedFileId);
             UInt64 call = ugc.SubscribeItem(publishedFileId);
             return AwaitCallAsync<RemoteStorageSubscribePublishedFileResult_t>(utils, call, RemoteStorageSubscribePublishedFileResult_t.k_iCallback, cancellationToken);
         }
@@ -51,7 +50,6 @@ namespace SteamVent.Steamworks
         public Task<RemoteStorageUnsubscribePublishedFileResult_t> UnsubscribeAsync(ulong publishedFileId, int appid, CancellationToken cancellationToken = default)
         {
             var (ugc, utils) = RequireUgcAndUtils();
-            EnsureAppIdContext(appid, utils, "workshop unsubscribe", publishedFileId);
             UInt64 call = ugc.UnsubscribeItem(publishedFileId);
             return AwaitCallAsync<RemoteStorageUnsubscribePublishedFileResult_t>(utils, call, RemoteStorageUnsubscribePublishedFileResult_t.k_iCallback, cancellationToken);
         }
@@ -64,7 +62,6 @@ namespace SteamVent.Steamworks
         public async Task<DownloadItemResult_t> DownloadAsync(ulong publishedFileId, int appid, IProgress<WorkshopItemProgress>? progress = null, CancellationToken cancellationToken = default)
         {
             var (ugc, utils) = RequireUgcAndUtils();
-            EnsureAppIdContext(appid, utils, "workshop download", publishedFileId);
 
             if (IsInstalledAndCurrent(ugc.GetItemState(publishedFileId)))
                 return new DownloadItemResult_t { m_eResult = EResult.k_EResultOK, m_nPublishedFileId = publishedFileId };
@@ -150,23 +147,6 @@ namespace SteamVent.Steamworks
             if (utils == null)
                 throw new WorkshopException("Steamworks ISteamUtils is not available for in-process workshop commands.");
             return (ugc, utils);
-        }
-
-        /// <summary>
-        /// Guard: when the caller asked for a specific AppID, verify the live Steam context is actually running
-        /// under it - if <c>ISteamUtils.GetAppID</c> differs, a stale <c>steam_appid.txt</c> (or another game) got in
-        /// the way of the forced context, and we must fail loudly rather than operate on the wrong app's workshop.
-        /// When no specific AppID was requested (<paramref name="appid"/> is 0), we simply operate under whatever
-        /// context Steam is running under.
-        /// </summary>
-        private static void EnsureAppIdContext(int appid, ISteamUtils utils, string operation, ulong? publishedFileId)
-        {
-            if (appid <= 0)
-                return;
-
-            UInt32 live = utils.GetAppID();
-            if (live != (UInt32)appid)
-                throw WorkshopException.AppIdMismatch((UInt32)appid, live, operation, publishedFileId);
         }
 
         private IReadOnlyCollection<PublishedFileData> BuildItems()

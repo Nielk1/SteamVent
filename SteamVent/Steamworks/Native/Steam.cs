@@ -129,7 +129,7 @@ namespace SteamVent.Steamworks.Native
             if (_callCreateInterface == null)
                 throw new InvalidOperationException($"Steam Client library is not initialized ({nameof(CreateInterface)}).");
 
-            string version = ((InterfaceVersion)typeof(ISteamClient017).GetCustomAttribute(typeof(InterfaceVersion))).Version;
+            string version = ((InterfaceVersion)typeof(TInterface).GetCustomAttribute(typeof(InterfaceVersion))).Version;
 
             IntPtr versionUtf8 = Marshal.StringToCoTaskMemUTF8(version);
             try

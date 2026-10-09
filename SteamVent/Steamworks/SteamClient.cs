@@ -152,6 +152,11 @@ namespace SteamVent.Steamworks
                     {
                         InitSteamworks();
                     }
+                    catch (WorkshopException)
+                    {
+                        InternalSteamClient = null; // a half-started client must not be reused
+                        throw; // an AppID-context desync is a hard error for this appid; do not degrade it to "unavailable"
+                    }
                     catch
                     {
                         InternalSteamClient = null; // a half-started client must not be reused
@@ -190,13 +195,28 @@ namespace SteamVent.Steamworks
             //if (SteamApps == null)
             //    throw new Exception();
 
-            // ISteamUtils.GetAppID is the source of truth for the appid this context is actually running under;
-            // latch it so AppId becomes immutable for the life of the context.
+            // ISteamUtils.GetAppID is the source of truth for the appid this context is actually running under.
+            // Affirm the AppID context ONCE here, right after the Steamworks context is up: when a specific AppID was
+            // requested (non-null), the live AppID must be that AppID - a stale steam_appid.txt (or another game) that
+            // overrides the forced context is a desync and must fail loudly. A null request is permissive (a host that
+            // is not itself a Steam game, or one that simply wants whatever context Steam reports). The confirmed
+            // live value is then latched so AppId is immutable for the life of the context.
             try
             {
                 ISteamUtils? utils = InternalSteamClient.GetISteamUtils<ISteamUtils007>(Pipe);
-                if (utils != null)
-                    _appId = utils.GetAppID();
+                if (utils is not null)
+                {
+                    UInt32? requested = _appId;
+                    UInt32 live = utils.GetAppID();
+                    if (requested.HasValue && live != requested.Value)
+                        throw WorkshopException.AppIdMismatch(requested.Value, live, "steamworks context start");
+
+                    _appId = live;
+                }
+            }
+            catch (WorkshopException)
+            {
+                throw; // an AppID-context desync is a hard error; never latch a context we are not actually under
             }
             catch
             {

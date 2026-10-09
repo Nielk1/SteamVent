@@ -378,10 +378,14 @@ catch (WorkshopException ex)
 - **In-process `Steamworks`** throws `WorkshopException` directly (it replaces the former thin `SteamException` on the workshop command path).
 - **Bridge** boxes its rich `BridgeException` in the `WorkshopException` as `InnerException`, so the bridge diagnostics (raw response, stderr tail, item state) stay reachable.
 
-**AppID-context guard.** Both backends verify, on every command, that they are actually running under the AppID the caller asked for:
+**AppID-context affirmation.** The AppID context is fixed once the Steamworks context starts, so both backends affirm it **once, at startup** — not on every command — and the check is **Steamworks/Bridge-wide** (it guards the whole context, not just the workshop commands):
 
-- AppID **0 / not set** → operate under whatever context Steam is running under (no check).
-- AppID **set** → the backend forces that context (the `SteamAppId` env var in the Bridge child; `SteamworksAppId` for the in-process client), then **spot-checks** the live `ISteamUtils.GetAppID()`. If it differs, a `WorkshopException` with `IsAppIdMismatch = true` is thrown.
+- **In-process `Steamworks`** affirms it in `SteamClient`, right after the context starts, from `SteamVentOptions.SteamworksAppId` (a nullable three-state):
+  - `null` (unset) → **permissive**: the context is whatever Steam reports (a host that is not itself a Steam game, or one that simply wants its own context). No check.
+  - `0` or `N` (set) → the context forces that AppID (`SteamAppId` env var), then confirms the live `ISteamUtils.GetAppID()` equals it. A mismatch throws a `WorkshopException` with `IsAppIdMismatch = true` (a hard error — the context is never latched under an AppID it was not actually asked for).
+- **Bridge** affirms it once in the child process at startup (a single `ISteamUtils.GetAppID()` query, then cached). A bridge is always scoped to exactly one app, so the live AppID must equal that scope; if it does not, every command reports the cached mismatch (`IsAppIdMismatch = true`) instead of acting on the wrong app's workshop.
+
+Because the affirmation runs once at context start rather than per command, the expensive live query happens a single time, while the per-command cost is a cheap cached check (Bridge) or nothing (in-process).
 
 This catches the "sleeping appid" case where a stale `steam_appid.txt` (or another game) overrides the forced context and would otherwise silently redirect the work to the wrong app's workshop.
 
