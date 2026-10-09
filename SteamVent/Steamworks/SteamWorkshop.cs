@@ -42,6 +42,7 @@ namespace SteamVent.Steamworks
         public Task<RemoteStorageSubscribePublishedFileResult_t> SubscribeAsync(ulong publishedFileId, int appid, CancellationToken cancellationToken = default)
         {
             var (ugc, utils) = RequireUgcAndUtils();
+            EnsureAppIdContext(appid, utils, "workshop subscribe", publishedFileId);
             UInt64 call = ugc.SubscribeItem(publishedFileId);
             return AwaitCallAsync<RemoteStorageSubscribePublishedFileResult_t>(utils, call, RemoteStorageSubscribePublishedFileResult_t.k_iCallback, cancellationToken);
         }
@@ -50,6 +51,7 @@ namespace SteamVent.Steamworks
         public Task<RemoteStorageUnsubscribePublishedFileResult_t> UnsubscribeAsync(ulong publishedFileId, int appid, CancellationToken cancellationToken = default)
         {
             var (ugc, utils) = RequireUgcAndUtils();
+            EnsureAppIdContext(appid, utils, "workshop unsubscribe", publishedFileId);
             UInt64 call = ugc.UnsubscribeItem(publishedFileId);
             return AwaitCallAsync<RemoteStorageUnsubscribePublishedFileResult_t>(utils, call, RemoteStorageUnsubscribePublishedFileResult_t.k_iCallback, cancellationToken);
         }
@@ -62,6 +64,7 @@ namespace SteamVent.Steamworks
         public async Task<DownloadItemResult_t> DownloadAsync(ulong publishedFileId, int appid, IProgress<WorkshopItemProgress>? progress = null, CancellationToken cancellationToken = default)
         {
             var (ugc, utils) = RequireUgcAndUtils();
+            EnsureAppIdContext(appid, utils, "workshop download", publishedFileId);
 
             if (IsInstalledAndCurrent(ugc.GetItemState(publishedFileId)))
                 return new DownloadItemResult_t { m_eResult = EResult.k_EResultOK, m_nPublishedFileId = publishedFileId };
@@ -78,7 +81,12 @@ namespace SteamVent.Steamworks
                 if (!IsDownloadActive(ugc.GetItemState(publishedFileId)))
                 {
                     string detail = maybeResult is { } r ? $"returned {r.m_eResult}" : "failed before completing";
-                    throw new SteamException($"DownloadItem({publishedFileId}) {detail} (item {DescribeItem(publishedFileId)}).");
+                    throw new WorkshopException($"DownloadItem({publishedFileId}) {detail} (item {DescribeItem(publishedFileId)}).", null)
+                    {
+                        AppId = appid > 0 ? (UInt32)appid : null,
+                        PublishedFileId = publishedFileId,
+                        Operation = "workshop download",
+                    };
                 }
             }
 
@@ -95,7 +103,12 @@ namespace SteamVent.Steamworks
                     return result;
 
                 if (!IsDownloadActive(state))
-                    throw new SteamException($"The download for {publishedFileId} stopped before completing (item {DescribeItem(publishedFileId)}).");
+                    throw new WorkshopException($"The download for {publishedFileId} stopped before completing (item {DescribeItem(publishedFileId)}).", null)
+                    {
+                        AppId = appid > 0 ? (UInt32)appid : null,
+                        PublishedFileId = publishedFileId,
+                        Operation = "workshop download",
+                    };
 
                 UInt64 bytesDownloaded = 0, bytesTotal = 0;
                 ugc.GetItemDownloadInfo(publishedFileId, ref bytesDownloaded, ref bytesTotal);
@@ -132,17 +145,34 @@ namespace SteamVent.Steamworks
         {
             ISteamUGC? ugc = _client.GetISteamUGC();
             if (ugc == null)
-                throw new SteamException("Steamworks is not available (Steam not running or the ISteamUGC interface could not be created) for in-process workshop commands.");
+                throw new WorkshopException("Steamworks is not available (Steam not running or the ISteamUGC interface could not be created) for in-process workshop commands.");
             ISteamUtils? utils = _client.GetISteamUtils();
             if (utils == null)
-                throw new SteamException("Steamworks ISteamUtils is not available for in-process workshop commands.");
+                throw new WorkshopException("Steamworks ISteamUtils is not available for in-process workshop commands.");
             return (ugc, utils);
+        }
+
+        /// <summary>
+        /// Guard: when the caller asked for a specific AppID, verify the live Steam context is actually running
+        /// under it - if <c>ISteamUtils.GetAppID</c> differs, a stale <c>steam_appid.txt</c> (or another game) got in
+        /// the way of the forced context, and we must fail loudly rather than operate on the wrong app's workshop.
+        /// When no specific AppID was requested (<paramref name="appid"/> is 0), we simply operate under whatever
+        /// context Steam is running under.
+        /// </summary>
+        private static void EnsureAppIdContext(int appid, ISteamUtils utils, string operation, ulong? publishedFileId)
+        {
+            if (appid <= 0)
+                return;
+
+            UInt32 live = utils.GetAppID();
+            if (live != (UInt32)appid)
+                throw WorkshopException.AppIdMismatch((UInt32)appid, live, operation, publishedFileId);
         }
 
         private IReadOnlyCollection<PublishedFileData> BuildItems()
         {
             ISteamUGC ugc = _client.GetISteamUGC()
-                ?? throw new SteamException("Steamworks is not available (Steam not running or the ISteamUGC interface could not be created) for in-process workshop listing.");
+                ?? throw new WorkshopException("Steamworks is not available (Steam not running or the ISteamUGC interface could not be created) for in-process workshop listing.");
 
             var items = new List<PublishedFileData>();
             UInt32 count = ugc.GetNumSubscribedItems();
@@ -189,7 +219,7 @@ namespace SteamVent.Steamworks
         private async Task<T> AwaitCallAsync<T>(ISteamUtils utils, UInt64 call, int k_iCallback, CancellationToken cancellationToken) where T : unmanaged
         {
             T? result = await TryAwaitCallAsync<T>(utils, call, k_iCallback, cancellationToken);
-            return result ?? throw new SteamException("The Steam API call failed before completing.");
+            return result ?? throw new WorkshopException("The Steam API call failed before completing.");
         }
 
         /// <summary>Like <see cref="AwaitCallAsync{T}"/> but returns null instead of throwing when the call fails, so a

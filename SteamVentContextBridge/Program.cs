@@ -52,6 +52,10 @@ internal static class Program
     private static ISteamUtils SteamUtils = null!;
     private static ISteamUGC SteamUGC = null!;
 
+    // The AppID this child was launched for (a bridge is scoped to exactly one app). Every workshop command verifies
+    // the live Steam context against this, so a stale steam_appid.txt cannot silently redirect the work to a wrong app.
+    private static UInt32 RequestedAppId;
+
     private static async Task<int> Main(string[] args)
     {
         if (args.Length != 1 || !UInt32.TryParse(args[0], out UInt32 appId) || appId == 0)
@@ -61,6 +65,7 @@ internal static class Program
         }
 
         // Scope the workshop calls to the requested app without needing a steam_appid.txt.
+        RequestedAppId = appId;
         Environment.SetEnvironmentVariable("StickySteamAppId", null);
         Environment.SetEnvironmentVariable("SteamAppId", appId.ToString(CultureInfo.InvariantCulture));
 
@@ -133,8 +138,25 @@ internal static class Program
         }
     }
 
+    /// <summary>
+    /// Guard: this bridge was launched to operate under a specific AppID, so verify the live Steam context is
+    /// actually running under it. When a stale <c>steam_appid.txt</c> (or another game) overrides the forced context,
+    /// <c>ISteamUtils.GetAppID</c> reports a different AppID and we must fail loudly rather than act on the wrong
+    /// app's workshop.
+    /// </summary>
+    private static void EnsureAppIdContext()
+    {
+        if (RequestedAppId == 0)
+            return;
+
+        UInt32 live = SteamUtils.GetAppID();
+        if (live != RequestedAppId)
+            throw WorkshopException.AppIdMismatch(RequestedAppId, live, "workshop");
+    }
+
     private static async Task WorkshopAsync(string callbackId, string args)
     {
+        EnsureAppIdContext();
         string[] parts = args.Split(' ', 2, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
         switch (parts[0])
         {

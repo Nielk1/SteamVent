@@ -160,7 +160,11 @@ public sealed class BridgeContext : IDisposable, IWorkshopSource, IWorkshopComma
     private void CheckAppId(int appid)
     {
         if (appid != 0 && appid != (int)_appId)
-            throw new ArgumentException($"This bridge is scoped to app {_appId}, but {appid} was requested.", nameof(appid));
+            throw new WorkshopException($"This bridge is scoped to AppID {_appId}, but AppID {appid} was requested.", null)
+            {
+                AppId = (UInt32)appid,
+                IsAppIdMismatch = true,
+            };
     }
 
     #endregion IWorkshopSource / IWorkshopCommands
@@ -376,7 +380,7 @@ public sealed class BridgeContext : IDisposable, IWorkshopSource, IWorkshopComma
             return;
 
         pending!.Completion.TrySetException(CreateException(pending.Command, callbackId, reason, detail, innerException,
-            errorType: errorType, stackTrace: stackTrace, raw: raw));
+            errorType: errorType, stackTrace: stackTrace, raw: raw, publishedFileId: pending.PublishedFileId));
     }
 
     private bool TryRemovePending(string callbackId, out PendingRequest? pending)
@@ -405,7 +409,7 @@ public sealed class BridgeContext : IDisposable, IWorkshopSource, IWorkshopComma
 
         foreach (KeyValuePair<string, PendingRequest> entry in abandoned)
             entry.Value.Completion.TrySetException(CreateException(entry.Value.Command, entry.Key, "process exit", detail,
-                exitCode: exitCode));
+                exitCode: exitCode, publishedFileId: entry.Value.PublishedFileId));
     }
 
     /// <summary>
@@ -413,7 +417,7 @@ public sealed class BridgeContext : IDisposable, IWorkshopSource, IWorkshopComma
     /// and last bridge output (so it is informative even in runners that only print the message), while the
     /// individual fields stay available for programmatic access and <see cref="BridgeException.ToString"/>.
     /// </summary>
-    private BridgeException CreateException(
+    private WorkshopException CreateException(
         string command,
         string callbackId,
         string reason,
@@ -422,9 +426,14 @@ public sealed class BridgeContext : IDisposable, IWorkshopSource, IWorkshopComma
         int? exitCode = null,
         string? errorType = null,
         string? stackTrace = null,
-        string? raw = null)
+        string? raw = null,
+        ulong? publishedFileId = null)
     {
-        return new BridgeException(BuildFailureMessage(command, reason, detail), innerException)
+        // The BridgeException keeps all of the bridge-specific diagnostics (raw response, stderr tail, the bridge-side
+        // exception type/stack trace). The WorkshopException is the unified type the caller catches; the bridge
+        // failure is boxed in it as the InnerException so those diagnostics stay reachable. When the bridge reported
+        // its own WorkshopException (the AppID-mismatch guard), that flag is surfaced on the unified exception too.
+        BridgeException bridge = new(BuildFailureMessage(command, reason, detail), innerException)
         {
             Command = command,
             CallbackId = callbackId,
@@ -435,6 +444,18 @@ public sealed class BridgeContext : IDisposable, IWorkshopSource, IWorkshopComma
             BridgeStackTrace = stackTrace,
             RawResponse = raw,
             BridgeOutput = _recentOutput.ToArray(),
+        };
+
+        bool appIdMismatch = errorType is not null
+            && (errorType == nameof(WorkshopException)
+                || errorType.EndsWith("." + nameof(WorkshopException), StringComparison.Ordinal));
+
+        return new WorkshopException(bridge.Message, bridge)
+        {
+            AppId = _appId,
+            PublishedFileId = publishedFileId,
+            Operation = command,
+            IsAppIdMismatch = appIdMismatch,
         };
     }
 

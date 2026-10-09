@@ -5,7 +5,7 @@ SteamVent is the buisness logic for the **BZR Mod Manager**. It is organized int
 
 | Project | Target | Purpose |
 | --- | --- | --- |
-| `SteamVent.Core` | `net10.0` | Framework-agnostic abstractions: `PublishedFileData`, `WorkshopItemStatus`, the workshop `IWorkshopSource` / `IWorkshopCommands` contracts, `SteamVentOptions` (per-subsystem enable flags + `SteamworksAppId`), the `BVdf` binary-VDF reader, and the Steam result structs (`DownloadItemResult_t`, `RemoteStorage*Result_t`, `EItemState`, `EResult`, `SteamTypes`). |
+| `SteamVent.Core` | `net10.0` | Framework-agnostic abstractions: `PublishedFileData`, `WorkshopItemStatus`, the workshop `IWorkshopSource` / `IWorkshopCommands` contracts, the unified `WorkshopException`, `SteamVentOptions` (per-subsystem enable flags + `SteamworksAppId`), the `BVdf` binary-VDF reader, and the Steam result structs (`DownloadItemResult_t`, `RemoteStorage*Result_t`, `EItemState`, `EResult`, `SteamTypes`). |
 | `SteamVent.Bridge` | `net10.0` | The process-isolated IPC **Bridge** (`BridgeContext` + the `ISteamApps`/`ISteamUtils`/`ISteamUGC` command wrappers and their generated proxies). |
 | `SteamVent` | `net10.0` | The main library: the `Steamworks` (native interproc) layer, the `FileSystem` layer, and the `SteamContext` facade, which deliberately composes whichever subsystems are enabled per operation. |
 
@@ -79,6 +79,7 @@ SteamVent/
   // Completes only when the item is fully installed (not on the ACK); reports live progress when given.
   Task<DownloadItemResult_t> DownloadAsync(ulong publishedFileId, int appid, IProgress<WorkshopItemProgress>? progress = null, CancellationToken ct = default);
   ```
+- **`WorkshopException`** — the unified exception for workshop operations (subscribe / download / unsubscribe and the AppID-context checks around them). Callers catch this one type no matter which backend answered: the in-process `Steamworks` layer throws it directly, and the `Bridge` boxes its richer `BridgeException` in it as `InnerException`. It carries `AppId`, `PublishedFileId`, `Operation`, and an `IsAppIdMismatch` flag (set when the requested AppID is not the one Steam is actually running under — the "stale `steam_appid.txt`" / wrong-context condition); `WorkshopException.AppIdMismatch(...)` builds that case.
 - **`BVdf`** — a reader for Valve's binary `.vdf` format (the appcache `appinfo.vdf`), exposing `BVPropertyCollection` / `BVProperty` with typed `GetValue<T>()` accessors.
 
 ---
@@ -299,7 +300,7 @@ var un    = await bridge.SteamWorkshopUnsubscribeAsync(publishedFileId);
 
 ### Bridge diagnostics & error reporting
 
-A failing request throws a `BridgeException` that carries the context needed to diagnose it without reaching for the logs. The **message itself** is self-describing — e.g. `[workshop download 3718541406, app 624970, bridge error] System.InvalidOperationException: DownloadItem(3718541406) failed before completing (item state=[Subscribed|NeedsUpdate], download=0/0 bytes).` — so it stays informative even in runners (like xUnit) that only print the message. In addition, the exception exposes these fields for programmatic access, and `ToString()` appends the deeper context:
+A failing request surfaces as the unified `WorkshopException` (the one type a caller catches), which boxes the rich `BridgeException` in it as `InnerException`; the `BridgeException` is what carries the context needed to diagnose the failure without reaching for the logs. The **message itself** is self-describing — e.g. `[workshop download 3718541406, app 624970, bridge error] System.InvalidOperationException: DownloadItem(3718541406) failed before completing (item state=[Subscribed|NeedsUpdate], download=0/0 bytes).` — so it stays informative even in runners (like xUnit) that only print the message. The `BridgeException` exposes these fields for programmatic access, and its `ToString()` appends the deeper context:
 
 - `Command` / `CallbackId` / `AppId` — what was in flight;
 - `Reason` — how the failure was detected: `bridge error`, `timeout`, `process exit`, `malformed response`, or `decode failure`;
@@ -354,13 +355,43 @@ finally
 
 ---
 
+## Workshop exceptions & AppID context
+
+Workshop operations (subscribe / download / unsubscribe, and the AppID-context checks around them) surface a single, unified **`WorkshopException`** (`SteamVent.Core`) no matter which backend answered, so a caller catches one type:
+
+```csharp
+try
+{
+    await ctx.SteamWorkshop.WorkshopDownloadAsync(publishedFileId, appId, progress);
+}
+catch (WorkshopException ex) when (ex.IsAppIdMismatch)
+{
+    // Steam is not actually running under the requested AppID (a stale steam_appid.txt, another game, ...).
+    // ex.AppId is the requested AppID; ex.Message explains the mismatch.
+}
+catch (WorkshopException ex)
+{
+    // Any other workshop failure. For the Bridge, ex.InnerException is the rich BridgeException.
+}
+```
+
+- **In-process `Steamworks`** throws `WorkshopException` directly (it replaces the former thin `SteamException` on the workshop command path).
+- **Bridge** boxes its rich `BridgeException` in the `WorkshopException` as `InnerException`, so the bridge diagnostics (raw response, stderr tail, item state) stay reachable.
+
+**AppID-context guard.** Both backends verify, on every command, that they are actually running under the AppID the caller asked for:
+
+- AppID **0 / not set** → operate under whatever context Steam is running under (no check).
+- AppID **set** → the backend forces that context (the `SteamAppId` env var in the Bridge child; `SteamworksAppId` for the in-process client), then **spot-checks** the live `ISteamUtils.GetAppID()`. If it differs, a `WorkshopException` with `IsAppIdMismatch = true` is thrown.
+
+This catches the "sleeping appid" case where a stale `steam_appid.txt` (or another game) overrides the forced context and would otherwise silently redirect the work to the wrong app's workshop.
+
 ## Testing
 
 `SteamVent.Tests` (xUnit, `net10.0`) covers the Core abstractions, the `BVdf` reader, the result-struct round-trips, the versioned `ISteamApps` interop, and a live **Bridge** workshop subscribe/download/unsubscribe round-trip.
 
 `ISteamUtilsTests` exercises `ISteamUtils.GetAppID` (the source of truth for the active appid) and `SteamClient.AppId`, which latches that value once the Steamworks context starts and is then read-only. `ISteamAppsTests` covers the versioned `BIsAppInstalled` interop, reading `SteamAppsTests:InstalledAppID` / `SteamAppsTests:UninstalledAppID` from configuration.
 
-The Bridge round-trip test reads `BridgeTests:AppID` and `BridgeTests:PublishedFileID` from configuration and requires a **running Steam session with a real workshop item** — swap in a valid item ID before running it. In an offline/headless environment it is expected to fail/skip. When it fails, the thrown `BridgeException` includes the command, app ID, reason, raw response, and the captured bridge `progress`/`stderr` tail (see "Bridge diagnostics & error reporting").
+The Bridge round-trip test reads `BridgeTests:AppID` and `BridgeTests:PublishedFileID` from configuration and requires a **running Steam session actually under the configured app context** — swap in a valid item ID before running it. When Steam is not running under that app (e.g. the shell / a different app, or an offline environment), it **skips**: the AppID-context guard now fails loudly with a `WorkshopException` (`IsAppIdMismatch`) instead of silently acting on the wrong app's workshop. When it fails for another reason, the thrown `WorkshopException` boxes the rich `BridgeException` (command, app ID, reason, raw response, captured bridge `progress`/`stderr` tail) as `InnerException` (see "Bridge diagnostics & error reporting"). `WorkshopExceptionTests` covers the unified exception (the AppID-mismatch factory, the contextual `ToString`, and the boxed-`InnerException` contract) without needing Steam.
 
 All the interproc tests (`ISteamAppsTests`, `ISteamUtilsTests`) share the `SteamInterProc` collection (serialized — the Steam client is a process-wide singleton) and a `SteamTestGuard` that fails fast if a local `steam_appid.txt` is present in the test working directory: such a file would silently override the environment-variable appid context (`SteamClient.AppId`) and make the results non-deterministic. The interproc tests require a **running Steam client**.
 

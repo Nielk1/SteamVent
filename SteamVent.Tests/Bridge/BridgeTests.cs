@@ -26,7 +26,22 @@ public class BridgeTests
         (UInt32 appId, UInt64 publishedFileId) = ReadConfig();
 
         using BridgeContext bridge = new(appId);
+        try
+        {
+            await RunRoundTrip(bridge, publishedFileId);
+        }
+        catch (WorkshopException ex) when (ex.IsAppIdMismatch || ex.Message.Contains("running under AppID", StringComparison.Ordinal))
+        {
+            // This is a live-Steam test: it needs Steam actually running under the configured app context. The
+            // AppID-context guard now fails loudly when it isn't (e.g. Steam reports the shell / a different app)
+            // instead of silently acting on the wrong app's workshop, so we skip rather than run against the wrong
+            // context when the environment cannot provide the requested app.
+            Assert.Skip($"Requires Steam running under AppID {appId} (IsAppIdMismatch={ex.IsAppIdMismatch}); got: {ex.Message}");
+        }
+    }
 
+    private static async Task RunRoundTrip(BridgeContext bridge, UInt64 publishedFileId)
+    {
         RemoteStorageSubscribePublishedFileResult_t subscribed = await bridge.SteamWorkshopSubscribeAsync(publishedFileId);
         Assert.Equal(publishedFileId, subscribed.m_nPublishedFileId);
         Assert.True(

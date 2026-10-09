@@ -138,8 +138,11 @@ namespace SteamVent
 
         private IWorkshopCommands RequireWorkshopCommands(UInt32 appid)
             => GetWorkshopCommands(appid)
-               ?? throw new SteamException($"No workshop command provider is available for appid {appid}. " +
-                                           "Enable the Bridge, or enable Steamworks and set Options.SteamworksAppId to this appid.");
+               ?? throw new WorkshopException($"No workshop command provider is available for appid {appid}. " +
+                                             "Enable the Bridge, or enable Steamworks and set Options.SteamworksAppId to this appid.", null)
+               {
+                   AppId = appid,
+               };
 
         /// <summary>Subscribes to a workshop item, routed in-process or via the Bridge for <paramref name="appid"/>.</summary>
         public Task<RemoteStorageSubscribePublishedFileResult_t> WorkshopSubscribeAsync(ulong publishedFileId, UInt32 appid, CancellationToken cancellationToken = default)
