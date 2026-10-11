@@ -66,29 +66,21 @@ namespace SteamVent.Steamworks
             if (IsInstalledAndCurrent(ugc.GetItemState(publishedFileId)))
                 return new DownloadItemResult_t { m_eResult = EResult.k_EResultOK, m_nPublishedFileId = publishedFileId };
 
-            UInt64 call = ugc.DownloadItem(publishedFileId);
-            DownloadItemResult_t? maybeResult = await TryAwaitCallAsync<DownloadItemResult_t>(utils, call, DownloadItemResult_t.k_iCallback, cancellationToken);
-
-            // The acknowledgement is the fast path. A transiently-reported failure (e.g. the item is already
-            // DownloadPending because the subscription just applied) is not a dead end: if a download is actually
-            // in flight we rely on the *installed* end-state below rather than the ACK, so the caller sees a clean
-            // "started, then done" instead of a spurious failure.
-            if (maybeResult is null || maybeResult.Value.m_eResult != EResult.k_EResultOK)
+            // DownloadItem() acks the request and returns a bool (not a SteamAPICall), so completion is signalled
+            // via the item EItemState. We rely on the *installed* end-state below rather than a handle-based wait,
+            // so the caller sees a clean "started, then done / failed / cancelled" contract.
+            bool accepted = ugc.DownloadItem(publishedFileId, bHighPriority: false);
+            if (!accepted && !IsDownloadActive(ugc.GetItemState(publishedFileId)))
             {
-                if (!IsDownloadActive(ugc.GetItemState(publishedFileId)))
+                throw new WorkshopException($"DownloadItem({publishedFileId}) was not accepted (item {DescribeItem(publishedFileId)}).", null)
                 {
-                    string detail = maybeResult is { } r ? $"returned {r.m_eResult}" : "failed before completing";
-                    throw new WorkshopException($"DownloadItem({publishedFileId}) {detail} (item {DescribeItem(publishedFileId)}).", null)
-                    {
-                        AppId = appid > 0 ? (UInt32)appid : null,
-                        PublishedFileId = publishedFileId,
-                        Operation = "workshop download",
-                    };
-                }
+                    AppId = appid > 0 ? (UInt32)appid : null,
+                    PublishedFileId = publishedFileId,
+                    Operation = "workshop download",
+                };
             }
 
-            DownloadItemResult_t result = maybeResult
-                ?? new DownloadItemResult_t { m_eResult = EResult.k_EResultOK, m_nPublishedFileId = publishedFileId };
+            DownloadItemResult_t result = new DownloadItemResult_t { m_eResult = EResult.k_EResultOK, m_nPublishedFileId = publishedFileId };
 
             DateTime deadline = DateTime.UtcNow + DownloadDeadline;
             while (true)

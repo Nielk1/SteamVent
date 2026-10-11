@@ -280,8 +280,19 @@ namespace SteamVent.Steamworks.Native.Interfaces
         public EItemUpdateStatus GetItemUpdateProgress(UGCUpdateHandle_t handle, ref UInt64 punBytesProcessed, ref UInt64 punBytesTotal) =>
             GetDelegate<GetItemUpdateProgressDelegate>()(InterfacePtr, handle, ref punBytesProcessed, ref punBytesTotal);
 
-        // AddItemToFavorites
-        // RemoteItemFromFavorites
+        #region VTableIndex(36)
+        [VTableIndex(36), UnmanagedFunctionPointer(CallingConvention.ThisCall)]
+        private delegate UInt64 AddItemToFavoritesDelegate(IntPtr thisPtr, UInt32 nCreatorAppID, UInt64 nPublishedFileID);
+        #endregion
+        public UInt64 AddItemToFavorites(UInt32 nCreatorAppID, UInt64 nPublishedFileID) =>
+            GetDelegate<AddItemToFavoritesDelegate>()(InterfacePtr, nCreatorAppID, nPublishedFileID);
+
+        #region VTableIndex(37)
+        [VTableIndex(37), UnmanagedFunctionPointer(CallingConvention.ThisCall)]
+        private delegate UInt64 RemoveItemFromFavoritesDelegate(IntPtr thisPtr, UInt32 nCreatorAppID, UInt64 nPublishedFileID);
+        #endregion
+        public UInt64 RemoveItemFromFavorites(UInt32 nCreatorAppID, UInt64 nPublishedFileID) =>
+            GetDelegate<RemoveItemFromFavoritesDelegate>()(InterfacePtr, nCreatorAppID, nPublishedFileID);
 
         #region VTableIndex(38)
         [VTableIndex(38), UnmanagedFunctionPointer(CallingConvention.ThisCall)]
@@ -339,9 +350,9 @@ namespace SteamVent.Steamworks.Native.Interfaces
 
         #region VTableIndex(45)
         [VTableIndex(45), UnmanagedFunctionPointer(CallingConvention.ThisCall)]
-        private delegate UInt64 DownloadItemDelegate(IntPtr thisPtr, UInt64 nPublishedFileID);
+        private delegate bool DownloadItemDelegate(IntPtr thisPtr, UInt64 nPublishedFileID, bool bHighPriority);
         #endregion
-        public UInt64 DownloadItem(UInt64 nPublishedFileID) =>
-            GetDelegate<DownloadItemDelegate>()(InterfacePtr, nPublishedFileID);
+        public bool DownloadItem(UInt64 nPublishedFileID, bool bHighPriority) =>
+            GetDelegate<DownloadItemDelegate>()(InterfacePtr, nPublishedFileID, bHighPriority);
     }
 }

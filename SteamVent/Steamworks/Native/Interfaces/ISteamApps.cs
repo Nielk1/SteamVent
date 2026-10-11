@@ -21,22 +21,24 @@ namespace SteamVent.Steamworks.Native.Interfaces
         UInt32 GetEarliestPurchaseUnixTime(UInt32 nAppId);
         bool BIsSubscribedFromFreeWeekend();
         int GetDLCCount();
-        //BGetDLCDataByIndex
+        bool BGetDLCDataByIndex(Int32 nDLCIndex, ref UInt32 pnAppID, StringBuilder pchName, Int32 cchNameBufferSize, ref bool pbAvailable);
         void InstallDLC(UInt32 nAppId);
         void UninstallDLC(UInt32 nAppId);
-        //RequestAppProofOfPurchaseKey
-        //GetCurrentBetaName
-        //MarkContentCorrupt
-        //GetInstalledDepots
+        void RequestAppProofOfPurchaseKey(UInt32 nAppId);
+        string GetCurrentBetaName();
+        void MarkContentCorrupt(UInt32 nAppId);
+        void GetInstalledDepots(UInt32 nAppId, UInt64[] pvecDepots, ref Int32 pnCount);
         string GetAppInstallDir(UInt32 nAppId);
         bool BIsAppInstalled(UInt32 nAppId);
-        //GetAppOwner
-        //GetLaunchQueryParam
-        //GetDlcDownloadProgress
-        //GetAppBuildId
-        //RequestAllProofOfPurchaseKeys
-        //GetFileDetails
-        //GetFileDetails
-        //BIsSubscribedFromFamilySharing
+        UInt64 GetAppOwner(UInt32 nAppId);
+        string GetLaunchQueryParam(string pchKey);
+        void GetDlcDownloadProgress(UInt32 nAppId, ref UInt64 pnBytesDownloaded, ref UInt64 pnBytesTotal);
+        UInt32 GetAppBuildId(UInt32 nAppId);
+        void RequestAllProofOfPurchaseKeys();
+        UInt32 GetFileDetails(string pszFileName);
+        string GetLaunchCommandLine();
+        bool BIsSubscribedFromFamilySharing();
+        bool BIsTimedTrial(ref UInt32 punSecondsAllowed, ref UInt32 punSecondsPlayed);
+        bool SetDlcContext(UInt32 nAppId);
     }
 }

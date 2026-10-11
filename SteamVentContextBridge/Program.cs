@@ -216,24 +216,16 @@ internal static class Program
             return;
         }
 
-        UInt64 call = SteamUGC.DownloadItem(publishedFileId);
-        DownloadItemResult_t? maybeResult = await WaitForCallAsync<DownloadItemResult_t>(call, DownloadItemResult_t.k_iCallback);
-
-        // The acknowledgement is the fast path. A transiently-reported failure (e.g. the item is already
-        // DownloadPending because the subscription just applied) is not a dead end: if a download is actually in
-        // flight we rely on the *installed* end-state below rather than the ACK, so the caller sees a clean
-        // "started, then done" instead of a spurious failure.
-        if (maybeResult is null || maybeResult.Value.m_eResult != EResult.k_EResultOK)
+        // DownloadItem() acks the request and returns a bool (not a SteamAPICall), so completion is signalled via
+        // the item EItemState. We rely on the *installed* end-state below rather than a handle-based wait, so the
+        // caller sees a clean "started, then done / failed / cancelled" contract.
+        bool accepted = SteamUGC.DownloadItem(publishedFileId, bHighPriority: false);
+        if (!accepted && !IsDownloadActive(SteamUGC.GetItemState(publishedFileId)))
         {
-            if (!IsDownloadActive(SteamUGC.GetItemState(publishedFileId)))
-            {
-                string detail = maybeResult is { } r ? $"returned {r.m_eResult}" : "failed before completing";
-                throw new InvalidOperationException($"DownloadItem({publishedFileId}) {detail} (item {DescribeWorkshopItem(publishedFileId)}).");
-            }
+            throw new InvalidOperationException($"DownloadItem({publishedFileId}) was not accepted (item {DescribeWorkshopItem(publishedFileId)}).");
         }
 
-        DownloadItemResult_t result = maybeResult
-            ?? new DownloadItemResult_t { m_eResult = EResult.k_EResultOK, m_nPublishedFileId = publishedFileId };
+        DownloadItemResult_t result = new DownloadItemResult_t { m_eResult = EResult.k_EResultOK, m_nPublishedFileId = publishedFileId };
 
         DateTime deadline = DateTime.UtcNow + DownloadDeadline;
         while (true)

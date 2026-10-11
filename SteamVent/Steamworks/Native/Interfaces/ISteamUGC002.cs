@@ -263,6 +263,9 @@ namespace SteamVent.Steamworks.Native.Interfaces
             GetDelegate<GetItemUpdateInfoDelegate>()(InterfacePtr, nPublishedFileID, ref pbNeedsUpdate, ref pbIsDownloading, ref punBytesDownloaded, ref punBytesTotal);
 
         [Obsolete("Not implemented in this version.", true)] public bool GetItemDownloadInfo(PublishedFileId_t nPublishedFileID, ref UInt64 punBytesDownloaded, ref UInt64 punBytesTotal) { throw new NotImplementedException(); }
-        [Obsolete("Not implemented in this version.", true)] public UInt64 DownloadItem(UInt64 nPublishedFileID) { throw new NotImplementedException(); }
+        [Obsolete("Not implemented in this version.", true)] public bool DownloadItem(UInt64 nPublishedFileID, bool bHighPriority) { throw new NotImplementedException(); }
+
+        [Obsolete("Not implemented in this version.", true)] public UInt64 AddItemToFavorites(UInt32 nCreatorAppID, UInt64 nPublishedFileID) { throw new NotImplementedException(); }
+        [Obsolete("Not implemented in this version.", true)] public UInt64 RemoveItemFromFavorites(UInt32 nCreatorAppID, UInt64 nPublishedFileID) { throw new NotImplementedException(); }
     }
 }

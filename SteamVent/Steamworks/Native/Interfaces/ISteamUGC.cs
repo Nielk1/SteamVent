@@ -52,8 +52,8 @@ namespace SteamVent.Steamworks.Native.Interfaces
         bool SetItemPreview(UGCUpdateHandle_t handle, string pszPreviewFile);
         UInt64 SubmitItemUpdate(UGCUpdateHandle_t handle, string pchChangeNote);
         EItemUpdateStatus GetItemUpdateProgress(UGCUpdateHandle_t handle, ref UInt64 punBytesProcessed, ref UInt64 punBytesTotal);
-        // AddItemToFavorites
-        // RemoteItemFromFavorites
+        UInt64 AddItemToFavorites(UInt32 nCreatorAppID, UInt64 nPublishedFileID);
+        UInt64 RemoveItemFromFavorites(UInt32 nCreatorAppID, UInt64 nPublishedFileID);
         UInt64 SubscribeItem(UInt64 nPublishedFileID);
         UInt64 UnsubscribeItem(UInt64 nPublishedFileID);
         UInt32 GetNumSubscribedItems();
@@ -65,6 +65,6 @@ namespace SteamVent.Steamworks.Native.Interfaces
         bool GetItemUpdateInfo(UInt64 nPublishedFileID, ref bool pbNeedsUpdate, ref bool pbIsDownloading, ref UInt64 punBytesDownloaded, ref UInt64 punBytesTotal);
         bool GetItemDownloadInfo(PublishedFileId_t nPublishedFileID, ref UInt64 punBytesDownloaded, ref UInt64 punBytesTotal);
 
-        UInt64 DownloadItem(UInt64 nPublishedFileID);
+        bool DownloadItem(UInt64 nPublishedFileID, bool bHighPriority);
     }
 }

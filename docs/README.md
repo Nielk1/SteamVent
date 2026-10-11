@@ -143,6 +143,30 @@ RemoteStorageSubscribePublishedFileResult_t r =
     await workshop.SubscribeAsync(publishedFileId, (int)appId);
 ```
 
+### Versioned interface coverage (`ISteamApps` / `ISteamUGC`)
+
+Each native interface is exposed as a family of versioned classes (`ISteamApps003`…`ISteamApps008`, `ISteamUGC001`…`ISteamUGC005`), one per Steamworks interface-version string. A versioned class maps only to the functions present in that version's vtable snapshot; functions a given version does not expose are declared as `[Obsolete]` stubs that throw `NotImplementedException`. The current version — `ISteamApps008` for apps and `ISteamUGC005` for UGC — is the one `SteamClient` returns by default (`GetISteamApps()` / `GetISteamUGC()`).
+
+The `ISteamApps` contract now maps the full `STEAMAPPS_INTERFACE_VERSION008` surface (30 functions, vtable indices 0–29). In `ISteamApps008` these are real P/Invoke mappings (at the vtable index shown); in the older versions (`003`–`007`) the methods a given version does not expose are `[Obsolete]` stubs that throw `NotImplementedException`:
+
+| `ISteamApps` function | VTable index (008) |
+| --- | --- |
+| `BGetDLCDataByIndex` | 11 |
+| `RequestAppProofOfPurchaseKey` | 14 |
+| `GetCurrentBetaName` | 15 |
+| `MarkContentCorrupt` | 16 |
+| `GetInstalledDepots` | 17 |
+| `GetAppOwner` | 20 |
+| `GetLaunchQueryParam` | 21 |
+| `GetDlcDownloadProgress` | 22 |
+| `GetAppBuildId` | 23 |
+| `RequestAllProofOfPurchaseKeys` | 24 |
+| `GetFileDetails(string)` | 25 |
+| `GetLaunchCommandLine()` | 26 |
+| `BIsSubscribedFromFamilySharing()` | 27 |
+| `BIsTimedTrial(ref, ref)` | 28 |
+| `SetDlcContext(UInt32)` | 29 |
+
 ---
 
 ## The FileSystem layer (`SteamVent.FileSystem`)
