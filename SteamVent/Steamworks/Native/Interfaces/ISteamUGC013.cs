@@ -352,5 +352,237 @@ namespace SteamVent.Steamworks.Native.Interfaces
         #endregion
         public bool DownloadItem(UInt64 nPublishedFileID, bool bHighPriority) =>
             GetDelegate<DownloadItemDelegate>()(InterfacePtr, nPublishedFileID, bHighPriority);
+        [Obsolete("Not implemented in this version.", true)] public UInt32 GetQueryUGCNumTags(UGCQueryHandle_t handle, UInt32 index) { throw new NotImplementedException(); }
+
+        [Obsolete("Not implemented in this version.", true)] public bool GetQueryUGCTag(UGCQueryHandle_t handle, UInt32 index, UInt32 indexTag, StringBuilder pchValue, UInt32 cchValueSize) { throw new NotImplementedException(); }
+
+        [Obsolete("Not implemented in this version.", true)] public bool GetQueryUGCTagDisplayName(UGCQueryHandle_t handle, UInt32 index, UInt32 indexTag, StringBuilder pchValue, UInt32 cchValueSize) { throw new NotImplementedException(); }
+
+        #region VTableIndex(12)
+        [VTableIndex(12), UnmanagedFunctionPointer(CallingConvention.ThisCall)]
+        private delegate UInt32 GetQueryUGCNumKeyValueTagsDelegate(IntPtr thisPtr, UGCQueryHandle_t handle, UInt32 index);
+        #endregion
+        public UInt32 GetQueryUGCNumKeyValueTags(UGCQueryHandle_t handle, UInt32 index) =>
+            GetDelegate<GetQueryUGCNumKeyValueTagsDelegate>()(InterfacePtr, handle, index);
+
+        #region VTableIndex(13)
+        [VTableIndex(13), UnmanagedFunctionPointer(CallingConvention.ThisCall)]
+        private delegate bool GetQueryUGCKeyValueTagByIndexDelegate(IntPtr thisPtr, UGCQueryHandle_t handle, UInt32 index, UInt32 keyValueTagIndex, StringBuilder pchKey, UInt32 cchKeySize, StringBuilder pchValue, UInt32 cchValueSize);
+        #endregion
+        public bool GetQueryUGCKeyValueTag(UGCQueryHandle_t handle, UInt32 index, UInt32 keyValueTagIndex, StringBuilder pchKey, UInt32 cchKeySize, StringBuilder pchValue, UInt32 cchValueSize) =>
+            GetDelegate<GetQueryUGCKeyValueTagByIndexDelegate>()(InterfacePtr, handle, index, keyValueTagIndex, pchKey, cchKeySize, pchValue, cchValueSize);
+
+        #region VTableIndex(14)
+        [VTableIndex(14), UnmanagedFunctionPointer(CallingConvention.ThisCall)]
+        private delegate bool GetQueryUGCKeyValueTagByKeyDelegate(IntPtr thisPtr, UGCQueryHandle_t handle, UInt32 index, string pchKey, StringBuilder pchValue, UInt32 cchValueSize);
+        #endregion
+        public bool GetQueryUGCKeyValueTag(UGCQueryHandle_t handle, UInt32 index, string pchKey, StringBuilder pchValue, UInt32 cchValueSize) =>
+            GetDelegate<GetQueryUGCKeyValueTagByKeyDelegate>()(InterfacePtr, handle, index, pchKey, pchValue, cchValueSize);
+
+        [Obsolete("Not implemented in this version.", true)] public bool AddRequiredTagGroup(UGCQueryHandle_t handle, ref SteamParamStringArray_t pTagGroups) { throw new NotImplementedException(); }
+
+        #region VTableIndex(18)
+        [VTableIndex(18), UnmanagedFunctionPointer(CallingConvention.ThisCall)]
+        private delegate bool SetReturnOnlyIDsDelegate(IntPtr thisPtr, UGCQueryHandle_t handle, bool bReturnOnlyIDs);
+        #endregion
+        public bool SetReturnOnlyIDs(UGCQueryHandle_t handle, bool bReturnOnlyIDs) =>
+            GetDelegate<SetReturnOnlyIDsDelegate>()(InterfacePtr, handle, bReturnOnlyIDs);
+
+        #region VTableIndex(19)
+        [VTableIndex(19), UnmanagedFunctionPointer(CallingConvention.ThisCall)]
+        private delegate bool SetReturnKeyValueTagsDelegate(IntPtr thisPtr, UGCQueryHandle_t handle, bool bReturnKeyValueTags);
+        #endregion
+        public bool SetReturnKeyValueTags(UGCQueryHandle_t handle, bool bReturnKeyValueTags) =>
+            GetDelegate<SetReturnKeyValueTagsDelegate>()(InterfacePtr, handle, bReturnKeyValueTags);
+
+        #region VTableIndex(25)
+        [VTableIndex(25), UnmanagedFunctionPointer(CallingConvention.ThisCall)]
+        private delegate bool SetReturnPlaytimeStatsDelegate(IntPtr thisPtr, UGCQueryHandle_t handle, UInt32 unDays);
+        #endregion
+        public bool SetReturnPlaytimeStats(UGCQueryHandle_t handle, UInt32 unDays) =>
+            GetDelegate<SetReturnPlaytimeStatsDelegate>()(InterfacePtr, handle, unDays);
+
+        #region VTableIndex(26)
+        [VTableIndex(26), UnmanagedFunctionPointer(CallingConvention.ThisCall)]
+        private delegate bool SetLanguageDelegate(IntPtr thisPtr, UGCQueryHandle_t handle, string pchLanguage);
+        #endregion
+        public bool SetLanguage(UGCQueryHandle_t handle, string pchLanguage) =>
+            GetDelegate<SetLanguageDelegate>()(InterfacePtr, handle, pchLanguage);
+
+        [Obsolete("Not implemented in this version.", true)] public bool SetTimeCreatedDateRange(UGCQueryHandle_t handle, UInt32 rtStart, UInt32 rtEnd) { throw new NotImplementedException(); }
+
+        [Obsolete("Not implemented in this version.", true)] public bool SetTimeUpdatedDateRange(UGCQueryHandle_t handle, UInt32 rtStart, UInt32 rtEnd) { throw new NotImplementedException(); }
+
+        #region VTableIndex(32)
+        [VTableIndex(32), UnmanagedFunctionPointer(CallingConvention.ThisCall)]
+        private delegate bool AddRequiredKeyValueTagDelegate(IntPtr thisPtr, UGCQueryHandle_t handle, string pKey, string pValue);
+        #endregion
+        public bool AddRequiredKeyValueTag(UGCQueryHandle_t handle, string pKey, string pValue) =>
+            GetDelegate<AddRequiredKeyValueTagDelegate>()(InterfacePtr, handle, pKey, pValue);
+
+        #region VTableIndex(38)
+        [VTableIndex(38), UnmanagedFunctionPointer(CallingConvention.ThisCall)]
+        private delegate bool SetItemUpdateLanguageDelegate(IntPtr thisPtr, UGCUpdateHandle_t handle, string pchLanguage);
+        #endregion
+        public bool SetItemUpdateLanguage(UGCUpdateHandle_t handle, string pchLanguage) =>
+            GetDelegate<SetItemUpdateLanguageDelegate>()(InterfacePtr, handle, pchLanguage);
+
+        #region VTableIndex(44)
+        [VTableIndex(44), UnmanagedFunctionPointer(CallingConvention.ThisCall)]
+        private delegate bool SetAllowLegacyUploadDelegate(IntPtr thisPtr, UGCUpdateHandle_t handle, bool bAllowLegacyUpload);
+        #endregion
+        public bool SetAllowLegacyUpload(UGCUpdateHandle_t handle, bool bAllowLegacyUpload) =>
+            GetDelegate<SetAllowLegacyUploadDelegate>()(InterfacePtr, handle, bAllowLegacyUpload);
+
+        #region VTableIndex(45)
+        [VTableIndex(45), UnmanagedFunctionPointer(CallingConvention.ThisCall)]
+        private delegate bool RemoveAllItemKeyValueTagsDelegate(IntPtr thisPtr, UGCUpdateHandle_t handle);
+        #endregion
+        public bool RemoveAllItemKeyValueTags(UGCUpdateHandle_t handle) =>
+            GetDelegate<RemoveAllItemKeyValueTagsDelegate>()(InterfacePtr, handle);
+
+        #region VTableIndex(46)
+        [VTableIndex(46), UnmanagedFunctionPointer(CallingConvention.ThisCall)]
+        private delegate bool RemoveItemKeyValueTagsDelegate(IntPtr thisPtr, UGCUpdateHandle_t handle, string pchKey);
+        #endregion
+        public bool RemoveItemKeyValueTags(UGCUpdateHandle_t handle, string pchKey) =>
+            GetDelegate<RemoveItemKeyValueTagsDelegate>()(InterfacePtr, handle, pchKey);
+
+        #region VTableIndex(47)
+        [VTableIndex(47), UnmanagedFunctionPointer(CallingConvention.ThisCall)]
+        private delegate bool AddItemKeyValueTagDelegate(IntPtr thisPtr, UGCUpdateHandle_t handle, string pchKey, string pchValue);
+        #endregion
+        public bool AddItemKeyValueTag(UGCUpdateHandle_t handle, string pchKey, string pchValue) =>
+            GetDelegate<AddItemKeyValueTagDelegate>()(InterfacePtr, handle, pchKey, pchValue);
+
+        #region VTableIndex(48)
+        [VTableIndex(48), UnmanagedFunctionPointer(CallingConvention.ThisCall)]
+        private delegate bool AddItemPreviewFileDelegate(IntPtr thisPtr, UGCUpdateHandle_t handle, string pszPreviewFile, EItemPreviewType type);
+        #endregion
+        public bool AddItemPreviewFile(UGCUpdateHandle_t handle, string pszPreviewFile, EItemPreviewType type) =>
+            GetDelegate<AddItemPreviewFileDelegate>()(InterfacePtr, handle, pszPreviewFile, type);
+
+        #region VTableIndex(49)
+        [VTableIndex(49), UnmanagedFunctionPointer(CallingConvention.ThisCall)]
+        private delegate bool AddItemPreviewVideoDelegate(IntPtr thisPtr, UGCUpdateHandle_t handle, string pszVideoID);
+        #endregion
+        public bool AddItemPreviewVideo(UGCUpdateHandle_t handle, string pszVideoID) =>
+            GetDelegate<AddItemPreviewVideoDelegate>()(InterfacePtr, handle, pszVideoID);
+
+        #region VTableIndex(50)
+        [VTableIndex(50), UnmanagedFunctionPointer(CallingConvention.ThisCall)]
+        private delegate bool UpdateItemPreviewFileDelegate(IntPtr thisPtr, UGCUpdateHandle_t handle, UInt32 index, string pszPreviewFile);
+        #endregion
+        public bool UpdateItemPreviewFile(UGCUpdateHandle_t handle, UInt32 index, string pszPreviewFile) =>
+            GetDelegate<UpdateItemPreviewFileDelegate>()(InterfacePtr, handle, index, pszPreviewFile);
+
+        #region VTableIndex(51)
+        [VTableIndex(51), UnmanagedFunctionPointer(CallingConvention.ThisCall)]
+        private delegate bool UpdateItemPreviewVideoDelegate(IntPtr thisPtr, UGCUpdateHandle_t handle, UInt32 index, string pszVideoID);
+        #endregion
+        public bool UpdateItemPreviewVideo(UGCUpdateHandle_t handle, UInt32 index, string pszVideoID) =>
+            GetDelegate<UpdateItemPreviewVideoDelegate>()(InterfacePtr, handle, index, pszVideoID);
+
+        #region VTableIndex(52)
+        [VTableIndex(52), UnmanagedFunctionPointer(CallingConvention.ThisCall)]
+        private delegate bool RemoveItemPreviewDelegate(IntPtr thisPtr, UGCUpdateHandle_t handle, UInt32 index);
+        #endregion
+        public bool RemoveItemPreview(UGCUpdateHandle_t handle, UInt32 index) =>
+            GetDelegate<RemoveItemPreviewDelegate>()(InterfacePtr, handle, index);
+
+        #region VTableIndex(55)
+        [VTableIndex(55), UnmanagedFunctionPointer(CallingConvention.ThisCall)]
+        private delegate UInt64 SetUserItemVoteDelegate(IntPtr thisPtr, PublishedFileId_t nPublishedFileID, bool bVoteUp);
+        #endregion
+        public UInt64 SetUserItemVote(PublishedFileId_t nPublishedFileID, bool bVoteUp) =>
+            GetDelegate<SetUserItemVoteDelegate>()(InterfacePtr, nPublishedFileID, bVoteUp);
+
+        #region VTableIndex(56)
+        [VTableIndex(56), UnmanagedFunctionPointer(CallingConvention.ThisCall)]
+        private delegate UInt64 GetUserItemVoteDelegate(IntPtr thisPtr, PublishedFileId_t nPublishedFileID);
+        #endregion
+        public UInt64 GetUserItemVote(PublishedFileId_t nPublishedFileID) =>
+            GetDelegate<GetUserItemVoteDelegate>()(InterfacePtr, nPublishedFileID);
+
+        #region VTableIndex(67)
+        [VTableIndex(67), UnmanagedFunctionPointer(CallingConvention.ThisCall)]
+        private delegate bool BInitWorkshopForGameServerDelegate(IntPtr thisPtr, UInt32 unWorkshopDepotID, string pszFolder);
+        #endregion
+        public bool BInitWorkshopForGameServer(UInt32 unWorkshopDepotID, string pszFolder) =>
+            GetDelegate<BInitWorkshopForGameServerDelegate>()(InterfacePtr, unWorkshopDepotID, pszFolder);
+
+        #region VTableIndex(68)
+        [VTableIndex(68), UnmanagedFunctionPointer(CallingConvention.ThisCall)]
+        private delegate void SuspendDownloadsDelegate(IntPtr thisPtr, bool bSuspend);
+        #endregion
+        public void SuspendDownloads(bool bSuspend) =>
+            GetDelegate<SuspendDownloadsDelegate>()(InterfacePtr, bSuspend);
+
+        #region VTableIndex(69)
+        [VTableIndex(69), UnmanagedFunctionPointer(CallingConvention.ThisCall)]
+        private delegate UInt64 StartPlaytimeTrackingDelegate(IntPtr thisPtr, [In] PublishedFileId_t[] pvecPublishedFileID, UInt32 unNumPublishedFileIDs);
+        #endregion
+        public UInt64 StartPlaytimeTracking(PublishedFileId_t[] pvecPublishedFileID, UInt32 unNumPublishedFileIDs) =>
+            GetDelegate<StartPlaytimeTrackingDelegate>()(InterfacePtr, pvecPublishedFileID, unNumPublishedFileIDs);
+
+        #region VTableIndex(70)
+        [VTableIndex(70), UnmanagedFunctionPointer(CallingConvention.ThisCall)]
+        private delegate UInt64 StopPlaytimeTrackingDelegate(IntPtr thisPtr, [In] PublishedFileId_t[] pvecPublishedFileID, UInt32 unNumPublishedFileIDs);
+        #endregion
+        public UInt64 StopPlaytimeTracking(PublishedFileId_t[] pvecPublishedFileID, UInt32 unNumPublishedFileIDs) =>
+            GetDelegate<StopPlaytimeTrackingDelegate>()(InterfacePtr, pvecPublishedFileID, unNumPublishedFileIDs);
+
+        #region VTableIndex(71)
+        [VTableIndex(71), UnmanagedFunctionPointer(CallingConvention.ThisCall)]
+        private delegate UInt64 StopPlaytimeTrackingForAllItemsDelegate(IntPtr thisPtr);
+        #endregion
+        public UInt64 StopPlaytimeTrackingForAllItems() =>
+            GetDelegate<StopPlaytimeTrackingForAllItemsDelegate>()(InterfacePtr);
+
+        #region VTableIndex(72)
+        [VTableIndex(72), UnmanagedFunctionPointer(CallingConvention.ThisCall)]
+        private delegate UInt64 AddDependencyDelegate(IntPtr thisPtr, PublishedFileId_t nParentPublishedFileID, PublishedFileId_t nChildPublishedFileID);
+        #endregion
+        public UInt64 AddDependency(PublishedFileId_t nParentPublishedFileID, PublishedFileId_t nChildPublishedFileID) =>
+            GetDelegate<AddDependencyDelegate>()(InterfacePtr, nParentPublishedFileID, nChildPublishedFileID);
+
+        #region VTableIndex(73)
+        [VTableIndex(73), UnmanagedFunctionPointer(CallingConvention.ThisCall)]
+        private delegate UInt64 RemoveDependencyDelegate(IntPtr thisPtr, PublishedFileId_t nParentPublishedFileID, PublishedFileId_t nChildPublishedFileID);
+        #endregion
+        public UInt64 RemoveDependency(PublishedFileId_t nParentPublishedFileID, PublishedFileId_t nChildPublishedFileID) =>
+            GetDelegate<RemoveDependencyDelegate>()(InterfacePtr, nParentPublishedFileID, nChildPublishedFileID);
+
+        #region VTableIndex(74)
+        [VTableIndex(74), UnmanagedFunctionPointer(CallingConvention.ThisCall)]
+        private delegate UInt64 AddAppDependencyDelegate(IntPtr thisPtr, PublishedFileId_t nPublishedFileID, UInt32 nAppID);
+        #endregion
+        public UInt64 AddAppDependency(PublishedFileId_t nPublishedFileID, UInt32 nAppID) =>
+            GetDelegate<AddAppDependencyDelegate>()(InterfacePtr, nPublishedFileID, nAppID);
+
+        #region VTableIndex(75)
+        [VTableIndex(75), UnmanagedFunctionPointer(CallingConvention.ThisCall)]
+        private delegate UInt64 RemoveAppDependencyDelegate(IntPtr thisPtr, PublishedFileId_t nPublishedFileID, UInt32 nAppID);
+        #endregion
+        public UInt64 RemoveAppDependency(PublishedFileId_t nPublishedFileID, UInt32 nAppID) =>
+            GetDelegate<RemoveAppDependencyDelegate>()(InterfacePtr, nPublishedFileID, nAppID);
+
+        #region VTableIndex(76)
+        [VTableIndex(76), UnmanagedFunctionPointer(CallingConvention.ThisCall)]
+        private delegate UInt64 GetAppDependenciesDelegate(IntPtr thisPtr, PublishedFileId_t nPublishedFileID);
+        #endregion
+        public UInt64 GetAppDependencies(PublishedFileId_t nPublishedFileID) =>
+            GetDelegate<GetAppDependenciesDelegate>()(InterfacePtr, nPublishedFileID);
+
+        #region VTableIndex(77)
+        [VTableIndex(77), UnmanagedFunctionPointer(CallingConvention.ThisCall)]
+        private delegate UInt64 DeleteItemDelegate(IntPtr thisPtr, PublishedFileId_t nPublishedFileID);
+        #endregion
+        public UInt64 DeleteItem(PublishedFileId_t nPublishedFileID) =>
+            GetDelegate<DeleteItemDelegate>()(InterfacePtr, nPublishedFileID);
+
+        [Obsolete("Not implemented in this version.", true)] public bool ShowWorkshopEULA() { throw new NotImplementedException(); }
+
+        [Obsolete("Not implemented in this version.", true)] public UInt64 GetWorkshopEULAStatus() { throw new NotImplementedException(); }
     }
 }

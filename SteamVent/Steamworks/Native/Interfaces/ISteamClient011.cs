@@ -77,5 +77,32 @@ namespace SteamVent.Steamworks.Native.Interfaces
             GetInterface<GetISteamAppsDelegate, TInterface>(InterfacePtr, hSteamUser, hSteamPipe);
 
         [Obsolete("Not implemented in this version.", true)] public TInterface GetISteamUGC<TInterface>(Int32 hSteamUser, Int32 hSteamPipe) where TInterface : SteamInterfaceWrapper { throw new NotImplementedException(); }
+        #region VTableIndex(7)
+        [VTableIndex(7), UnmanagedFunctionPointer(CallingConvention.ThisCall)]
+        private delegate void SetLocalIPBindingDelegate(IntPtr thisPtr, UInt32 unIP, UInt16 usPort);
+        #endregion
+        public void SetLocalIPBinding(UInt32 unIP, UInt16 usPort) =>
+            GetDelegate<SetLocalIPBindingDelegate>()(InterfacePtr, unIP, usPort);
+
+        #region VTableIndex(20)
+        [VTableIndex(20), UnmanagedFunctionPointer(CallingConvention.ThisCall)]
+        private delegate void RunFrameDelegate(IntPtr thisPtr);
+        #endregion
+        public void RunFrame() =>
+            GetDelegate<RunFrameDelegate>()(InterfacePtr);
+
+        #region VTableIndex(22)
+        [VTableIndex(22), UnmanagedFunctionPointer(CallingConvention.ThisCall)]
+        private delegate void SetWarningMessageHookDelegate(IntPtr thisPtr, IntPtr pFunction);
+        #endregion
+        public void SetWarningMessageHook(SteamAPIWarningMessageHook_t pFunction) =>
+            GetDelegate<SetWarningMessageHookDelegate>()(InterfacePtr, Marshal.GetFunctionPointerForDelegate(pFunction));
+
+        #region VTableIndex(23)
+        [VTableIndex(23), UnmanagedFunctionPointer(CallingConvention.ThisCall)]
+        private delegate bool BShutdownIfAllPipesClosedDelegate(IntPtr thisPtr);
+        #endregion
+        public bool BShutdownIfAllPipesClosed() =>
+            GetDelegate<BShutdownIfAllPipesClosedDelegate>()(InterfacePtr);
     }
 }

@@ -143,11 +143,19 @@ RemoteStorageSubscribePublishedFileResult_t r =
     await workshop.SubscribeAsync(publishedFileId, (int)appId);
 ```
 
-### Versioned interface coverage (`ISteamApps` / `ISteamUGC`)
+### Versioned interface coverage (`ISteamApps` / `ISteamClient` / `ISteamUGC`)
 
-Each native interface is exposed as a family of versioned classes (`ISteamApps003`…`ISteamApps008`, `ISteamUGC001`…`ISteamUGC005`), one per Steamworks interface-version string. A versioned class maps only to the functions present in that version's vtable snapshot; functions a given version does not expose are declared as `[Obsolete]` stubs that throw `NotImplementedException`. The current version — `ISteamApps008` for apps and `ISteamUGC005` for UGC — is the one `SteamClient` returns by default (`GetISteamApps()` / `GetISteamUGC()`).
+Each native interface is exposed as a family of versioned classes, one per Steamworks interface-version string:
 
-The `ISteamApps` contract now maps the full `STEAMAPPS_INTERFACE_VERSION008` surface (30 functions, vtable indices 0–29). In `ISteamApps008` these are real P/Invoke mappings (at the vtable index shown); in the older versions (`003`–`007`) the methods a given version does not expose are `[Obsolete]` stubs that throw `NotImplementedException`:
+| Interface | Versioned classes | Default (returned by `SteamClient`) |
+| --- | --- | --- |
+| `ISteamApps` | `ISteamApps001`…`ISteamApps008` | `ISteamApps008` via `GetISteamApps()` |
+| `ISteamClient` | `ISteamClient007`…`ISteamClient019` | `ISteamClient017` (the entry-point client) |
+| `ISteamUGC` | `ISteamUGC001`…`ISteamUGC016` (`011` omitted) | `ISteamUGC005` via `GetISteamUGC()` |
+
+A versioned class maps only to the functions present in that version's vtable snapshot; functions a given version does not expose are declared as `[Obsolete]` stubs that throw `NotImplementedException`. Because Steamworks inserts new functions *into the middle* of these interfaces between versions, the same method sits at a different vtable index depending on the version — each versioned class therefore carries its own `[VTableIndex]` scheme, and callers must use the version that matches the interface string they requested.
+
+The `ISteamApps` contract maps the full `STEAMAPPS_INTERFACE_VERSION008` surface (30 functions, vtable indices 0–29) **plus** the five `STEAMAPPS_INTERFACE_VERSION009`+ functions (`GetNumBetas`, `GetBetaInfo`, `SetActiveBeta`, `SetGamePerformanceSetting`, `SetGameRenderResolution`) for forward compatibility — 35 in total. In `ISteamApps008` the `008`-surface functions are real P/Invoke mappings (at the vtable index shown) while the five `009`+ functions are `[Obsolete]` stubs; in the older versions (`001`–`007`) the methods a given version does not expose are `[Obsolete]` stubs that throw `NotImplementedException`. `ISteamApps002` exposes the first seven functions (`BIsSubscribed`…`BIsSubscribedApp`, vtable 0–6) and stubs the rest; `ISteamApps001` is a legacy contract whose sole native function (`GetAppData`) is not part of the current `ISteamApps` surface, so all 35 mapped functions are stubs there:
 
 | `ISteamApps` function | VTable index (008) |
 | --- | --- |
@@ -166,6 +174,42 @@ The `ISteamApps` contract now maps the full `STEAMAPPS_INTERFACE_VERSION008` sur
 | `BIsSubscribedFromFamilySharing()` | 27 |
 | `BIsTimedTrial(ref, ref)` | 28 |
 | `SetDlcContext(UInt32)` | 29 |
+| `GetNumBetas(ref, ref)` | — (stub, first in `009`) |
+| `GetBetaInfo(...)` | — (stub, first in `009`) |
+| `SetActiveBeta(string)` | — (stub, first in `009`) |
+| `SetGamePerformanceSetting(EGamePerformanceSetting)` | — (stub, first in `009`) |
+| `SetGameRenderResolution(UInt32, UInt32)` | — (stub, first in `009`) |
+
+**`ISteamClient` coverage.** `ISteamClient` is the entry-point interface (`CreateSteamPipe` / `ConnectToGlobalUser` / `CreateLocalUser` / `ReleaseUser`, the four `GetISteam*` factory slots, and the lifecycle helpers `SetLocalIPBinding` / `RunFrame` / `SetWarningMessageHook` / `BShutdownIfAllPipesClosed`). It was previously the only versioned client (`ISteamClient017`); `ISteamClient007`–`016`, `018` and `019` are now added (interface-version strings `SteamClient007` … `SteamClient019`). Every version implements the full `ISteamClient` contract; only the `[VTableIndex]` of the `GetISteam*` factory slots varies, because Steam interleaves *other* `GetISteam*` accessors (Friends, Matchmaking, RemoteStorage, HTTP, Controller, Input, …) between them, and those are not part of this library's contract. The four factory slots that this library exposes resolve to:
+
+| Version | `GetISteamUser` | `GetISteamUtils` | `GetISteamApps` | `GetISteamUGC` |
+| --- | --- | --- | --- | --- |
+| `007` | 5 | 9 | 18 | — (stub) |
+| `008` | 5 | 9 | 15 | — (stub) |
+| `009`–`011` | 5 | 9 | 16 | — (stub) |
+| `012`–`016` | 5 | 9 | 15 | 26 |
+| `017` | 5 | 9 | 15 | 26 |
+| `018`–`019` | 5 | 9 | 15 | 27 |
+
+The four lifecycle helpers resolve to their per-version vtable indices below (a stub where that version lacks the slot — `BShutdownIfAllPipesClosed` first appears in `010`):
+
+| Version | `SetLocalIPBinding` | `RunFrame` | `SetWarningMessageHook` | `BShutdownIfAllPipesClosed` |
+| --- | --- | --- | --- | --- |
+| `007` | 7 | 15 | 20 | — (stub) |
+| `008` | 7 | 18 | 20 | — (stub) |
+| `009` | 7 | 19 | 21 | — (stub) |
+| `010` | 7 | 19 | 21 | 22 |
+| `011` | 7 | 20 | 22 | 23 |
+| `012` | 7 | 19 | 21 | 22 |
+| `013` | 7 | 19 | 21 | 22 |
+| `014` | 7 | 19 | 21 | 22 |
+| `015` | 7 | 19 | 21 | 22 |
+| `016` | 7 | 19 | 21 | 22 |
+| `017` | 7 | 19 | 21 | 22 |
+| `018` | 7 | 20 | 22 | 23 |
+| `019` | 7 | 20 | 22 | 23 |
+
+> **Why each version has its own index scheme.** Steamworks inserts new functions *into the middle* of these interfaces between versions, so the same method sits at a different vtable index depending on the version — for example `ReleaseQueryUGCRequest` is index **4** in `ISteamUGC001` but **11** in `ISteamUGC005`. Each versioned class therefore carries its own `[VTableIndex]` scheme, and callers must use the version that matches the interface string they requested. This is why the stubs (rather than a shared base) are how unsupported functions are expressed per-version.
 
 ---
 

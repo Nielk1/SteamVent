@@ -279,5 +279,82 @@ namespace SteamVent.Steamworks.Native.Interfaces
         #endregion
         public bool DownloadItem(UInt64 nPublishedFileID, bool bHighPriority) =>
             GetDelegate<DownloadItemDelegate>()(InterfacePtr, nPublishedFileID, bHighPriority);
+        [Obsolete("Not implemented in this version.", true)] public UInt32 GetQueryUGCNumTags(UGCQueryHandle_t handle, UInt32 index) { throw new NotImplementedException(); }
+
+        [Obsolete("Not implemented in this version.", true)] public bool GetQueryUGCTag(UGCQueryHandle_t handle, UInt32 index, UInt32 indexTag, StringBuilder pchValue, UInt32 cchValueSize) { throw new NotImplementedException(); }
+
+        [Obsolete("Not implemented in this version.", true)] public bool GetQueryUGCTagDisplayName(UGCQueryHandle_t handle, UInt32 index, UInt32 indexTag, StringBuilder pchValue, UInt32 cchValueSize) { throw new NotImplementedException(); }
+
+        [Obsolete("Not implemented in this version.", true)] public UInt32 GetQueryUGCNumKeyValueTags(UGCQueryHandle_t handle, UInt32 index) { throw new NotImplementedException(); }
+
+        [Obsolete("Not implemented in this version.", true)] public bool GetQueryUGCKeyValueTag(UGCQueryHandle_t handle, UInt32 index, UInt32 keyValueTagIndex, StringBuilder pchKey, UInt32 cchKeySize, StringBuilder pchValue, UInt32 cchValueSize) { throw new NotImplementedException(); }
+
+        [Obsolete("Not implemented in this version.", true)] public bool GetQueryUGCKeyValueTag(UGCQueryHandle_t handle, UInt32 index, string pchKey, StringBuilder pchValue, UInt32 cchValueSize) { throw new NotImplementedException(); }
+
+        [Obsolete("Not implemented in this version.", true)] public bool AddRequiredTagGroup(UGCQueryHandle_t handle, ref SteamParamStringArray_t pTagGroups) { throw new NotImplementedException(); }
+
+        [Obsolete("Not implemented in this version.", true)] public bool SetReturnOnlyIDs(UGCQueryHandle_t handle, bool bReturnOnlyIDs) { throw new NotImplementedException(); }
+
+        [Obsolete("Not implemented in this version.", true)] public bool SetReturnKeyValueTags(UGCQueryHandle_t handle, bool bReturnKeyValueTags) { throw new NotImplementedException(); }
+
+        [Obsolete("Not implemented in this version.", true)] public bool SetReturnPlaytimeStats(UGCQueryHandle_t handle, UInt32 unDays) { throw new NotImplementedException(); }
+
+        [Obsolete("Not implemented in this version.", true)] public bool SetLanguage(UGCQueryHandle_t handle, string pchLanguage) { throw new NotImplementedException(); }
+
+        [Obsolete("Not implemented in this version.", true)] public bool SetTimeCreatedDateRange(UGCQueryHandle_t handle, UInt32 rtStart, UInt32 rtEnd) { throw new NotImplementedException(); }
+
+        [Obsolete("Not implemented in this version.", true)] public bool SetTimeUpdatedDateRange(UGCQueryHandle_t handle, UInt32 rtStart, UInt32 rtEnd) { throw new NotImplementedException(); }
+
+        [Obsolete("Not implemented in this version.", true)] public bool AddRequiredKeyValueTag(UGCQueryHandle_t handle, string pKey, string pValue) { throw new NotImplementedException(); }
+
+        [Obsolete("Not implemented in this version.", true)] public bool SetItemUpdateLanguage(UGCUpdateHandle_t handle, string pchLanguage) { throw new NotImplementedException(); }
+
+        [Obsolete("Not implemented in this version.", true)] public bool SetAllowLegacyUpload(UGCUpdateHandle_t handle, bool bAllowLegacyUpload) { throw new NotImplementedException(); }
+
+        [Obsolete("Not implemented in this version.", true)] public bool RemoveAllItemKeyValueTags(UGCUpdateHandle_t handle) { throw new NotImplementedException(); }
+
+        [Obsolete("Not implemented in this version.", true)] public bool RemoveItemKeyValueTags(UGCUpdateHandle_t handle, string pchKey) { throw new NotImplementedException(); }
+
+        [Obsolete("Not implemented in this version.", true)] public bool AddItemKeyValueTag(UGCUpdateHandle_t handle, string pchKey, string pchValue) { throw new NotImplementedException(); }
+
+        [Obsolete("Not implemented in this version.", true)] public bool AddItemPreviewFile(UGCUpdateHandle_t handle, string pszPreviewFile, EItemPreviewType type) { throw new NotImplementedException(); }
+
+        [Obsolete("Not implemented in this version.", true)] public bool AddItemPreviewVideo(UGCUpdateHandle_t handle, string pszVideoID) { throw new NotImplementedException(); }
+
+        [Obsolete("Not implemented in this version.", true)] public bool UpdateItemPreviewFile(UGCUpdateHandle_t handle, UInt32 index, string pszPreviewFile) { throw new NotImplementedException(); }
+
+        [Obsolete("Not implemented in this version.", true)] public bool UpdateItemPreviewVideo(UGCUpdateHandle_t handle, UInt32 index, string pszVideoID) { throw new NotImplementedException(); }
+
+        [Obsolete("Not implemented in this version.", true)] public bool RemoveItemPreview(UGCUpdateHandle_t handle, UInt32 index) { throw new NotImplementedException(); }
+
+        [Obsolete("Not implemented in this version.", true)] public UInt64 SetUserItemVote(PublishedFileId_t nPublishedFileID, bool bVoteUp) { throw new NotImplementedException(); }
+
+        [Obsolete("Not implemented in this version.", true)] public UInt64 GetUserItemVote(PublishedFileId_t nPublishedFileID) { throw new NotImplementedException(); }
+
+        [Obsolete("Not implemented in this version.", true)] public bool BInitWorkshopForGameServer(UInt32 unWorkshopDepotID, string pszFolder) { throw new NotImplementedException(); }
+
+        [Obsolete("Not implemented in this version.", true)] public void SuspendDownloads(bool bSuspend) { throw new NotImplementedException(); }
+
+        [Obsolete("Not implemented in this version.", true)] public UInt64 StartPlaytimeTracking(PublishedFileId_t[] pvecPublishedFileID, UInt32 unNumPublishedFileIDs) { throw new NotImplementedException(); }
+
+        [Obsolete("Not implemented in this version.", true)] public UInt64 StopPlaytimeTracking(PublishedFileId_t[] pvecPublishedFileID, UInt32 unNumPublishedFileIDs) { throw new NotImplementedException(); }
+
+        [Obsolete("Not implemented in this version.", true)] public UInt64 StopPlaytimeTrackingForAllItems() { throw new NotImplementedException(); }
+
+        [Obsolete("Not implemented in this version.", true)] public UInt64 AddDependency(PublishedFileId_t nParentPublishedFileID, PublishedFileId_t nChildPublishedFileID) { throw new NotImplementedException(); }
+
+        [Obsolete("Not implemented in this version.", true)] public UInt64 RemoveDependency(PublishedFileId_t nParentPublishedFileID, PublishedFileId_t nChildPublishedFileID) { throw new NotImplementedException(); }
+
+        [Obsolete("Not implemented in this version.", true)] public UInt64 AddAppDependency(PublishedFileId_t nPublishedFileID, UInt32 nAppID) { throw new NotImplementedException(); }
+
+        [Obsolete("Not implemented in this version.", true)] public UInt64 RemoveAppDependency(PublishedFileId_t nPublishedFileID, UInt32 nAppID) { throw new NotImplementedException(); }
+
+        [Obsolete("Not implemented in this version.", true)] public UInt64 GetAppDependencies(PublishedFileId_t nPublishedFileID) { throw new NotImplementedException(); }
+
+        [Obsolete("Not implemented in this version.", true)] public UInt64 DeleteItem(PublishedFileId_t nPublishedFileID) { throw new NotImplementedException(); }
+
+        [Obsolete("Not implemented in this version.", true)] public bool ShowWorkshopEULA() { throw new NotImplementedException(); }
+
+        [Obsolete("Not implemented in this version.", true)] public UInt64 GetWorkshopEULAStatus() { throw new NotImplementedException(); }
     }
 }

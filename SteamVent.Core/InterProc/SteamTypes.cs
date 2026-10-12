@@ -37,6 +37,28 @@ namespace SteamVent.Steamworks.Native.Interfaces
         eServerModeAuthentication = 2,
         eServerModeAuthenticationAndSecure = 3,
     };
+    public enum EGamePerformanceSetting : int
+    {
+        k_EGamePerformanceSetting_NotSet = 0,
+        k_EGamePerformanceSetting_Low = 1,
+        k_EGamePerformanceSetting_Medium = 2,
+        k_EGamePerformanceSetting_High = 3,
+        k_EGamePerformanceSetting_Ultra = 4,
+        k_EGamePerformanceSetting_Custom = 5,
+    };
+
+    public enum EItemPreviewType : int
+    {
+        k_EItemPreviewType_Image = 0,
+        k_EItemPreviewType_YouTubeVideo = 1,
+        k_EItemPreviewType_Sketchfab = 2,
+        k_EItemPreviewType_EnvironmentMap_HorizontalCross = 3,
+        k_EItemPreviewType_EnvironmentMap_LatLong = 4,
+        k_EItemPreviewType_Clip = 5,
+        k_EItemPreviewType_ReservedMax = 255,
+    };
+
+
 
     public enum EUniverse : int
     {

@@ -66,5 +66,48 @@ namespace SteamVent.Steamworks.Native.Interfaces
         bool GetItemDownloadInfo(PublishedFileId_t nPublishedFileID, ref UInt64 punBytesDownloaded, ref UInt64 punBytesTotal);
 
         bool DownloadItem(UInt64 nPublishedFileID, bool bHighPriority);
+        UInt32 GetQueryUGCNumTags(UGCQueryHandle_t handle, UInt32 index);
+        bool GetQueryUGCTag(UGCQueryHandle_t handle, UInt32 index, UInt32 indexTag, StringBuilder pchValue, UInt32 cchValueSize);
+        bool GetQueryUGCTagDisplayName(UGCQueryHandle_t handle, UInt32 index, UInt32 indexTag, StringBuilder pchValue, UInt32 cchValueSize);
+        UInt32 GetQueryUGCNumKeyValueTags(UGCQueryHandle_t handle, UInt32 index);
+        bool GetQueryUGCKeyValueTag(UGCQueryHandle_t handle, UInt32 index, UInt32 keyValueTagIndex, StringBuilder pchKey, UInt32 cchKeySize, StringBuilder pchValue, UInt32 cchValueSize);
+        bool GetQueryUGCKeyValueTag(UGCQueryHandle_t handle, UInt32 index, string pchKey, StringBuilder pchValue, UInt32 cchValueSize);
+        bool AddRequiredTagGroup(UGCQueryHandle_t handle, ref SteamParamStringArray_t pTagGroups);
+        bool SetReturnOnlyIDs(UGCQueryHandle_t handle, bool bReturnOnlyIDs);
+        bool SetReturnKeyValueTags(UGCQueryHandle_t handle, bool bReturnKeyValueTags);
+        bool SetReturnMetadata(UGCQueryHandle_t handle, bool bReturnMetadata);
+        bool SetReturnChildren(UGCQueryHandle_t handle, bool bReturnChildren);
+        bool SetReturnAdditionalPreviews(UGCQueryHandle_t handle, bool bReturnAdditionalPreviews);
+        bool SetReturnPlaytimeStats(UGCQueryHandle_t handle, UInt32 unDays);
+        bool SetLanguage(UGCQueryHandle_t handle, string pchLanguage);
+        bool SetAllowCachedResponse(UGCQueryHandle_t handle, UInt32 unMaxAgeSeconds);
+        bool SetTimeCreatedDateRange(UGCQueryHandle_t handle, UInt32 rtStart, UInt32 rtEnd);
+        bool SetTimeUpdatedDateRange(UGCQueryHandle_t handle, UInt32 rtStart, UInt32 rtEnd);
+        bool AddRequiredKeyValueTag(UGCQueryHandle_t handle, string pKey, string pValue);
+        bool SetItemUpdateLanguage(UGCUpdateHandle_t handle, string pchLanguage);
+        bool SetAllowLegacyUpload(UGCUpdateHandle_t handle, bool bAllowLegacyUpload);
+        bool RemoveAllItemKeyValueTags(UGCUpdateHandle_t handle);
+        bool RemoveItemKeyValueTags(UGCUpdateHandle_t handle, string pchKey);
+        bool AddItemKeyValueTag(UGCUpdateHandle_t handle, string pchKey, string pchValue);
+        bool AddItemPreviewFile(UGCUpdateHandle_t handle, string pszPreviewFile, EItemPreviewType type);
+        bool AddItemPreviewVideo(UGCUpdateHandle_t handle, string pszVideoID);
+        bool UpdateItemPreviewFile(UGCUpdateHandle_t handle, UInt32 index, string pszPreviewFile);
+        bool UpdateItemPreviewVideo(UGCUpdateHandle_t handle, UInt32 index, string pszVideoID);
+        bool RemoveItemPreview(UGCUpdateHandle_t handle, UInt32 index);
+        UInt64 SetUserItemVote(PublishedFileId_t nPublishedFileID, bool bVoteUp);
+        UInt64 GetUserItemVote(PublishedFileId_t nPublishedFileID);
+        bool BInitWorkshopForGameServer(UInt32 unWorkshopDepotID, string pszFolder);
+        void SuspendDownloads(bool bSuspend);
+        UInt64 StartPlaytimeTracking(PublishedFileId_t[] pvecPublishedFileID, UInt32 unNumPublishedFileIDs);
+        UInt64 StopPlaytimeTracking(PublishedFileId_t[] pvecPublishedFileID, UInt32 unNumPublishedFileIDs);
+        UInt64 StopPlaytimeTrackingForAllItems();
+        UInt64 AddDependency(PublishedFileId_t nParentPublishedFileID, PublishedFileId_t nChildPublishedFileID);
+        UInt64 RemoveDependency(PublishedFileId_t nParentPublishedFileID, PublishedFileId_t nChildPublishedFileID);
+        UInt64 AddAppDependency(PublishedFileId_t nPublishedFileID, UInt32 nAppID);
+        UInt64 RemoveAppDependency(PublishedFileId_t nPublishedFileID, UInt32 nAppID);
+        UInt64 GetAppDependencies(PublishedFileId_t nPublishedFileID);
+        UInt64 DeleteItem(PublishedFileId_t nPublishedFileID);
+        bool ShowWorkshopEULA();
+        UInt64 GetWorkshopEULAStatus();
     }
 }

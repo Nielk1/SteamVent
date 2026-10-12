@@ -40,5 +40,10 @@ namespace SteamVent.Steamworks.Native.Interfaces
         bool BIsSubscribedFromFamilySharing();
         bool BIsTimedTrial(ref UInt32 punSecondsAllowed, ref UInt32 punSecondsPlayed);
         bool SetDlcContext(UInt32 nAppId);
+        Int32 GetNumBetas(ref Int32 pnAvailable, ref Int32 pnPrivate);
+        bool GetBetaInfo(Int32 iBetaIndex, ref UInt32 punFlags, ref UInt32 punBuildID, StringBuilder pchBetaName, Int32 cchBetaName, StringBuilder pchDescription, Int32 cchDescription, ref UInt32 punLastUpdated);
+        bool SetActiveBeta(string pchBetaName);
+        void SetGamePerformanceSetting(EGamePerformanceSetting setting);
+        void SetGameRenderResolution(UInt32 unWidth, UInt32 unHeight);
     }
 }

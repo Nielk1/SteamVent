@@ -11,6 +11,12 @@ using SteamVent.Steamworks.Native;
 
 namespace SteamVent.Steamworks.Native.Interfaces
 {
+    /// <summary>
+    /// Native warning-message hook callback (see <c>SteamAPIWarningMessageHook_t</c> in the Steamworks SDK).
+    /// </summary>
+    [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+    public delegate void SteamAPIWarningMessageHook_t(Int32 iSeverity, IntPtr pchWarning);
+
     public interface ISteamClient
     {
         Int32 CreateSteamPipe();
@@ -22,5 +28,9 @@ namespace SteamVent.Steamworks.Native.Interfaces
         TInterface GetISteamUtils<TInterface>(Int32 hSteamPipe) where TInterface : SteamInterfaceWrapper;
         TInterface GetISteamApps<TInterface>(Int32 hSteamUser, Int32 hSteamPipe) where TInterface : SteamInterfaceWrapper;
         TInterface GetISteamUGC<TInterface>(Int32 hSteamUser, Int32 hSteamPipe) where TInterface : SteamInterfaceWrapper;
+        void SetLocalIPBinding(UInt32 unIP, UInt16 usPort);
+        void RunFrame();
+        void SetWarningMessageHook(SteamAPIWarningMessageHook_t pFunction);
+        bool BShutdownIfAllPipesClosed();
     }
 }

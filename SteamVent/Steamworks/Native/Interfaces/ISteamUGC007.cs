@@ -352,5 +352,142 @@ namespace SteamVent.Steamworks.Native.Interfaces
         #endregion
         public bool DownloadItem(UInt64 nPublishedFileID, bool bHighPriority) =>
             GetDelegate<DownloadItemDelegate>()(InterfacePtr, nPublishedFileID, bHighPriority);
+        [Obsolete("Not implemented in this version.", true)] public UInt32 GetQueryUGCNumTags(UGCQueryHandle_t handle, UInt32 index) { throw new NotImplementedException(); }
+
+        [Obsolete("Not implemented in this version.", true)] public bool GetQueryUGCTag(UGCQueryHandle_t handle, UInt32 index, UInt32 indexTag, StringBuilder pchValue, UInt32 cchValueSize) { throw new NotImplementedException(); }
+
+        [Obsolete("Not implemented in this version.", true)] public bool GetQueryUGCTagDisplayName(UGCQueryHandle_t handle, UInt32 index, UInt32 indexTag, StringBuilder pchValue, UInt32 cchValueSize) { throw new NotImplementedException(); }
+
+        #region VTableIndex(11)
+        [VTableIndex(11), UnmanagedFunctionPointer(CallingConvention.ThisCall)]
+        private delegate UInt32 GetQueryUGCNumKeyValueTagsDelegate(IntPtr thisPtr, UGCQueryHandle_t handle, UInt32 index);
+        #endregion
+        public UInt32 GetQueryUGCNumKeyValueTags(UGCQueryHandle_t handle, UInt32 index) =>
+            GetDelegate<GetQueryUGCNumKeyValueTagsDelegate>()(InterfacePtr, handle, index);
+
+        #region VTableIndex(12)
+        [VTableIndex(12), UnmanagedFunctionPointer(CallingConvention.ThisCall)]
+        private delegate bool GetQueryUGCKeyValueTagByIndexDelegate(IntPtr thisPtr, UGCQueryHandle_t handle, UInt32 index, UInt32 keyValueTagIndex, StringBuilder pchKey, UInt32 cchKeySize, StringBuilder pchValue, UInt32 cchValueSize);
+        #endregion
+        public bool GetQueryUGCKeyValueTag(UGCQueryHandle_t handle, UInt32 index, UInt32 keyValueTagIndex, StringBuilder pchKey, UInt32 cchKeySize, StringBuilder pchValue, UInt32 cchValueSize) =>
+            GetDelegate<GetQueryUGCKeyValueTagByIndexDelegate>()(InterfacePtr, handle, index, keyValueTagIndex, pchKey, cchKeySize, pchValue, cchValueSize);
+
+        [Obsolete("Not implemented in this version.", true)] public bool GetQueryUGCKeyValueTag(UGCQueryHandle_t handle, UInt32 index, string pchKey, StringBuilder pchValue, UInt32 cchValueSize) { throw new NotImplementedException(); }
+
+        [Obsolete("Not implemented in this version.", true)] public bool AddRequiredTagGroup(UGCQueryHandle_t handle, ref SteamParamStringArray_t pTagGroups) { throw new NotImplementedException(); }
+
+        [Obsolete("Not implemented in this version.", true)] public bool SetReturnOnlyIDs(UGCQueryHandle_t handle, bool bReturnOnlyIDs) { throw new NotImplementedException(); }
+
+        #region VTableIndex(16)
+        [VTableIndex(16), UnmanagedFunctionPointer(CallingConvention.ThisCall)]
+        private delegate bool SetReturnKeyValueTagsDelegate(IntPtr thisPtr, UGCQueryHandle_t handle, bool bReturnKeyValueTags);
+        #endregion
+        public bool SetReturnKeyValueTags(UGCQueryHandle_t handle, bool bReturnKeyValueTags) =>
+            GetDelegate<SetReturnKeyValueTagsDelegate>()(InterfacePtr, handle, bReturnKeyValueTags);
+
+        [Obsolete("Not implemented in this version.", true)] public bool SetReturnPlaytimeStats(UGCQueryHandle_t handle, UInt32 unDays) { throw new NotImplementedException(); }
+
+        #region VTableIndex(22)
+        [VTableIndex(22), UnmanagedFunctionPointer(CallingConvention.ThisCall)]
+        private delegate bool SetLanguageDelegate(IntPtr thisPtr, UGCQueryHandle_t handle, string pchLanguage);
+        #endregion
+        public bool SetLanguage(UGCQueryHandle_t handle, string pchLanguage) =>
+            GetDelegate<SetLanguageDelegate>()(InterfacePtr, handle, pchLanguage);
+
+        [Obsolete("Not implemented in this version.", true)] public bool SetTimeCreatedDateRange(UGCQueryHandle_t handle, UInt32 rtStart, UInt32 rtEnd) { throw new NotImplementedException(); }
+
+        [Obsolete("Not implemented in this version.", true)] public bool SetTimeUpdatedDateRange(UGCQueryHandle_t handle, UInt32 rtStart, UInt32 rtEnd) { throw new NotImplementedException(); }
+
+        #region VTableIndex(28)
+        [VTableIndex(28), UnmanagedFunctionPointer(CallingConvention.ThisCall)]
+        private delegate bool AddRequiredKeyValueTagDelegate(IntPtr thisPtr, UGCQueryHandle_t handle, string pKey, string pValue);
+        #endregion
+        public bool AddRequiredKeyValueTag(UGCQueryHandle_t handle, string pKey, string pValue) =>
+            GetDelegate<AddRequiredKeyValueTagDelegate>()(InterfacePtr, handle, pKey, pValue);
+
+        #region VTableIndex(34)
+        [VTableIndex(34), UnmanagedFunctionPointer(CallingConvention.ThisCall)]
+        private delegate bool SetItemUpdateLanguageDelegate(IntPtr thisPtr, UGCUpdateHandle_t handle, string pchLanguage);
+        #endregion
+        public bool SetItemUpdateLanguage(UGCUpdateHandle_t handle, string pchLanguage) =>
+            GetDelegate<SetItemUpdateLanguageDelegate>()(InterfacePtr, handle, pchLanguage);
+
+        [Obsolete("Not implemented in this version.", true)] public bool SetAllowLegacyUpload(UGCUpdateHandle_t handle, bool bAllowLegacyUpload) { throw new NotImplementedException(); }
+
+        [Obsolete("Not implemented in this version.", true)] public bool RemoveAllItemKeyValueTags(UGCUpdateHandle_t handle) { throw new NotImplementedException(); }
+
+        #region VTableIndex(40)
+        [VTableIndex(40), UnmanagedFunctionPointer(CallingConvention.ThisCall)]
+        private delegate bool RemoveItemKeyValueTagsDelegate(IntPtr thisPtr, UGCUpdateHandle_t handle, string pchKey);
+        #endregion
+        public bool RemoveItemKeyValueTags(UGCUpdateHandle_t handle, string pchKey) =>
+            GetDelegate<RemoveItemKeyValueTagsDelegate>()(InterfacePtr, handle, pchKey);
+
+        #region VTableIndex(41)
+        [VTableIndex(41), UnmanagedFunctionPointer(CallingConvention.ThisCall)]
+        private delegate bool AddItemKeyValueTagDelegate(IntPtr thisPtr, UGCUpdateHandle_t handle, string pchKey, string pchValue);
+        #endregion
+        public bool AddItemKeyValueTag(UGCUpdateHandle_t handle, string pchKey, string pchValue) =>
+            GetDelegate<AddItemKeyValueTagDelegate>()(InterfacePtr, handle, pchKey, pchValue);
+
+        [Obsolete("Not implemented in this version.", true)] public bool AddItemPreviewFile(UGCUpdateHandle_t handle, string pszPreviewFile, EItemPreviewType type) { throw new NotImplementedException(); }
+
+        [Obsolete("Not implemented in this version.", true)] public bool AddItemPreviewVideo(UGCUpdateHandle_t handle, string pszVideoID) { throw new NotImplementedException(); }
+
+        [Obsolete("Not implemented in this version.", true)] public bool UpdateItemPreviewFile(UGCUpdateHandle_t handle, UInt32 index, string pszPreviewFile) { throw new NotImplementedException(); }
+
+        [Obsolete("Not implemented in this version.", true)] public bool UpdateItemPreviewVideo(UGCUpdateHandle_t handle, UInt32 index, string pszVideoID) { throw new NotImplementedException(); }
+
+        [Obsolete("Not implemented in this version.", true)] public bool RemoveItemPreview(UGCUpdateHandle_t handle, UInt32 index) { throw new NotImplementedException(); }
+
+        #region VTableIndex(44)
+        [VTableIndex(44), UnmanagedFunctionPointer(CallingConvention.ThisCall)]
+        private delegate UInt64 SetUserItemVoteDelegate(IntPtr thisPtr, PublishedFileId_t nPublishedFileID, bool bVoteUp);
+        #endregion
+        public UInt64 SetUserItemVote(PublishedFileId_t nPublishedFileID, bool bVoteUp) =>
+            GetDelegate<SetUserItemVoteDelegate>()(InterfacePtr, nPublishedFileID, bVoteUp);
+
+        #region VTableIndex(45)
+        [VTableIndex(45), UnmanagedFunctionPointer(CallingConvention.ThisCall)]
+        private delegate UInt64 GetUserItemVoteDelegate(IntPtr thisPtr, PublishedFileId_t nPublishedFileID);
+        #endregion
+        public UInt64 GetUserItemVote(PublishedFileId_t nPublishedFileID) =>
+            GetDelegate<GetUserItemVoteDelegate>()(InterfacePtr, nPublishedFileID);
+
+        #region VTableIndex(56)
+        [VTableIndex(56), UnmanagedFunctionPointer(CallingConvention.ThisCall)]
+        private delegate bool BInitWorkshopForGameServerDelegate(IntPtr thisPtr, UInt32 unWorkshopDepotID, string pszFolder);
+        #endregion
+        public bool BInitWorkshopForGameServer(UInt32 unWorkshopDepotID, string pszFolder) =>
+            GetDelegate<BInitWorkshopForGameServerDelegate>()(InterfacePtr, unWorkshopDepotID, pszFolder);
+
+        #region VTableIndex(57)
+        [VTableIndex(57), UnmanagedFunctionPointer(CallingConvention.ThisCall)]
+        private delegate void SuspendDownloadsDelegate(IntPtr thisPtr, bool bSuspend);
+        #endregion
+        public void SuspendDownloads(bool bSuspend) =>
+            GetDelegate<SuspendDownloadsDelegate>()(InterfacePtr, bSuspend);
+
+        [Obsolete("Not implemented in this version.", true)] public UInt64 StartPlaytimeTracking(PublishedFileId_t[] pvecPublishedFileID, UInt32 unNumPublishedFileIDs) { throw new NotImplementedException(); }
+
+        [Obsolete("Not implemented in this version.", true)] public UInt64 StopPlaytimeTracking(PublishedFileId_t[] pvecPublishedFileID, UInt32 unNumPublishedFileIDs) { throw new NotImplementedException(); }
+
+        [Obsolete("Not implemented in this version.", true)] public UInt64 StopPlaytimeTrackingForAllItems() { throw new NotImplementedException(); }
+
+        [Obsolete("Not implemented in this version.", true)] public UInt64 AddDependency(PublishedFileId_t nParentPublishedFileID, PublishedFileId_t nChildPublishedFileID) { throw new NotImplementedException(); }
+
+        [Obsolete("Not implemented in this version.", true)] public UInt64 RemoveDependency(PublishedFileId_t nParentPublishedFileID, PublishedFileId_t nChildPublishedFileID) { throw new NotImplementedException(); }
+
+        [Obsolete("Not implemented in this version.", true)] public UInt64 AddAppDependency(PublishedFileId_t nPublishedFileID, UInt32 nAppID) { throw new NotImplementedException(); }
+
+        [Obsolete("Not implemented in this version.", true)] public UInt64 RemoveAppDependency(PublishedFileId_t nPublishedFileID, UInt32 nAppID) { throw new NotImplementedException(); }
+
+        [Obsolete("Not implemented in this version.", true)] public UInt64 GetAppDependencies(PublishedFileId_t nPublishedFileID) { throw new NotImplementedException(); }
+
+        [Obsolete("Not implemented in this version.", true)] public UInt64 DeleteItem(PublishedFileId_t nPublishedFileID) { throw new NotImplementedException(); }
+
+        [Obsolete("Not implemented in this version.", true)] public bool ShowWorkshopEULA() { throw new NotImplementedException(); }
+
+        [Obsolete("Not implemented in this version.", true)] public UInt64 GetWorkshopEULAStatus() { throw new NotImplementedException(); }
     }
 }
