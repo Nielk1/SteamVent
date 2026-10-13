@@ -1,6 +1,6 @@
 # Steamworks VTable Reference
 
-Authoritative per-version layouts for the three interface families this library exposes — `ISteamApps`, `ISteamClient`, and `ISteamUGC`. Every `[VTableIndex]` in the generated `ISteam*NNN.cs` classes is checked against the current official SDK (`TempRefs/steamworks_sdk/sdk/public/steam/isteam*.h`).
+Authoritative per-version layouts for the three interface families this library exposes — `ISteamApps`, `ISteamClient`, and `ISteamUGC`. Every `[VTableIndex]` in the generated `ISteam*NNN.cs` classes is checked against the official Steamworks SDK (`TempRefs/steamworks_sdk`, git-tagged per SDK release — the tag carrying each interface version supplies that version's `isteam*.h`). The only snapshots the official repo does not tag — `ISteamClient013`/`014` and `ISteamUGC004`/`005`/`006` — are taken from the Goldberg Emulator SDK (`TempRefs/goldberg_emulator/sdk_includes/isteam*NNN.h`), the sole source for those.
 
 **Counting rules** (the source of most index-mapping errors):
 - **`#ifdef _PS3`** members are *excluded* from the count — they are not part of the Windows vtable.
@@ -59,14 +59,14 @@ Interface-version strings: `STEAMAPPS_INTERFACE_VERSION001` … `008`.  Represen
 - **`ISteamApps001`** is a legacy contract whose only native function (`GetAppData`) is not part of the current `ISteamApps` surface, so all 30 mapped functions are stubs there.
 - **`ISteamApps008`** (the default) maps all 30 as real P/Invoke at the indices above.
 
-> Verified: `GetFileDetails` is `SteamAPICall_t GetFileDetails(const char*)` (size/SHA delivered via the `FileDetailsResult_t` call-result), and `BIsSubscribedFromFamilySharing` sits at index **27** (26 is `GetLaunchCommandLine`) — both confirmed against `isteamapps008.h` and the official `isteamapps.h` (`…VERSION009`).
+> Verified: `GetFileDetails` is `SteamAPICall_t GetFileDetails(const char*)` (size/SHA delivered via the `FileDetailsResult_t` call-result), and `BIsSubscribedFromFamilySharing` sits at index **27** (26 is `GetLaunchCommandLine`) — both confirmed against the official `isteamapps.h` (`STEAMAPPS_INTERFACE_VERSION008` for the core, `STEAMAPPS_INTERFACE_VERSION009` for these trailing methods).
 
 
 ---
 
 ## ISteamUGC
 
-Interface-version strings: `STEAMUGC_INTERFACE_VERSION001` … `016`. (`011` is omitted — no `isteamugc011.h` snapshot exists in either reference.) The table shows the **46 base-interface methods** mapped by the library, in interface order, with their vtable index in each generated version (0-based, as used in the generated class):
+Interface-version strings: `STEAMUGC_INTERFACE_VERSION001` … `016`. (`011` is omitted — the official SDK tags jump from `…VERSION010` to `…VERSION012`). `004`/`005`/`006` exist only in the Goldberg Emulator SDK, the sole source for those; every other version comes from the official `steamworks_sdk`. The table shows the **46 base-interface methods** mapped by the library, in interface order, with their vtable index in each generated version (0-based, as used in the generated class):
 
 | Method | 005 | 006 | 007 | 008 | 009 | 010 | 012 | 013 | 014 | 015 | 016 |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |

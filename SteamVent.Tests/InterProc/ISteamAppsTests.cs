@@ -12,12 +12,36 @@ namespace SteamVent.Tests.InterProc
     {
         public static IEnumerable<object[]> SteamClientAndAppsVersions()
         {
-            yield return new object[] { typeof(ISteamClient017), typeof(ISteamApps003) };
-            yield return new object[] { typeof(ISteamClient017), typeof(ISteamApps004) };
-            yield return new object[] { typeof(ISteamClient017), typeof(ISteamApps005) };
-            yield return new object[] { typeof(ISteamClient017), typeof(ISteamApps006) };
-            yield return new object[] { typeof(ISteamClient017), typeof(ISteamApps007) };
-            yield return new object[] { typeof(ISteamClient017), typeof(ISteamApps008) };
+            Type[] SteamClientArr =
+            {
+                typeof(ISteamClient007),
+                typeof(ISteamClient008),
+                typeof(ISteamClient009),
+                typeof(ISteamClient010),
+                typeof(ISteamClient011),
+                typeof(ISteamClient012),
+                typeof(ISteamClient013),
+                typeof(ISteamClient014),
+                typeof(ISteamClient015),
+                typeof(ISteamClient016),
+                typeof(ISteamClient017),
+                typeof(ISteamClient018),
+                typeof(ISteamClient019),
+            };
+            Type[] SteamAppsArr =
+            {
+                typeof(ISteamApps001),
+                typeof(ISteamApps002),
+                typeof(ISteamApps003),
+                typeof(ISteamApps004),
+                typeof(ISteamApps005),
+                typeof(ISteamApps006),
+                typeof(ISteamApps007),
+                typeof(ISteamApps008),
+            };
+            foreach (Type client in SteamClientArr)
+                foreach (Type apps in SteamAppsArr)
+                    yield return new object[] { client, apps };
         }
 
         [Theory]

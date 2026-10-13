@@ -125,10 +125,23 @@ namespace SteamVent.Steamworks.Native.Interfaces
 
         #region VTableIndex(15)
         [VTableIndex(15), UnmanagedFunctionPointer(CallingConvention.ThisCall)]
-        private delegate IntPtr GetCurrentBetaNameDelegate(IntPtr thisPtr);
+        private delegate bool GetCurrentBetaNameDelegate(IntPtr thisPtr, IntPtr pchName, Int32 cchNameBufferSize);
         #endregion
-        public string GetCurrentBetaName() =>
-            DecodeUtf8String(GetDelegate<GetCurrentBetaNameDelegate>()(InterfacePtr));
+        public string GetCurrentBetaName()
+        {
+            // Official STEAMAPPS_INTERFACE_VERSION008: bool GetCurrentBetaName( char *pchName, int cchNameBufferSize )
+            const Int32 size = 256;
+            IntPtr pchName = Marshal.AllocHGlobal(size + 1);
+            try
+            {
+                GetDelegate<GetCurrentBetaNameDelegate>()(InterfacePtr, pchName, size);
+                return DecodeUtf8String(pchName);
+            }
+            finally
+            {
+                Marshal.FreeHGlobal(pchName);
+            }
+        }
 
         #region VTableIndex(16)
         [VTableIndex(16), UnmanagedFunctionPointer(CallingConvention.ThisCall)]
@@ -174,10 +187,10 @@ namespace SteamVent.Steamworks.Native.Interfaces
 
         #region VTableIndex(20)
         [VTableIndex(20), UnmanagedFunctionPointer(CallingConvention.ThisCall)]
-        private delegate UInt64 GetAppOwnerDelegate(IntPtr thisPtr, UInt32 nAppID);
+        private delegate UInt64 GetAppOwnerDelegate(IntPtr thisPtr);
         #endregion
         public UInt64 GetAppOwner(UInt32 nAppId) =>
-            GetDelegate<GetAppOwnerDelegate>()(InterfacePtr, nAppId);
+            GetDelegate<GetAppOwnerDelegate>()(InterfacePtr);
 
         #region VTableIndex(21)
         [VTableIndex(21), UnmanagedFunctionPointer(CallingConvention.ThisCall)]
@@ -205,10 +218,10 @@ namespace SteamVent.Steamworks.Native.Interfaces
 
         #region VTableIndex(23)
         [VTableIndex(23), UnmanagedFunctionPointer(CallingConvention.ThisCall)]
-        private delegate UInt32 GetAppBuildIdDelegate(IntPtr thisPtr, UInt32 nAppID);
+        private delegate UInt32 GetAppBuildIdDelegate(IntPtr thisPtr);
         #endregion
         public UInt32 GetAppBuildId(UInt32 nAppId) =>
-            GetDelegate<GetAppBuildIdDelegate>()(InterfacePtr, nAppId);
+            GetDelegate<GetAppBuildIdDelegate>()(InterfacePtr);
 
         #region VTableIndex(24)
         [VTableIndex(24), UnmanagedFunctionPointer(CallingConvention.ThisCall)]
