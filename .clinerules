@@ -8,4 +8,4 @@ You are assisting with the SteamVent library which interfaces with Steam, the St
 1. **Tool use:** Avoid executing terminal commands when existing tools are sufficent such as editing or reading file contents. Terminal is powershell.
 2. **Maintain documentation:** When making changes to code always keep the documentation at `{workspace}\docs` up to date.
   * `{workspace}\docs\README.md` - Current full docs, will be split up later
-3. Reference resources in the `{workspace}\TempRefs` path.  Prefer `{workspace}\TempRefs\steamworks_sdk` which is a git repo with each steamworks version tagged.
+3. Reference resources in the `{workspace}\references` path.  Prefer `{workspace}\references\steamworks_sdk` which is a git repo with each steamworks version tagged.

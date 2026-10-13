@@ -1,6 +1,6 @@
 # Steamworks VTable Reference
 
-Authoritative per-version layouts for the three interface families this library exposes — `ISteamApps`, `ISteamClient`, and `ISteamUGC`. Every `[VTableIndex]` in the generated `ISteam*NNN.cs` classes is checked against the official Steamworks SDK (`TempRefs/steamworks_sdk`, git-tagged per SDK release — the tag carrying each interface version supplies that version's `isteam*.h`). The only snapshots the official repo does not tag — `ISteamClient013`/`014` and `ISteamUGC004`/`005`/`006` — are taken from the Goldberg Emulator SDK (`TempRefs/goldberg_emulator/sdk_includes/isteam*NNN.h`), the sole source for those.
+Authoritative per-version layouts for the three interface families this library exposes — `ISteamApps`, `ISteamClient`, and `ISteamUGC`. Every `[VTableIndex]` in the generated `ISteam*NNN.cs` classes is checked against the official Steamworks SDK (`references/steamworks_sdk`, git-tagged per SDK release — the tag carrying each interface version supplies that version's `isteam*.h`). The only snapshots the official repo does not tag — `ISteamClient013`/`014` and `ISteamUGC004`/`005`/`006` — are taken from the Goldberg Emulator SDK (`references/goldberg_emulator/sdk_includes/isteam*NNN.h`), the sole source for those.
 
 **Counting rules** (the source of most index-mapping errors):
 - **`#ifdef _PS3`** members are *excluded* from the count — they are not part of the Windows vtable.

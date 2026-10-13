@@ -1,3 +1,5 @@
+// TODO consider removing this from the ISteamApps interface as it's entirely alien from ISteamApps002+
+
 using System;
 using System.Collections.Generic;
 using System.Linq;

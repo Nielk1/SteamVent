@@ -328,3 +328,9 @@ ASALocalRun/
 
 # MFractors (Xamarin productivity tool) working folder 
 .mfractor/
+
+
+
+references/goldberg_emulator/
+references/steamhook/
+references/steamworks_sdk/
