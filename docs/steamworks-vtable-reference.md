@@ -37,6 +37,7 @@ Interface-version strings: `STEAMAPPS_INTERFACE_VERSION001` … `009`. The table
 
 | Method | 001 | 002 | 003 | 004 | 005 | 006 | 007 | 008 | 009 |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| `GetAppData*` | 0 | — | — | — | — | — | — | — | — |
 | `BIsSubscribed` | — | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
 | `BIsLowViolence` | — | 1 | 1 | 1 | 1 | 1 | 1 | 1 | 1 |
 | `BIsCybercafe` | — | 2 | 2 | 2 | 2 | 2 | 2 | 2 | 2 |
@@ -72,7 +73,6 @@ Interface-version strings: `STEAMAPPS_INTERFACE_VERSION001` … `009`. The table
 | `SetActiveBeta` | — | — | — | — | — | — | — | — | 32 |
 | `SetGamePerformanceSetting` | — | — | — | — | — | — | — | — | 33 |
 | `SetGameRenderResolution` | — | — | — | — | — | — | — | — | 34 |
-| `GetAppData*` | 0 | — | — | — | — | — | — | — | — |
 
 - **`GetAppData*`** is the *only* slot of the legacy `ISteamApps001` surface (index **0**). It is not part of the modern `ISteamApps` interface (which begins at `BIsSubscribed` from `002` on), hence the `*` — it is exposed in no other version.
 - **`ISteamApps002`** … **`007`** bind the subset of the table that exists in each version (the `—` cells are `NotImplementedException` stubs in that class); **`ISteamApps008`** (the default) binds the first **30** — `BIsSubscribed` … `SetDlcContext`, indices **0–29** — as real P/Invoke.
