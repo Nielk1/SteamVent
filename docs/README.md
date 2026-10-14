@@ -200,8 +200,8 @@ The `ISteamApps` contract maps the full `STEAMAPPS_INTERFACE_VERSION008` surface
 | `007` | 5 | 9 | 18 | — (stub) |
 | `008` | 5 | 9 | 15 | — (stub) |
 | `009`–`011` | 5 | 9 | 16 | — (stub) |
-| `012`–`016` | 5 | 9 | 15 | 26 |
-| `017` | 5 | 9 | 15 | 26 |
+| `012` | 5 | 9 | 15 | — (stub) |
+| `013`–`017` | 5 | 9 | 15 | 26 |
 | `018`–`019` | 5 | 9 | 15 | 27 |
 
 The four lifecycle helpers resolve to their per-version vtable indices below (a stub where that version lacks the slot — `BShutdownIfAllPipesClosed` first appears in `010`):
@@ -224,7 +224,7 @@ The four lifecycle helpers resolve to their per-version vtable indices below (a 
 
 > **`ISteamClient017` fix.** `GetISteamUser` previously bound through `GetISteamAppsDelegate` (vtable 15) instead of its own `GetISteamUserDelegate` (vtable 5); it now resolves to the correct slot 5.
 
-Two per-version quirks are handled explicitly: **`GetISteamUGC` first appears in `ISteamClient012`** (vtable 26), so `007`–`011` declare it as a `NotImplementedException` stub; and **`CreateLocalUser` is 1-argument in `007`** (no `EAccountType`) but 2-argument from `008` onward — `ISteamClient007` binds the 1-argument native form while the managed signature (and `eAccountType`) is preserved for interface conformance. The `#ifdef _PS3` accessor is excluded from every index count (not part of the Windows vtable), while `STEAM_PRIVATE_API` slots (e.g. `RunFrame`, the `DEPRECATED_*` helpers in `018`/`019`) *are* counted, since in a normal build they expand to `protected:` members that still occupy a vtable slot.
+Two per-version quirks are handled explicitly: **`GetISteamUGC` first appears in `ISteamClient013`** (vtable 26; the official SDK introduces it in `014`), so `007`–`012` declare it as a `NotImplementedException` stub; and **`CreateLocalUser` is 1-argument in `007`** (no `EAccountType`) but 2-argument from `008` onward — `ISteamClient007` binds the 1-argument native form while the managed signature (and `eAccountType`) is preserved for interface conformance. The `#ifdef _PS3` accessor is excluded from every index count (not part of the Windows vtable), while `STEAM_PRIVATE_API` slots (e.g. `RunFrame`, the `DEPRECATED_*` helpers in `018`/`019`) *are* counted, since in a normal build they expand to `protected:` members that still occupy a vtable slot.
 
 The `ISteamUGC` contract maps `AddItemToFavorites` (vtable 36) and `RemoveItemFromFavorites` (vtable 37) in `ISteamUGC005`. The **`ISteamUGC004`** version class (between `003` and `005`) now maps the real `STEAMUGC_INTERFACE_VERSION004` layout — 33 functions at vtable indices 0–32 (e.g. `SetAllowCachedResponse` at 9, `RequestUGCDetails` at 14, `DownloadItem` at 32); the 17 `ISteamUGC` methods that `004` does not expose (the `GetQueryUGC*` series, `SetReturnMetadata`/`Children`/`AdditionalPreviews`, `SetItemMetadata`, `CreateQueryUGCDetailsRequest`, the 1-arg `RequestUGCDetails`, `AddItemToFavorites`, `RemoveItemFromFavorites`, and the legacy `GetItemInstallInfo`/`GetItemUpdateInfo` overloads) are `[Obsolete]` stubs that throw `NotImplementedException`. `ISteamUGC005` remains verified slot-for-slot (0–45) against `isteamugc005.h`.
 

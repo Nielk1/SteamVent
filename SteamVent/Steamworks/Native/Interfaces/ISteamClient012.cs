@@ -76,12 +76,7 @@ namespace SteamVent.Steamworks.Native.Interfaces
         public TInterface GetISteamApps<TInterface>(Int32 hSteamUser, Int32 hSteamPipe) where TInterface : SteamInterfaceWrapper =>
             GetInterface<GetISteamAppsDelegate, TInterface>(InterfacePtr, hSteamUser, hSteamPipe);
 
-        #region VTableIndex(26)
-        [VTableIndex(26), UnmanagedFunctionPointer(CallingConvention.ThisCall)]
-        private delegate IntPtr GetISteamUGCDelegate(IntPtr thisPtr, Int32 hSteamUser, Int32 hSteamPipe, IntPtr pchVersion);
-        #endregion
-        public TInterface GetISteamUGC<TInterface>(Int32 hSteamUser, Int32 hSteamPipe) where TInterface : SteamInterfaceWrapper =>
-            GetInterface<GetISteamUGCDelegate, TInterface>(InterfacePtr, hSteamUser, hSteamPipe);
+        [Obsolete("Not implemented in this version.", true)] public TInterface GetISteamUGC<TInterface>(Int32 hSteamUser, Int32 hSteamPipe) where TInterface : SteamInterfaceWrapper { throw new NotImplementedException(); }
         #region VTableIndex(7)
         [VTableIndex(7), UnmanagedFunctionPointer(CallingConvention.ThisCall)]
         private delegate void SetLocalIPBindingDelegate(IntPtr thisPtr, UInt32 unIP, UInt16 usPort);
