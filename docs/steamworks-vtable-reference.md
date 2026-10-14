@@ -56,7 +56,7 @@ The Steamworks tag that first introduces each interface version. `—` (Goldberg
 
 Interface-version strings: `SteamClient007` … `SteamClient019`. The contract exposes four `GetISteam*` factory slots plus `CreateSteamPipe` / `BReleaseSteamPipe` / `ConnectToGlobalUser` / `CreateLocalUser` / `ReleaseUser` and the lifecycle helpers `SetLocalIPBinding` / `RunFrame` / `SetWarningMessageHook` (backed by the `SteamAPIWarningMessageHook_t` delegate) / `BShutdownIfAllPipesClosed`. Steam interleaves *other* `GetISteam*` accessors (Friends, Matchmaking, RemoteStorage, HTTP, Controller, Input, …) between the slots this library exposes, so each exposed slot's index varies by version:
 
-| Method | 007 | 008 | 009 | 010 | 011 | 012 | 013 | 014 | 015 | 016 | 017 | 018 | 019 |
+| Method | 007 | 008 | 009 | 010 | 011 | 012 | 013‡ | 014 | 015 | 016 | 017 | 018 | 019 |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | `CreateSteamPipe` | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
 | `BReleaseSteamPipe` | 1 | 1 | 1 | 1 | 1 | 1 | 1 | 1 | 1 | 1 | 1 | 1 | 1 |
@@ -110,6 +110,7 @@ Interface-version strings: `SteamClient007` … `SteamClient019`. The contract e
 - `RunFrame` is a `STEAM_PRIVATE_API` (`†`) slot present in **every** version (index drifts: **15** in `007`, **18** in `008`, **19** in `009`/`010`/`012`–`017`, **20** in `011`/`018`/`019`). It is the one `†` slot the library *does* map. From `016` the vtable also gains the `Set_SteamAPI_CPostAPIResultInProcess` / `Remove_SteamAPI_CPostAPIResultInProcess` / `Set_SteamAPI_CCheckCallbackRegisteredInProcess` `STEAM_PRIVATE_API` helpers (slots **31–33**; the first two are prefixed `DEPRECATED_` in `018`/`019`) — none of which the library maps.
 - **Slot churn between versions** (why the same method's index shifts): `008` drops `GetISteamContentServer`; `009` adds `GetISteamGameServerStats`; `010` adds `BShutdownIfAllPipesClosed`; `011` adds `GetISteamScreenshots` + `GetISteamHTTP`; `012` drops `GetISteamMasterServerUpdater`; `014` adds `GetISteamUnifiedMessages`/`GetISteamController`/`GetISteamUGC`/`GetISteamAppList`/`GetISteamMusic`; `015` adds `GetISteamMusicRemote`; `016` adds `GetISteamHTMLSurface` + the three `STEAM_PRIVATE_API` helpers; `017` adds `GetISteamInventory`/`GetISteamVideo`; `018` adds `GetISteamGameSearch`, **drops** `GetISteamUnifiedMessages`, and adds `GetISteamParentalSettings`/`GetISteamInput`/`GetISteamParties`; `019` adds `GetISteamRemotePlay`.
 - **`ISteamClient017` fix:** `GetISteamUser` previously bound through `GetISteamAppsDelegate` (slot **15**) instead of its own `GetISteamUserDelegate` (slot **5**); it now correctly resolves to slot 5.
+- **‡** versions are based on unoffical documentation and may carry functions not originally part of the vtable due to implementation quirks.
 
 ---
 
@@ -208,7 +209,7 @@ Interface-version strings: `SteamUtils001` … `SteamUtils011`. The library ship
 
 Interface-version strings: `STEAMUGC_INTERFACE_VERSION001` … `016`. (`011` is omitted — the official SDK tags jump from `…VERSION010` to `…VERSION012`). `004`/`005`/`006` exist only in the Goldberg Emulator SDK, the sole source for those; every other version comes from the official `steamworks_sdk`. The table below lists **every method in the `005`–`016` vtables**, in `016` layout order, with the 0-based vtable index each occupies per version (`—` where a version predates that slot; a cell holding two numbers is an overloaded method occupying two consecutive slots). Unlike ISteamApps the UGC vtable grows by *inserting* members mid-interface, so a method's index can change between versions (e.g. `DownloadItem` drifts 45 → 72). Every method listed is mapped in the C# classes for the versions that have the slot, so **no index cell carries a `*`** (there are no unmapped UGC slots in the covered range).
 
-| Method | 005 | 006 | 007 | 008 | 009 | 010 | 012 | 013 | 014 | 015 | 016 |
+| Method | 005 | 006 | 007 | 008 | 009 | 010‡ | 012 | 013 | 014 | 015 | 016 |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | `CreateQueryUserUGCRequest` | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
 | `CreateQueryAllUGCRequest` (page) | 1 | 1 | 1 | 1 | 1 | 1 | 1 | 1 | 1 | 1 | 1 |
@@ -303,6 +304,7 @@ Interface-version strings: `STEAMUGC_INTERFACE_VERSION001` … `016`. (`011` is 
 - `DownloadItem` is `bool DownloadItem(PublishedFileId_t, bool)` in every version that has it (`004` onward); its index drifts 45 → 49 → 55 → 60 → 61 → 62 → 64 → 66 → 67 → 70 → 72 across the versions shown.
 - The newer versions (`006`–`016`) also expose the functions that this pass adds to the `ISteamUGC` contract (key-value tags, tag groups, the `SetReturn*`/`SetLanguage`/`SetAllowCachedResponse`/`SetTime*DateRange` query options, item key-value tags and previews, user votes, playtime tracking, dependencies, `DeleteItem`, `BInitWorkshopForGameServer`, `SuspendDownloads`, and the Workshop EULA). Each is now a real P/Invoke mapping where the version's vtable has the slot and an `[Obsolete]` stub where it does not (this is also why the indices of the *shared* methods keep growing across versions).
 - **Scope** — the table covers the `005`–`016` snapshots (`001`–`004` are legacy; the library ships `ISteamUGC005`–`016`). The official SDK has since advanced to `STEAMUGC_INTERFACE_VERSION021` (≈99 vtable slots); the `017`–`021` additions are **not** part of the library's `ISteamUGC` contract — unlike the `ISteamApps` `009` methods, which the library carries as forward-compat stubs — so they are intentionally out of scope here.
+- **‡** versions are based on unoffical documentation and may carry functions not originally part of the vtable due to implementation quirks.
 
 ## Deprecated Interfaces
 This information is according to Google Gemini, please remove this note after information is confirmed.
