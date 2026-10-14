@@ -211,7 +211,8 @@ Interface-version strings: `STEAMUGC_INTERFACE_VERSION001` … `016`. (`011` is 
 | Method | 005 | 006 | 007 | 008 | 009 | 010 | 012 | 013 | 014 | 015 | 016 |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | `CreateQueryUserUGCRequest` | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
-| `CreateQueryAllUGCRequest` | 1 | 1 | 1 | 1 | 1 | 1 | 1, 2 | 1, 2 | 1, 2 | 1, 2 | 1, 2 |
+| `CreateQueryAllUGCRequest` (page) | 1 | 1 | 1 | 1 | 1 | 1 | 1 | 1 | 1 | 1 | 1 |
+| `CreateQueryAllUGCRequest` (cursor) | — | — | — | — | — | — | 2 | 2 | 2 | 2 | 2 |
 | `CreateQueryUGCDetailsRequest` | 2 | 2 | 2 | 2 | 2 | 2 | 3 | 3 | 3 | 3 | 3 |
 | `SendQueryUGCRequest` | 3 | 3 | 3 | 3 | 3 | 3 | 4 | 4 | 4 | 4 | 4 |
 | `GetQueryUGCResult` | 4 | 4 | 4 | 4 | 4 | 4 | 5 | 5 | 5 | 5 | 5 |
@@ -225,7 +226,8 @@ Interface-version strings: `STEAMUGC_INTERFACE_VERSION001` … `016`. (`011` is 
 | `GetQueryUGCNumAdditionalPreviews` | 9 | 9 | 9 | 9 | 9 | 9 | 10 | 10 | 10 | 13 | 13 |
 | `GetQueryUGCAdditionalPreview` | 10 | 10 | 10 | 10 | 10 | 10 | 11 | 11 | 11 | 14 | 14 |
 | `GetQueryUGCNumKeyValueTags` | — | — | 11 | 11 | 11 | 11 | 12 | 12 | 12 | 15 | 15 |
-| `GetQueryUGCKeyValueTag` | — | — | 12 | 12 | 12 | 12 | 13 | 13, 14 | 13, 14 | 16, 17 | 16, 17 |
+| `GetQueryUGCKeyValueTag` (index) | — | — | 12 | 12 | 12 | 12 | 13 | 13 | 13 | 16 | 16 |
+| `GetQueryUGCKeyValueTag` (first) | — | — | — | — | — | — | — | 14 | 14 | 17 | 17 |
 | `ReleaseQueryUGCRequest` | 11 | 11 | 13 | 13 | 13 | 13 | 14 | 15 | 15 | 18 | 18 |
 | `AddRequiredTag` | 12 | 12 | 14 | 14 | 14 | 14 | 15 | 16 | 16 | 19 | 19 |
 | `AddRequiredTagGroup` | — | — | — | — | — | — | — | — | 17 | 20 | 20 |
