@@ -11,6 +11,11 @@ namespace SteamVent.Steamworks.Native.Interfaces
 {
     public interface ISteamUtils
     {
+        static readonly public Type[] Versions =
+        {
+            typeof(ISteamUtils007),
+        };
+
         /// <summary>
         /// The AppID this Steamworks context is bound to - i.e. the app id of the running process. This is the
         /// source of truth for the active appid (as opposed to a manually configured value such as

@@ -9,7 +9,20 @@ using SteamVent.Steamworks.Native;
 
 namespace SteamVent.Steamworks.Native.Interfaces
 {
-    public interface ISteamApps {
+    public interface ISteamApps
+    {
+        static readonly public Type[] Versions =
+        {
+                typeof(ISteamApps001),
+                typeof(ISteamApps002),
+                typeof(ISteamApps003),
+                typeof(ISteamApps004),
+                typeof(ISteamApps005),
+                typeof(ISteamApps006),
+                typeof(ISteamApps007),
+                typeof(ISteamApps008),
+        };
+
         // Legacy (STEAMAPPS_INTERFACE_VERSION001 only) — reads a value from the app's data file.
         // Absent from the vtable in 002 and later, so those versions carry it as an [Obsolete] stub.
         int GetAppData(UInt32 nAppId, string pchKey, StringBuilder pchValue, int cchValueMax);

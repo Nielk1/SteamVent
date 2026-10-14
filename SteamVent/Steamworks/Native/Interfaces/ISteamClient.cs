@@ -19,6 +19,23 @@ namespace SteamVent.Steamworks.Native.Interfaces
 
     public interface ISteamClient
     {
+        static readonly public Type[] Versions =
+        {
+            typeof(ISteamClient007),
+            typeof(ISteamClient008),
+            typeof(ISteamClient009),
+            typeof(ISteamClient010),
+            typeof(ISteamClient011),
+            typeof(ISteamClient012),
+            typeof(ISteamClient013),
+            typeof(ISteamClient014),
+            typeof(ISteamClient015),
+            typeof(ISteamClient016),
+            typeof(ISteamClient017),
+            typeof(ISteamClient018),
+            typeof(ISteamClient019),
+        };
+
         Int32 CreateSteamPipe();
         bool BReleaseSteamPipe(Int32 hSteamPipe);
         Int32 ConnectToGlobalUser(Int32 hSteamPipe);

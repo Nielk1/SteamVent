@@ -15,6 +15,26 @@ namespace SteamVent.Steamworks.Native.Interfaces
 {
     public interface ISteamUGC
     {
+        static readonly public Type[] Versions =
+        {
+            typeof(ISteamUGC001),
+            typeof(ISteamUGC002),
+            typeof(ISteamUGC003),
+            typeof(ISteamUGC004),
+            typeof(ISteamUGC005),
+            typeof(ISteamUGC006),
+            typeof(ISteamUGC007),
+            typeof(ISteamUGC008),
+            typeof(ISteamUGC009),
+            typeof(ISteamUGC010),
+            //typeof(ISteamUGC011),
+            typeof(ISteamUGC012),
+            typeof(ISteamUGC013),
+            typeof(ISteamUGC014),
+            typeof(ISteamUGC015),
+            typeof(ISteamUGC016),
+        };
+
         UInt64 CreateQueryUserUGCRequest(UInt32 unAccountID, EUserUGCList eListType, EUGCMatchingUGCType eMatchingUGCType, EUserUGCListSortOrder eSortOrder, UInt32 nCreatorAppID, UInt32 nConsumerAppID, UInt32 unPage);
         UInt64 CreateQueryAllUGCRequest(EUGCQuery eQueryType, EUGCMatchingUGCType eMatchingeMatchingUGCTypeFileType, UInt32 nCreatorAppID, UInt32 nConsumerAppID, UInt32 unPage);
         // Deep-paging overload (STEAMUGC_INTERFACE_VERSION012+): pchCursor is null or "*" for the first page.
