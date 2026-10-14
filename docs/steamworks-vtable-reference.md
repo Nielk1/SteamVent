@@ -1,14 +1,54 @@
 # Steamworks VTable Reference
 
-Authoritative per-version layouts for the three interface families this library exposes — `ISteamApps`, `ISteamClient`, and `ISteamUGC`. Every `[VTableIndex]` in the generated `ISteam*NNN.cs` classes is checked against the official Steamworks SDK (`references/steamworks_sdk`, git-tagged per SDK release — the tag carrying each interface version supplies that version's `isteam*.h`). The only snapshots the official repo does not tag — `ISteamClient013`/`014` and `ISteamUGC004`/`005`/`006` — are taken from the Goldberg Emulator SDK (`references/goldberg_emulator/sdk_includes/isteam*NNN.h`), the sole source for those.
+Authoritative per-version layouts for the interface families this library exposes — `ISteamApps`, `ISteamClient`, `ISteamUGC`, and `ISteamUtils`. Every `[VTableIndex]` in the generated `ISteam*NNN.cs` classes (`SteamVent/Steamworks/Native/Interfaces/`) is checked against the official Steamworks SDK (`references/steamworks_sdk`, git-tagged per SDK release — the tag that first carries each interface version supplies that version's `isteam*.h`). The only snapshots the official repo does not tag (`ISteamClient013`, `ISteamUGC004`/`006`, `ISteamUtils001`/`003`) are taken from the Goldberg Emulator SDK (`references/goldberg_emulator/sdk_includes/isteam*NNN.h`), the sole source for those.
 
-**Counting rules** (the source of most index-mapping errors):
-- **`#ifdef _PS3`** members are *excluded* from the count — they are not part of the Windows vtable.
-- **`STEAM_PRIVATE_API(x)`** expands to `protected: x public:`, so those methods *do* occupy a vtable slot and *are* counted.
+## Legend
+
+- A plain number is the **0-based vtable index** of that function in that version, and it is **mapped** (a real P/Invoke delegate) in the corresponding C# `ISteam*NNN` class.
+- `*` — the function exists in that version's native vtable but is **not part of the C# interface** (unmapped public API).
+- `†` — a **`STEAM_PRIVATE_API` / `DEPRECATED`** slot. It occupies a vtable index (so it shifts the indices of every function after it) but is **not part of the public C# surface**; it is listed so the index accounting stays transparent.
+- `—` — the function does not exist in that version's native vtable.
+- Where an interface declares two overloads occupying two slots (e.g. `ISteamUGC::CreateQueryAllUGCRequest`, `ISteamUGC::GetQueryUGCKeyValueTag`), each overload is its **own row** so every cell holds a single index.
+
+## Counting rules (the source of most index-mapping errors)
+
+- Indexes are **0-based** and follow declaration order in `isteam*.h`.
+- **`#ifdef _PS3`** members are **excluded** — they are not part of the Windows vtable the C# wrapper targets.
+- **`STEAM_PRIVATE_API(x)`** expands to `protected: x public:`, so those methods **do** occupy a slot and **are** counted (marked `†`).
 - `DEPRECATED_*` helpers likewise occupy slots and are counted.
-- Each interface's **first vtable slot is its version-string getter** (e.g. `ISteamApps_VersionNum()` → `"STEAMAPPS_INTERFACE_VERSION009"`); the generated `[VTableIndex]` values are the 0-based function indices used in the classes (matching the interface method order).
+- These classic interfaces have **no leading version-string getter slot** — slot 0 is the first declared virtual function (e.g. `ISteamApps::BIsSubscribed`, `ISteamClient::CreateSteamPipe`, `ISteamUtils::GetSecondsSinceAppActive`).
 
 > Because Steamworks inserts new functions **into the middle** of these vtables between versions, the same method resolves to a different index in each version — each generated class therefore carries its own `[VTableIndex]` set. Use the class whose interface-version string matches the one you requested.
+
+---
+
+## Interface version → Steamworks SDK tag
+
+The Steamworks tag that first introduces each interface version. `—` (Goldberg) means the official repo has no such tag and the layout is sourced from Goldberg Emulator.
+
+### `ISteamApps` (`STEAMAPPS_INTERFACE_VERSIONNNN`)
+| Version | 001 | 002 | 003 | 004 | 005 | 006 | 007 | 008 | 009 |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| --- | 1.00 | 1.01 | 1.04 | 1.12 | 1.18 | 1.26a | 1.32 | 1.37 | 1.64–1.65* |
+
+> * `009` was introduced in **1.64** (33 slots, ending at `SetActiveBeta`) and completed in **1.65** (35 slots, adding `SetGamePerformanceSetting`/`SetGameRenderResolution`); the C# `ISteamApps009` bindings target the **1.65** layout.
+
+### `ISteamClient` (`SteamClientNNN`)
+| Version | 007 | 008 | 009 | 010 | 011 | 012 | 013 | 014 | 015 | 016 | 017 | 018 | 019 |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| --- | 1.00 | 1.04 | 1.08 | 1.12 | 1.16 | 1.17 | — (Goldberg) | 1.29a | 1.30 | 1.31 | 1.32 | 1.43 | 1.46 |
+
+### `ISteamUGC` (`STEAMUGC_INTERFACE_VERSIONNNN`)
+| Version | 001 | 002 | 003 | 004 | 005 | 006 | 007 | 008 | 009 | 010 | 011 | 012 | 013 | 014 | 015 | 016 |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| --- | 1.26a | 1.29a | 1.31 | — (Goldberg) | 1.33b | — (Goldberg) | 1.34 | 1.37 | 1.38a | 1.40 | — (Goldberg) | 1.43 | 1.45 | 1.47 | 1.51 | 1.53a |
+
+### `ISteamUtils` (`SteamUtilsNNN`)
+| Version | 001 | 002 | 003 | 004 | 005 | 006 | 007 | 008 | 009 | 010 | 011 |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| --- | — (Goldberg) | 1.00 | — (Goldberg) | 1.04 | 1.07 | 1.25 | 1.29a | 1.37 | 1.40 | 1.50 | 1.65 |
+
+> **C# scope:** `ISteamApps001–009`, `ISteamClient007–019`, `ISteamUGC001–016` (no `011`), and `ISteamUtils007` only. Versions beyond these are not implemented by the library.
 
 ---
 
@@ -18,22 +58,64 @@ Interface-version strings: `SteamClient007` … `SteamClient019`. The contract e
 
 | Method | 007 | 008 | 009 | 010 | 011 | 012 | 013 | 014 | 015 | 016 | 017 | 018 | 019 |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| `CreateSteamPipe` | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
+| `BReleaseSteamPipe` | 1 | 1 | 1 | 1 | 1 | 1 | 1 | 1 | 1 | 1 | 1 | 1 | 1 |
+| `ConnectToGlobalUser` | 2 | 2 | 2 | 2 | 2 | 2 | 2 | 2 | 2 | 2 | 2 | 2 | 2 |
+| `CreateLocalUser` | 3 | 3 | 3 | 3 | 3 | 3 | 3 | 3 | 3 | 3 | 3 | 3 | 3 |
+| `ReleaseUser` | 4 | 4 | 4 | 4 | 4 | 4 | 4 | 4 | 4 | 4 | 4 | 4 | 4 |
 | `GetISteamUser` | 5 | 5 | 5 | 5 | 5 | 5 | 5 | 5 | 5 | 5 | 5 | 5 | 5 |
+| `GetISteamGameServer*` | 6 | 6 | 6 | 6 | 6 | 6 | 6 | 6 | 6 | 6 | 6 | 6 | 6 |
+| `SetLocalIPBinding` | 7 | 7 | 7 | 7 | 7 | 7 | 7 | 7 | 7 | 7 | 7 | 7 | 7 |
+| `GetISteamFriends*` | 8 | 8 | 8 | 8 | 8 | 8 | 8 | 8 | 8 | 8 | 8 | 8 | 8 |
 | `GetISteamUtils` | 9 | 9 | 9 | 9 | 9 | 9 | 9 | 9 | 9 | 9 | 9 | 9 | 9 |
+| `GetISteamMatchmaking*` | 10 | 10 | 10 | 10 | 10 | 10 | 10 | 10 | 10 | 10 | 10 | 10 | 10 |
+| `GetISteamContentServer*` | 11 | — | — | — | — | — | — | — | — | — | — | — | — |
+| `GetISteamMasterServerUpdater*` | 12 | 11 | 11 | 11 | 11 | — | — | — | — | — | — | — | — |
+| `GetISteamMatchmakingServers*` | 13 | 12 | 12 | 12 | 12 | 11 | 11 | 11 | 11 | 11 | 11 | 11 | 11 |
+| `GetISteamGenericInterface*` | 14 | 13 | 13 | 13 | 13 | 12 | 12 | 12 | 12 | 12 | 12 | 12 | 12 |
+| `GetISteamUserStats*` | 17 | 14 | 14 | 14 | 14 | 13 | 13 | 13 | 13 | 13 | 13 | 13 | 13 |
+| `GetISteamGameServerStats*` | — | — | 15 | 15 | 15 | 14 | 14 | 14 | 14 | 14 | 14 | 14 | 14 |
 | `GetISteamApps` | 18 | 15 | 16 | 16 | 16 | 15 | 15 | 15 | 15 | 15 | 15 | 15 | 15 |
-| `GetISteamUGC` | - | - | - | - | - | 26 | 26 | 26 | 26 | 26 | 26 | 27 | 27 |
+| `GetISteamNetworking*` | 19 | 16 | 17 | 17 | 17 | 16 | 16 | 16 | 16 | 16 | 16 | 16 | 16 |
+| `GetISteamRemoteStorage*` | — | 17 | 18 | 18 | 18 | 17 | 17 | 17 | 17 | 17 | 17 | 17 | 17 |
+| `GetISteamScreenshots*` | — | — | — | — | 19 | 18 | 18 | 18 | 18 | 18 | 18 | 18 | 18 |
+| `GetISteamGameSearch*` | — | — | — | — | — | — | — | — | — | — | — | 19 | 19 |
+| `RunFrame†` | 15 | 18 | 19 | 19 | 20 | 19 | 19 | 19 | 19 | 19 | 19 | 20 | 20 |
+| `GetIPCCallCount*` | 16 | 19 | 20 | 20 | 21 | 20 | 20 | 20 | 20 | 20 | 20 | 21 | 21 |
+| `SetWarningMessageHook` | 20 | 20 | 21 | 21 | 22 | 21 | 21 | 21 | 21 | 21 | 21 | 22 | 22 |
+| `BShutdownIfAllPipesClosed` | — | — | — | 22 | 23 | 22 | 22 | 22 | 22 | 22 | 22 | 23 | 23 |
+| `GetISteamHTTP*` | — | — | — | — | 24 | 23 | 23 | 23 | 23 | 23 | 23 | 24 | 24 |
+| `GetISteamUnifiedMessages*` | — | — | — | — | — | — | 24 | 24 | 24 | 24 | 24 | — | — |
+| `GetISteamController*` | — | — | — | — | — | — | 25 | 25 | 25 | 25 | 25 | 25 | 25 |
+| `GetISteamUGC` | — | — | — | — | — | — | 26 | 26 | 26 | 26 | 26 | 26 | 26 |
+| `GetISteamAppList*` | — | — | — | — | — | — | 27 | 27 | 27 | 27 | 27 | 27 | 27 |
+| `GetISteamMusic*` | — | — | — | — | — | — | 28 | 28 | 28 | 28 | 28 | 28 | 28 |
+| `GetISteamMusicRemote*` | — | — | — | — | — | — | — | — | 29 | 29 | 29 | 29 | 29 |
+| `GetISteamHTMLSurface*` | — | — | — | — | — | — | — | — | — | 30 | 30 | 30 | 30 |
+| `Set_SteamAPI_CPostAPIResultInProcess†` | — | — | — | — | — | — | — | — | — | 31 | 31 | 31 | 31 |
+| `Remove_SteamAPI_CPostAPIResultInProcess†` | — | — | — | — | — | — | — | — | — | 32 | 32 | 32 | 32 |
+| `Set_SteamAPI_CCheckCallbackRegisteredInProcess†` | — | — | — | — | — | — | — | — | — | 33 | 33 | 33 | 33 |
+| `GetISteamInventory*` | — | — | — | — | — | — | — | — | — | — | 34 | 34 | 34 |
+| `GetISteamVideo*` | — | — | — | — | — | — | — | — | — | — | 35 | 35 | 35 |
+| `GetISteamParentalSettings*` | — | — | — | — | — | — | — | — | — | — | — | 36 | 36 |
+| `GetISteamInput*` | — | — | — | — | — | — | — | — | — | — | — | 37 | 37 |
+| `GetISteamParties*` | — | — | — | — | — | — | — | — | — | — | — | 38 | 38 |
+| `GetISteamRemotePlay*` | — | — | — | — | — | — | — | — | — | — | — | — | 39 |
 
 **Per-version quirks**
-- **`GetISteamUGC` first appears in `ISteamClient012`** (vtable **26**). `007`–`011` therefore declare it as a `NotImplementedException` stub. In `018`/`019` it moves to **27** (a `DEPRECATED_GetISteamUGC` slot precedes it).
+- **`GetISteamUGC` first appears at slot 26 in `013` (Goldberg) / `014` (official, 1.29a)**, holds at **26** through `017`, and is still **26** in the official `018`/`019` (1.43/1.46). `007`–`012` have no such slot.
+  - **C# bug — `ISteamClient012`:** the C# maps `GetISteamUGC` at slot **26**, but the official `012` (1.17) vtable has only **24** slots (0–23, ending at `GetISteamHTTP`). Slot 26 does not exist in `012`, so this is an **out-of-bounds** mapping (the C# should treat it as a stub, as `007`–`013` do).
+  - **C# discrepancy — `ISteamClient018`/`019`:** the C# maps `GetISteamUGC` at slot **27** (the Goldberg layout, which keeps `GetISteamUnifiedMessages` at 25 and `GetISteamController` at 26). The official `018`/`019` **drop** `GetISteamUnifiedMessages`, so `GetISteamController` is 25 and `GetISteamUGC` is **26**.
 - **`CreateLocalUser`** is **1-argument** in `007`; **2-argument** (`+ eAccountType`) from `008` onward. `ISteamClient007` binds the 1-arg native form while the managed signature keeps `eAccountType` for interface conformance.
-- `RunFrame` is a `STEAM_PRIVATE_API` slot present in **every** version (its index drifts — e.g. **15** in `007`, **18** in `008`, **19** in `009`/`012`–`017`, **20** in `011`/`018`/`019`); `ISteamClient018`/`019` additionally add `DEPRECATED_*` helpers. All of these occupy and count vtable slots.
+- `RunFrame` is a `STEAM_PRIVATE_API` (`†`) slot present in **every** version (index drifts: **15** in `007`, **18** in `008`, **19** in `009`/`010`/`012`–`017`, **20** in `011`/`018`/`019`). It is the one `†` slot the library *does* map. From `016` the vtable also gains the `Set_SteamAPI_CPostAPIResultInProcess` / `Remove_SteamAPI_CPostAPIResultInProcess` / `Set_SteamAPI_CCheckCallbackRegisteredInProcess` `STEAM_PRIVATE_API` helpers (slots **31–33**; the first two are prefixed `DEPRECATED_` in `018`/`019`) — none of which the library maps.
+- **Slot churn between versions** (why the same method's index shifts): `008` drops `GetISteamContentServer`; `009` adds `GetISteamGameServerStats`; `010` adds `BShutdownIfAllPipesClosed`; `011` adds `GetISteamScreenshots` + `GetISteamHTTP`; `012` drops `GetISteamMasterServerUpdater`; `014` adds `GetISteamUnifiedMessages`/`GetISteamController`/`GetISteamUGC`/`GetISteamAppList`/`GetISteamMusic`; `015` adds `GetISteamMusicRemote`; `016` adds `GetISteamHTMLSurface` + the three `STEAM_PRIVATE_API` helpers; `017` adds `GetISteamInventory`/`GetISteamVideo`; `018` adds `GetISteamGameSearch`, **drops** `GetISteamUnifiedMessages`, and adds `GetISteamParentalSettings`/`GetISteamInput`/`GetISteamParties`; `019` adds `GetISteamRemotePlay`.
 - **`ISteamClient017` fix:** `GetISteamUser` previously bound through `GetISteamAppsDelegate` (slot **15**) instead of its own `GetISteamUserDelegate` (slot **5**); it now correctly resolves to slot 5.
 
 ---
 
 ## ISteamApps
 
-Interface-version strings: `STEAMAPPS_INTERFACE_VERSION001` … `009`. The table below lists **every** vtable slot across all nine versions with the 0-based vtable index it occupies (`—` where a version predates that slot). A trailing `*` marks a method that is **not part of the `ISteamApps` interface** this library exposes — every unmarked method is. ISteamApps only ever *appends* members, so a given method keeps the same index from the version it first appears through `009`. The library ships `ISteamApps001`–`008` (default `008`); the five `009`-only methods are carried as forward-compat `[Obsolete]` stubs in `ISteamApps008`.
+Interface-version strings: `STEAMAPPS_INTERFACE_VERSION001` … `009`. The table below lists **every** vtable slot across all nine versions with the 0-based vtable index it occupies (`—` where a version predates that slot). A trailing `*` marks a method that is **not part of the `ISteamApps` interface** this library exposes — every unmarked method is. ISteamApps only ever *appends* members, so a given method keeps the same index from the version it first appears through `009`. The library ships `ISteamApps001`–`009`; `ISteamApps008` is the default. Note that `ISteamApps008` additionally maps the five `009` trailing slots (`GetFileDetails`–`SetDlcContext`, 25–29), and that the `009` vtable itself grew from 33 slots in SDK 1.64 to 35 in 1.65 (adding `SetGamePerformanceSetting`/`SetGameRenderResolution`).
 
 | Method | 001 | 002 | 003 | 004 | 005 | 006 | 007 | 008 | 009 |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -63,11 +145,11 @@ Interface-version strings: `STEAMAPPS_INTERFACE_VERSION001` … `009`. The table
 | `GetDlcDownloadProgress` | — | — | — | — | — | — | 22 | 22 | 22 |
 | `GetAppBuildId` | — | — | — | — | — | — | 23 | 23 | 23 |
 | `RequestAllProofOfPurchaseKeys` | — | — | — | — | — | — | — | 24 | 24 |
-| `GetFileDetails` | — | — | — | — | — | — | — | 25 | 25 |
-| `GetLaunchCommandLine` | — | — | — | — | — | — | — | 26 | 26 |
-| `BIsSubscribedFromFamilySharing` | — | — | — | — | — | — | — | 27 | 27 |
-| `BIsTimedTrial` | — | — | — | — | — | — | — | 28 | 28 |
-| `SetDlcContext` | — | — | — | — | — | — | — | 29 | 29 |
+| `GetFileDetails` | — | — | — | — | — | — | — | — | 25 |
+| `GetLaunchCommandLine` | — | — | — | — | — | — | — | — | 26 |
+| `BIsSubscribedFromFamilySharing` | — | — | — | — | — | — | — | — | 27 |
+| `BIsTimedTrial` | — | — | — | — | — | — | — | — | 28 |
+| `SetDlcContext` | — | — | — | — | — | — | — | — | 29 |
 | `GetNumBetas` | — | — | — | — | — | — | — | — | 30 |
 | `GetBetaInfo` | — | — | — | — | — | — | — | — | 31 |
 | `SetActiveBeta` | — | — | — | — | — | — | — | — | 32 |
@@ -75,11 +157,50 @@ Interface-version strings: `STEAMAPPS_INTERFACE_VERSION001` … `009`. The table
 | `SetGameRenderResolution` | — | — | — | — | — | — | — | — | 34 |
 
 - **`GetAppData*`** is the *only* slot of the legacy `ISteamApps001` surface (index **0**). It is not part of the modern `ISteamApps` interface (which begins at `BIsSubscribed` from `002` on), hence the `*` — it is exposed in no other version.
-- **`ISteamApps002`** … **`007`** bind the subset of the table that exists in each version (the `—` cells are `NotImplementedException` stubs in that class); **`ISteamApps008`** (the default) binds the first **30** — `BIsSubscribed` … `SetDlcContext`, indices **0–29** — as real P/Invoke.
-- The five **`009`-only** methods — `GetNumBetas`, `GetBetaInfo`, `SetActiveBeta`, `SetGamePerformanceSetting`, `SetGameRenderResolution` (indices **30–34**, present only in the `…009` vtable and absent from `008`) — are declared on the `ISteamApps` interface and carried as `[Obsolete]` `NotImplementedException` stubs in `ISteamApps008` for forward compatibility; real P/Invoke wiring would need `ISteamApps009`, which the library does not yet ship.
+- **`ISteamApps002`** … **`007`** bind the subset of the table that exists in each version (the `—` cells are `NotImplementedException` stubs in that class). **`ISteamApps008`** (the default) binds `BIsSubscribed` … `RequestAllProofOfPurchaseKeys` (indices **0–24**, the full official `008` vtable) *plus* the five `009` trailing slots `GetFileDetails` … `SetDlcContext` (indices **25–29**) — those five exist only in the `009` vtable, so `ISteamApps008` relies on the client returning the newer `009`-shaped vtable for them.
+- **`ISteamApps009`** binds the full `009` surface, indices **0–34**: `BIsSubscribed` … `SetActiveBeta` (0–32) *plus* `SetGamePerformanceSetting` (33) and `SetGameRenderResolution` (34). The `009` vtable **grew** between SDK **1.64** (33 slots, ending at `SetActiveBeta`) and **1.65** (35 slots); the last two were added in 1.65 while still `STEAMAPPS_INTERFACE_VERSION009`, and the C# `009` bindings match the 1.65 layout.
 
-> Verified against the official `isteamapps.h` (`STEAMAPPS_INTERFACE_VERSION009`): `GetFileDetails` is `SteamAPICall_t GetFileDetails(const char*)` (size/SHA delivered via the `FileDetailsResult_t` call-result), `BIsSubscribedFromFamilySharing` sits at index **27** (26 is `GetLaunchCommandLine`), and the `…009` header adds `GetNumBetas`/`GetBetaInfo`/`SetActiveBeta`/`SetGamePerformanceSetting`/`SetGameRenderResolution` at **30–34**. The `008` snapshot (Goldberg) stops at `SetDlcContext` (**29**).
+> Verified against the official `isteamapps.h`: the `008` (1.37) vtable ends at `RequestAllProofOfPurchaseKeys` (index **24**); `GetFileDetails` is `SteamAPICall_t GetFileDetails(const char*)` (size/SHA delivered via the `FileDetailsResult_t` call-result); and the `009` (1.65) vtable continues with `GetLaunchCommandLine`(26), `BIsSubscribedFromFamilySharing`(27), `BIsTimedTrial`(28), `SetDlcContext`(29), `GetNumBetas`(30), `GetBetaInfo`(31), `SetActiveBeta`(32), `SetGamePerformanceSetting`(33), `SetGameRenderResolution`(34).
 
+
+---
+
+## ISteamUtils
+
+Interface-version strings: `SteamUtils001` … `SteamUtils011`. The library ships only **`ISteamUtils007`** (SDK **1.29a**). The table lists all **25** slots of the Windows `007` vtable with their 0-based index; `*` marks a slot that is **not** mapped in the C# `ISteamUtils007` (which only binds `GetAppID` and `IsAPICallCompleted`).
+
+| Method | 007 |
+| --- | --- |
+| `GetSecondsSinceAppActive*` | 0 |
+| `GetSecondsSinceComputerActive*` | 1 |
+| `GetConnectedUniverse*` | 2 |
+| `GetServerRealTime*` | 3 |
+| `GetIPCountry*` | 4 |
+| `GetImageSize*` | 5 |
+| `GetImageRGBA*` | 6 |
+| `GetCSERIPPort*` | 7 |
+| `GetCurrentBatteryPower*` | 8 |
+| `GetAppID` | 9 |
+| `SetOverlayNotificationPosition*` | 10 |
+| `IsAPICallCompleted` | 11 |
+| `GetAPICallFailureReason*` | 12 |
+| `GetAPICallResult*` | 13 |
+| `RunFrame*` | 14 |
+| `GetIPCCallCount*` | 15 |
+| `SetWarningMessageHook*` | 16 |
+| `IsOverlayEnabled*` | 17 |
+| `BOverlayNeedsPresent*` | 18 |
+| `CheckFileSignature*` | 19 |
+| `ShowGamepadTextInput*` | 20 |
+| `GetEnteredGamepadTextLength*` | 21 |
+| `GetEnteredGamepadTextInput*` | 22 |
+| `GetSteamUILanguage*` | 23 |
+| `IsSteamRunningInVR*` | 24 |
+
+**Notes**
+- The C# `ISteamUtils007` binds exactly two slots — `GetAppID` (**9**) and `IsAPICallCompleted` (**11**) — both in-bounds for the official `007` (1.29a) vtable. ✓ verified.
+- `RunFrame` (14) is a plain `virtual` in the 1.29a header (it only becomes `STEAM_PRIVATE_API` in later SDKs); the library does **not** map it here, hence the `*`.
+- **PS3-only slots excluded:** the 1.29a header also declares `PostPS3SysutilCallback`, `BIsReadyToShutdown`, `BIsPSNOnline`, and `SetPSNGameBootInviteStrings` between `CheckFileSignature` (19) and `ShowGamepadTextInput`; they are wrapped in `#ifdef _PS3` and therefore do **not** occupy slots in the Windows vtable (so `ShowGamepadTextInput` is 20, not 24).
 
 ---
 

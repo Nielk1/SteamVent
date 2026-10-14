@@ -36,6 +36,8 @@ namespace SteamVent.Steamworks.Native.Interfaces
         public UInt64 CreateQueryAllUGCRequest(EUGCQuery eQueryType, EUGCMatchingUGCType eMatchingeMatchingUGCTypeFileType, UInt32 nCreatorAppID, UInt32 nConsumerAppID, UInt32 unPage) =>
             GetDelegate<CreateQueryAllUGCRequestDelegate>()(InterfacePtr, eQueryType, eMatchingeMatchingUGCTypeFileType, nCreatorAppID, nConsumerAppID, unPage);
 
+        [Obsolete("Not implemented in this version.", true)] public UInt64 CreateQueryAllUGCRequest(EUGCQuery eQueryType, EUGCMatchingUGCType eMatchingeMatchingUGCTypeFileType, UInt32 nCreatorAppID, UInt32 nConsumerAppID, string pchCursor) { throw new NotImplementedException(); }
+
         #region VTableIndex(2)
         [VTableIndex(2), UnmanagedFunctionPointer(CallingConvention.ThisCall)]
         private delegate UInt64 CreateQueryUGCDetailsRequestDelegate(IntPtr thisPtr, ref PublishedFileId_t pvecPublishedFileID, UInt32 unNumPublishedFileIDs);

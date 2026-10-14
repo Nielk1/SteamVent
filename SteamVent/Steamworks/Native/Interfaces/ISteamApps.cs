@@ -10,6 +10,9 @@ using SteamVent.Steamworks.Native;
 namespace SteamVent.Steamworks.Native.Interfaces
 {
     public interface ISteamApps {
+        // Legacy (STEAMAPPS_INTERFACE_VERSION001 only) — reads a value from the app's data file.
+        // Absent from the vtable in 002 and later, so those versions carry it as an [Obsolete] stub.
+        int GetAppData(UInt32 nAppId, string pchKey, StringBuilder pchValue, int cchValueMax);
         bool BIsSubscribed();
         bool BIsLowViolence();
         bool BIsCyberCafe();

@@ -18,6 +18,8 @@ namespace SteamVent.Steamworks.Native.Interfaces
     {
         public ISteamApps008(IntPtr interfacePtr) : base(interfacePtr) { }
 
+        [Obsolete("Not implemented in this version.", true)] public int GetAppData(UInt32 nAppId, string pchKey, StringBuilder pchValue, int cchValueMax) { throw new NotImplementedException(); }
+
         #region VTableIndex(0)
         [VTableIndex(0), UnmanagedFunctionPointer(CallingConvention.ThisCall)]
         private delegate bool BIsSubscribedDelegate(IntPtr thisPtr);

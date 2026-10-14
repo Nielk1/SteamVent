@@ -36,6 +36,24 @@ namespace SteamVent.Steamworks.Native.Interfaces
         public UInt64 CreateQueryAllUGCRequest(EUGCQuery eQueryType, EUGCMatchingUGCType eMatchingeMatchingUGCTypeFileType, UInt32 nCreatorAppID, UInt32 nConsumerAppID, UInt32 unPage) =>
             GetDelegate<CreateQueryAllUGCRequestDelegate>()(InterfacePtr, eQueryType, eMatchingeMatchingUGCTypeFileType, nCreatorAppID, nConsumerAppID, unPage);
 
+        #region VTableIndex(2)
+        // STEAMUGC_INTERFACE_VERSION012+: deep-paging overload; pchCursor is null or "*" for the first page.
+        [VTableIndex(2), UnmanagedFunctionPointer(CallingConvention.ThisCall)]
+        private delegate UInt64 CreateQueryAllUGCRequestCursorDelegate(IntPtr thisPtr, EUGCQuery eQueryType, EUGCMatchingUGCType eMatchingeMatchingUGCTypeFileType, UInt32 nCreatorAppID, UInt32 nConsumerAppID, IntPtr pchCursor);
+        #endregion
+        public UInt64 CreateQueryAllUGCRequest(EUGCQuery eQueryType, EUGCMatchingUGCType eMatchingeMatchingUGCTypeFileType, UInt32 nCreatorAppID, UInt32 nConsumerAppID, string pchCursor)
+        {
+            IntPtr cursorUtf8 = pchCursor == null ? IntPtr.Zero : Marshal.StringToCoTaskMemUTF8(pchCursor);
+            try
+            {
+                return GetDelegate<CreateQueryAllUGCRequestCursorDelegate>()(InterfacePtr, eQueryType, eMatchingeMatchingUGCTypeFileType, nCreatorAppID, nConsumerAppID, cursorUtf8);
+            }
+            finally
+            {
+                Marshal.ZeroFreeCoTaskMemUTF8(cursorUtf8);
+            }
+        }
+
         #region VTableIndex(3)
         [VTableIndex(3), UnmanagedFunctionPointer(CallingConvention.ThisCall)]
         private delegate UInt64 CreateQueryUGCDetailsRequestDelegate(IntPtr thisPtr, ref PublishedFileId_t pvecPublishedFileID, UInt32 unNumPublishedFileIDs);

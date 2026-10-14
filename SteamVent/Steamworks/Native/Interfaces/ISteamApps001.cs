@@ -20,6 +20,24 @@ namespace SteamVent.Steamworks.Native.Interfaces
     {
         public ISteamApps001(IntPtr interfacePtr) : base(interfacePtr) { }
 
+        #region VTableIndex(0)
+        // STEAMAPPS_INTERFACE_VERSION001: int GetAppData( AppId_t nAppID, const char *pchKey, char *pchValue, int cchValueMax )
+        [VTableIndex(0), UnmanagedFunctionPointer(CallingConvention.ThisCall)]
+        private delegate int GetAppDataDelegate(IntPtr thisPtr, UInt32 nAppID, IntPtr pchKey, StringBuilder pchValue, int cchValueMax);
+        #endregion
+        public int GetAppData(UInt32 nAppId, string pchKey, StringBuilder pchValue, int cchValueMax)
+        {
+            IntPtr keyUtf8 = Marshal.StringToCoTaskMemUTF8(pchKey);
+            try
+            {
+                return GetDelegate<GetAppDataDelegate>()(InterfacePtr, nAppId, keyUtf8, pchValue, cchValueMax);
+            }
+            finally
+            {
+                Marshal.ZeroFreeCoTaskMemUTF8(keyUtf8);
+            }
+        }
+
         [Obsolete("Not implemented in this version.", true)] public bool BIsSubscribed() { throw new NotImplementedException(); }
 
         [Obsolete("Not implemented in this version.", true)] public bool BIsLowViolence() { throw new NotImplementedException(); }
