@@ -195,7 +195,7 @@ namespace SteamVent.Core.BVdf
                 }
                 catch (InvalidCastException)
                 {
-                    return default(T);
+                    return default!;
                 }
             }
         }
@@ -411,20 +411,27 @@ namespace SteamVent.Core.BVdf
             return orderPreserved;
         }
 
-        public BVToken this[string key]
+        public BVToken? this[string key]
         {
             get
             {
-                return Properties.Where(dr => dr.Key == key).FirstOrDefault()?.Value;
+                return Properties.FirstOrDefault(dr => dr.Key == key)?.Value;
             }
             set
             {
                 var qry = Properties.Where(dr => dr.Key == key);
                 if (qry.Count() > 0)
                 {
-                    qry.First().Value = value;
+                    if (value != null)
+                    {
+                        qry.First().Value = value;
+                    }
+                    else
+                    {
+                        Properties.Remove(qry.First());
+                    }
                 }
-                else
+                else if (value != null)
                 {
                     Properties.Add(new BVProperty(key, value));
                 }

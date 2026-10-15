@@ -76,7 +76,7 @@ namespace SteamVent.FileSystem
         /// value from the section, else null. Declared <c>dynamic</c> so callers can operate on heterogeneous values
         /// (including nested <see cref="BvdfNode"/> children) without an explicit cast.
         /// </summary>
-        public dynamic this[string? key]
+        public dynamic? this[string? key]
         {
             get
             {
