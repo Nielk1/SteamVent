@@ -1371,7 +1371,7 @@ namespace SteamVent.SteamCmd
             //    The surrounding +login / +quit stay on the command line, and the script is
             //    written into the process working directory and referenced by bare name so it
             //    resolves regardless of the directory SteamCmd expects scripts in.
-            string scriptName = $"bzrmm_workshop_{Guid.NewGuid():N}.txt";
+            string scriptName = $"steamvent_workshop_{Guid.NewGuid():N}.txt";
             string scriptPath = Path.Combine(AssemblyDirectory, "steamcmd", scriptName);
             File.WriteAllText(scriptPath, string.Join(Environment.NewLine, items));
             string scriptCommand = BuildSteamCmdCommand($"+login anonymous +runscript {scriptName} +quit");
