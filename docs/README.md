@@ -1,7 +1,10 @@
 ﻿# SteamVent
 A .NET library for interfacing with the Steam client application via IPC (Steamworks interproc), the registry, and file-system access to the local Steam installation.
 
-SteamVent is the buisness logic for the **BZR Mod Manager**. It is organized into three assemblies:
+SteamVent is the buisness logic for the following projects:
+* **BZR Mod Manager**
+
+It is organized into three assemblies:
 
 | Project | Target | Purpose |
 | --- | --- | --- |
@@ -484,6 +487,24 @@ Because the affirmation runs once at context start rather than per command, the 
 
 This catches the "sleeping appid" case where a stale `steam_appid.txt` (or another game) overrides the forced context and would otherwise silently redirect the work to the wrong app's workshop.
 
+## Building
+
+The repo mixes two toolchains, so building is split between the native C++ subprojects and the .NET side:
+
+- **Native C++ (x64-only)** — `steamcmdinj.dll` and `steamcmdprox.exe` build with MSBuild from Visual Studio. The `dotnet` CLI **cannot** build them (it lacks the C++ targets — error `MSB4278`).
+- **.NET (`net10.0`)** — everything else builds with the .NET SDK. `SteamVent.SteamCmd` copies the two native artifacts out of `<project>/bin/<Configuration>/` during its post-build step, so build the C++ side first.
+
+`.vscode/tasks.json` provides the everyday workflow (Command Palette → **Terminal: Run Task**):
+
+| Task | Default | What it does |
+| --- | --- | --- |
+| **Build Solution** | ✔ build | `MSBuild` on `SteamVent.sln` — the whole solution (C++ + .NET) in dependency order. |
+| **Build C++ Subprojects** | | Builds both native x64 projects (in parallel). |
+| **Build .NET** | | A .NET-only rebuild (anchored on `SteamVent.Tests`, which pulls the full .NET graph) after the C++ side. |
+| **Test** | ✔ test | `dotnet test` on `SteamVent.Tests` (see *Testing* below). |
+
+> MSBuild is invoked by its full path because `msbuild` is not on `PATH`. If your Visual Studio install changes, update the `MSBuild.exe` path in `.vscode/tasks.json` (or add `msbuild` to `PATH` and switch the tasks to it).
+
 ## Testing
 
 `SteamVent.Tests` (xUnit, `net10.0`) covers the Core abstractions, the `BVdf` reader, the result-struct round-trips, the versioned `ISteamApps` interop, and a live **Bridge** workshop subscribe/download/unsubscribe round-trip.
@@ -497,5 +518,5 @@ The Bridge round-trip test reads `BridgeTests:AppID` and `BridgeTests:PublishedF
 All the interproc tests (`ISteamAppsTests`, `ISteamUtilsTests`) share the `SteamInterProc` collection (serialized — the Steam client is a process-wide singleton) and a `SteamTestGuard` that fails fast if a local `steam_appid.txt` is present in the test working directory: such a file would silently override the environment-variable appid context (`SteamClient.AppId`) and make the results non-deterministic. The interproc tests require a **running Steam client**.
 
 ```
-dotnet test Deps\SteamVent\SteamVent.Tests\SteamVent.Tests.csproj
+dotnet test SteamVent.Tests\SteamVent.Tests.csproj
 ```
