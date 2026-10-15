@@ -10,7 +10,7 @@ namespace SteamVent.Tests.InterProc
     [Collection("SteamInterProc")]
     public class ISteamAppsTests
     {
-        public static IEnumerable<object[]> SteamClientAndAppsVersions()
+        public static IEnumerable<object[]> Types_SteamClient_SteamApps_BasicFunctionNotObsolete(string functionName)
         {
             foreach (Type client in ISteamClient.Versions)
             {
@@ -19,7 +19,7 @@ namespace SteamVent.Tests.InterProc
                 {
                     foreach (Type apps in ISteamApps.Versions)
                     {
-                        m = apps.GetMethod("BIsAppInstalled");
+                        m = apps.GetMethod(functionName);
                         if (m != null && !Attribute.IsDefined(m, typeof(ObsoleteAttribute)))
                         {
                             yield return new object[] { client, apps };
@@ -29,39 +29,46 @@ namespace SteamVent.Tests.InterProc
             }
         }
 
+        public static IEnumerable<object[]> Types_SteamClient_SteamApps_BIsAppInstalledTest() => Types_SteamClient_SteamApps_BasicFunctionNotObsolete("BIsAppInstalled");
+
         [Theory]
-        [MemberData(nameof(SteamClientAndAppsVersions))]
+        [MemberData(nameof(Types_SteamClient_SteamApps_BIsAppInstalledTest))]
         public void BIsAppInstalledTest(Type SteamClientVersion, Type SteamAppsVersion)
         {
             SteamTestGuard.EnsureNoAppIdOverride();
-            Assert.SkipWhen(Attribute.IsDefined(SteamAppsVersion.GetMethod("BIsAppInstalled"), typeof(ObsoleteAttribute)), "BIsAppInstalled is marked obsolete / not implemented in this interface version");
+            //Assert.SkipWhen(Attribute.IsDefined(SteamAppsVersion.GetMethod("BIsAppInstalled"), typeof(ObsoleteAttribute)), "BIsAppInstalled is marked obsolete / not implemented in this interface version");
 
             ISteamClient? SteamClient = null;
             Int32 Pipe = 0;
             Int32 User = 0;
             try
             {
-                UInt32 InstalledAppID = UInt32.Parse(Core.Configuration["SteamAppsTests:InstalledAppID"]);
+                UInt32 InstalledAppID = UInt32.Parse(Core.Configuration["SteamAppsTests:InstalledAppID"]!);
                 Assert.True(InstalledAppID > 0);
-                UInt32 UninstalledAppID = UInt32.Parse(Core.Configuration["SteamAppsTests:UninstalledAppID"]);
+
+                UInt32 UninstalledAppID = UInt32.Parse(Core.Configuration["SteamAppsTests:UninstalledAppID"]!);
                 Assert.True(UninstalledAppID > 0);
 
                 Assert.True(Steam.Load(/*true*/));
+                
                 //SteamClient = Steam.CreateInterface<ISteamClient###>(IntPtr.Zero);
                 SteamClient = (ISteamClient?)typeof(Steam)
                     ?.GetMethod("CreateInterface")
-                    ?.MakeGenericMethod(new Type[] { SteamClientVersion })
-                    ?.Invoke(null, new object[] { });
+                    ?.MakeGenericMethod([SteamClientVersion])
+                    ?.Invoke(null, []);
                 Assert.NotNull(SteamClient);
+
                 Pipe = SteamClient.CreateSteamPipe();
                 Assert.True(Pipe > 0);
+
                 User = SteamClient.ConnectToGlobalUser(Pipe);
                 Assert.True(User > 0);
+
                 //SteamApps = SteamClient.GetISteamApps<ISteamApps###>(User, Pipe);
                 ISteamApps? SteamApps = (ISteamApps?)SteamClient.GetType()
                     ?.GetMethod("GetISteamApps")
-                    ?.MakeGenericMethod(new Type[] { SteamAppsVersion })
-                    ?.Invoke(SteamClient, new object[] { User, Pipe });
+                    ?.MakeGenericMethod([SteamAppsVersion])
+                    ?.Invoke(SteamClient, [User, Pipe]);
                 Assert.NotNull(SteamApps);
 
                 Assert.True(SteamApps.BIsAppInstalled(InstalledAppID));
