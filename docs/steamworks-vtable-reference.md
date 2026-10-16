@@ -61,7 +61,8 @@ Interface-version strings: `SteamClient007` … `SteamClient019`. The contract e
 | `CreateSteamPipe` | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
 | `BReleaseSteamPipe` | 1 | 1 | 1 | 1 | 1 | 1 | 1 | 1 | 1 | 1 | 1 | 1 | 1 |
 | `ConnectToGlobalUser` | 2 | 2 | 2 | 2 | 2 | 2 | 2 | 2 | 2 | 2 | 2 | 2 | 2 |
-| `CreateLocalUser` | 3 | 3 | 3 | 3 | 3 | 3 | 3 | 3 | 3 | 3 | 3 | 3 | 3 |
+| `CreateLocalUser` (1 arg) | 3 | — | — | — | — | — | — | — | — | — | — | — | — |
+| `CreateLocalUser` (2 arg) | — | 3 | 3 | 3 | 3 | 3 | 3 | 3 | 3 | 3 | 3 | 3 | 3 |
 | `ReleaseUser` | 4 | 4 | 4 | 4 | 4 | 4 | 4 | 4 | 4 | 4 | 4 | 4 | 4 |
 | `GetISteamUser` | 5 | 5 | 5 | 5 | 5 | 5 | 5 | 5 | 5 | 5 | 5 | 5 | 5 |
 | `GetISteamGameServer` | 6* | 6* | 6* | 6* | 6* | 6* | 6* | 6* | 6* | 6* | 6* | 6* | 6* |

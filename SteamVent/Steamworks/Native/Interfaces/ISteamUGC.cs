@@ -59,9 +59,10 @@ namespace SteamVent.Steamworks.Native.Interfaces
         bool SetMatchAnyTag(UGCQueryHandle_t handle, bool bMatchAnyTag);
         bool SetSearchText(UGCQueryHandle_t handle, string pSearchText);
         bool SetRankedByTrendDays(UGCQueryHandle_t handle, UInt32 unDays);
+
+        // TODO handle this interface change better 
         UInt64 RequestUGCDetails(UInt64 nPublishedFileID);
         UInt64 RequestUGCDetails(UInt64 nPublishedFileID, UInt32 unMaxAgeSeconds);
-
 
         UInt64 CreateItem(UInt32 nConsumerAppId, EWorkshopFileType eFileType);
         UInt64 StartItemUpdate(UInt32 nConsumerAppId, UInt64 nPublishedFileID);
