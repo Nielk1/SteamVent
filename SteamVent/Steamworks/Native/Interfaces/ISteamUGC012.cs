@@ -110,12 +110,15 @@ namespace SteamVent.Steamworks.Native.Interfaces
         public UInt32 GetQueryUGCNumAdditionalPreviews(UGCQueryHandle_t handle, UInt32 index) =>
             GetDelegate<GetQueryUGCNumAdditionalPreviewsDelegate>()(InterfacePtr, handle, index);
 
+        [Obsolete("Not implemented in this version.", true)] public bool GetQueryUGCAdditionalPreview(UGCQueryHandle_t handle, UInt32 index, UInt32 previewIndex, ref string pchURLOrVideoID, UInt32 cchURLSize, ref bool pbIsImage) { throw new NotImplementedException(); }
+
         #region VTableIndex(11)
+        // STEAMUGC_INTERFACE_VERSION008+: original file name + preview type replace the bool isImage flag.
         [VTableIndex(11), UnmanagedFunctionPointer(CallingConvention.ThisCall)]
-        private delegate bool GetQueryUGCAdditionalPreviewDelegate(IntPtr thisPtr, UGCQueryHandle_t handle, UInt32 index, UInt32 previewIndex, ref string pchURLOrVideoID, UInt32 cchURLSize, ref bool pbIsImage);
+        private delegate bool GetQueryUGCAdditionalPreviewFileDelegate(IntPtr thisPtr, UGCQueryHandle_t handle, UInt32 index, UInt32 previewIndex, ref string pchURLOrVideoID, UInt32 cchURLSize, ref string pchOriginalFileName, UInt32 cchOriginalFileNameSize, ref EItemPreviewType pPreviewType);
         #endregion
-        public bool GetQueryUGCAdditionalPreview(UGCQueryHandle_t handle, UInt32 index, UInt32 previewIndex, ref string pchURLOrVideoID, UInt32 cchURLSize, ref bool pbIsImage) =>
-            GetDelegate<GetQueryUGCAdditionalPreviewDelegate>()(InterfacePtr, handle, index, previewIndex, ref pchURLOrVideoID, cchURLSize, ref pbIsImage);
+        public bool GetQueryUGCAdditionalPreview(UGCQueryHandle_t handle, UInt32 index, UInt32 previewIndex, ref string pchURLOrVideoID, UInt32 cchURLSize, ref string pchOriginalFileName, UInt32 cchOriginalFileNameSize, ref EItemPreviewType pPreviewType) =>
+            GetDelegate<GetQueryUGCAdditionalPreviewFileDelegate>()(InterfacePtr, handle, index, previewIndex, ref pchURLOrVideoID, cchURLSize, ref pchOriginalFileName, cchOriginalFileNameSize, ref pPreviewType);
 
         #region VTableIndex(14)
         [VTableIndex(14), UnmanagedFunctionPointer(CallingConvention.ThisCall)]

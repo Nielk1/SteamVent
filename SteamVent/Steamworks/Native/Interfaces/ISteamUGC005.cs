@@ -101,6 +101,8 @@ namespace SteamVent.Steamworks.Native.Interfaces
         public bool GetQueryUGCAdditionalPreview(UGCQueryHandle_t handle, UInt32 index, UInt32 previewIndex, ref string pchURLOrVideoID, UInt32 cchURLSize, ref bool pbIsImage) =>
             GetDelegate<GetQueryUGCAdditionalPreviewDelegate>()(InterfacePtr, handle, index, previewIndex, ref pchURLOrVideoID, cchURLSize, ref pbIsImage);
 
+        [Obsolete("Not implemented in this version.", true)] public bool GetQueryUGCAdditionalPreview(UGCQueryHandle_t handle, UInt32 index, UInt32 previewIndex, ref string pchURLOrVideoID, UInt32 cchURLSize, ref string pchOriginalFileName, UInt32 cchOriginalFileNameSize, ref EItemPreviewType pPreviewType) { throw new NotImplementedException(); }
+
         #region VTableIndex(11)
         [VTableIndex(11), UnmanagedFunctionPointer(CallingConvention.ThisCall)]
         private delegate bool ReleaseQueryUGCRequestDelegate(IntPtr thisPtr, UGCQueryHandle_t handle);

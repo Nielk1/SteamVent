@@ -47,7 +47,12 @@ namespace SteamVent.Steamworks.Native.Interfaces
         bool GetQueryUGCChildren(UGCQueryHandle_t handle, UInt32 index, ref PublishedFileId_t pvecPublishedFileID, UInt32 cMaxEntries);
         bool GetQueryUGCStatistic(UGCQueryHandle_t handle, UInt32 index, EItemStatistic eStatType, ref UInt32 pStatValue);
         UInt32 GetQueryUGCNumAdditionalPreviews(UGCQueryHandle_t handle, UInt32 index);
+        // STEAMUGC_INTERFACE_VERSION005-007: the last parameter is a `bool` "is image" flag.
         bool GetQueryUGCAdditionalPreview(UGCQueryHandle_t handle, UInt32 index, UInt32 previewIndex, ref string pchURLOrVideoID, UInt32 cchURLSize, ref bool pbIsImage);
+        // STEAMUGC_INTERFACE_VERSION008+: that `bool` is replaced by the original file name and the
+        // preview type. Same vtable slot, different signature - hence a second overload of the
+        // same name (the parameter list disambiguates the two contracts).
+        bool GetQueryUGCAdditionalPreview(UGCQueryHandle_t handle, UInt32 index, UInt32 previewIndex, ref string pchURLOrVideoID, UInt32 cchURLSize, ref string pchOriginalFileName, UInt32 cchOriginalFileNameSize, ref EItemPreviewType pPreviewType);
 
 
         bool ReleaseQueryUGCRequest(UGCQueryHandle_t handle);

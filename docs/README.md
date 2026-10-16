@@ -167,12 +167,12 @@ Each native interface is exposed as a family of versioned classes, one per Steam
 
 A versioned class maps only to the functions present in that version's vtable snapshot; functions a given version does not expose are declared as `[Obsolete]` stubs that throw `NotImplementedException`. Because Steamworks inserts new functions *into the middle* of these interfaces between versions, the same method sits at a different vtable index depending on the version — each versioned class therefore carries its own `[VTableIndex]` scheme, and callers must use the version that matches the interface string they requested.
 
-Functions that need more review due to changing contracts:
+Functions whose contract changes between interface versions (now resolved with same-name C# overloads; see the split rows in [`steamworks-vtable-reference.md`](./steamworks-vtable-reference.md)):
 * ISteamClient.CreateLocalUser (Resolved by mapping extra paramater but ignoring it)
-* ISteamUGC.RequestUGCDetails (Resolved with two implementations)
-* ISteamUGC.GetItemUpdateInfo (Not resolved, newer contract not implemented)
-* ISteamUGC.GetItemInstallInfo (Not resolved, newer contract not implemented)
-* ISteamUGC.GetQueryUGCAdditionalPreview (Not resolved, contract is highly unstable)
+* ISteamUGC.RequestUGCDetails (Resolved: 1-arg `001` vs 2-arg `002`+ overloads)
+* ISteamUGC.GetItemUpdateInfo (Resolved: 4-out-param form bound in `002`/`003`; stub elsewhere)
+* ISteamUGC.GetItemInstallInfo (Resolved: no-flag `002` / bool `003` / uint32 `004`+ overloads)
+* ISteamUGC.GetQueryUGCAdditionalPreview (Resolved: bool-isImage `005`–`007` vs file-name + `EItemPreviewType` `008`+ overloads)
 
 See [`steamworks-vtable-reference.md`](./steamworks-vtable-reference.md) for an outline of known Steamworks interfaces and their wrapping by SteamVent.
 
