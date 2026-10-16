@@ -45,7 +45,7 @@ namespace SteamVent.Steamworks.Native
             path = Path.Combine(path, "steam.dll");
 
             IntPtr module = SysNative.LoadLibraryEx(path, IntPtr.Zero, SysNative.LOAD_WITH_ALTERED_SEARCH_PATH);
-            
+
             if (module == IntPtr.Zero)
                 return false;
 

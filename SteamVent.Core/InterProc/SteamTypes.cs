@@ -342,7 +342,7 @@ namespace SteamVent.Steamworks.Native.Interfaces
 	    k_EResultNotSupported = 128,				// The data being accessed is not supported by this API
 	    k_EResultFamilySizeLimitExceeded = 129,		// Reached the maximum size of the family
     };
-    
+
     public enum ERemoteStoragePublishedFileVisibility : int
     {
         k_ERemoteStoragePublishedFileVisibilityPublic = 0,

@@ -97,7 +97,12 @@ namespace SteamVent.Steamworks.Native.Interfaces
         public int GetDLCCount() =>
             GetDelegate<GetDLCCountDelegate>()(InterfacePtr);
 
-        //BGetDLCDataByIndex
+        #region VTableIndex(11)
+        [VTableIndex(11), UnmanagedFunctionPointer(CallingConvention.ThisCall)]
+        private delegate bool BGetDLCDataByIndexDelegate(IntPtr thisPtr, Int32 iDLC, ref UInt32 pAppID, ref bool pbAvailable, StringBuilder pchName, Int32 cchNameBufferSize);
+        #endregion
+        public bool BGetDLCDataByIndex(Int32 nDLCIndex, ref UInt32 pnAppID, StringBuilder pchName, Int32 cchNameBufferSize, ref bool pbAvailable) =>
+            GetDelegate<BGetDLCDataByIndexDelegate>()(InterfacePtr, nDLCIndex, ref pnAppID, ref pbAvailable, pchName, cchNameBufferSize);
 
         #region VTableIndex(12)
         [VTableIndex(12), UnmanagedFunctionPointer(CallingConvention.ThisCall)]
@@ -113,10 +118,45 @@ namespace SteamVent.Steamworks.Native.Interfaces
         public void UninstallDLC(UInt32 nAppId) =>
             GetDelegate<UninstallDLCDelegate>()(InterfacePtr, nAppId);
 
-        //RequestAppProofOfPurchaseKey
-        //GetCurrentBetaName
-        //MarkContentCorrupt
-        //GetInstalledDepots
+        #region VTableIndex(14)
+        [VTableIndex(14), UnmanagedFunctionPointer(CallingConvention.ThisCall)]
+        private delegate void RequestAppProofOfPurchaseKeyDelegate(IntPtr thisPtr, UInt32 nAppID);
+        #endregion
+        public void RequestAppProofOfPurchaseKey(UInt32 nAppId) =>
+            GetDelegate<RequestAppProofOfPurchaseKeyDelegate>()(InterfacePtr, nAppId);
+
+        #region VTableIndex(15)
+        [VTableIndex(15), UnmanagedFunctionPointer(CallingConvention.ThisCall)]
+        private delegate bool GetCurrentBetaNameDelegate(IntPtr thisPtr, IntPtr pchName, Int32 cchNameBufferSize);
+        #endregion
+        public string GetCurrentBetaName()
+        {
+            const Int32 size = 256;
+            IntPtr pchName = Marshal.AllocHGlobal(size + 1);
+            try
+            {
+                GetDelegate<GetCurrentBetaNameDelegate>()(InterfacePtr, pchName, size);
+                return DecodeUtf8String(pchName);
+            }
+            finally
+            {
+                Marshal.FreeHGlobal(pchName);
+            }
+        }
+
+        #region VTableIndex(16)
+        [VTableIndex(16), UnmanagedFunctionPointer(CallingConvention.ThisCall)]
+        private delegate void MarkContentCorruptDelegate(IntPtr thisPtr, UInt32 nAppID);
+        #endregion
+        public void MarkContentCorrupt(UInt32 nAppId) =>
+            GetDelegate<MarkContentCorruptDelegate>()(InterfacePtr, nAppId);
+
+        #region VTableIndex(17)
+        [VTableIndex(17), UnmanagedFunctionPointer(CallingConvention.ThisCall)]
+        private delegate void GetInstalledDepotsDelegate(IntPtr thisPtr, UInt32 nAppID, UInt64[] pvecDepots, ref Int32 pnCount);
+        #endregion
+        public void GetInstalledDepots(UInt32 nAppId, UInt64[] pvecDepots, ref Int32 pnCount) =>
+            GetDelegate<GetInstalledDepotsDelegate>()(InterfacePtr, nAppId, pvecDepots, ref pnCount);
 
         #region VTableIndex(18)
         [VTableIndex(18), UnmanagedFunctionPointer(CallingConvention.ThisCall)]
@@ -139,21 +179,56 @@ namespace SteamVent.Steamworks.Native.Interfaces
         public bool BIsAppInstalled(UInt32 nAppId) =>
             GetDelegate<GetIsAppInstalledDelegate>()(InterfacePtr, nAppId);
 
-        [Obsolete("Not implemented in this version.", true)] public bool BGetDLCDataByIndex(Int32 nDLCIndex, ref UInt32 pnAppID, StringBuilder pchName, Int32 cchNameBufferSize, ref bool pbAvailable) { throw new NotImplementedException(); }
-        [Obsolete("Not implemented in this version.", true)] public void RequestAppProofOfPurchaseKey(UInt32 nAppId) { throw new NotImplementedException(); }
-        [Obsolete("Not implemented in this version.", true)] public string GetCurrentBetaName() { throw new NotImplementedException(); }
-        [Obsolete("Not implemented in this version.", true)] public void MarkContentCorrupt(UInt32 nAppId) { throw new NotImplementedException(); }
-        [Obsolete("Not implemented in this version.", true)] public void GetInstalledDepots(UInt32 nAppId, UInt64[] pvecDepots, ref Int32 pnCount) { throw new NotImplementedException(); }
-        [Obsolete("Not implemented in this version.", true)] public UInt64 GetAppOwner(UInt32 nAppId) { throw new NotImplementedException(); }
-        [Obsolete("Not implemented in this version.", true)] public string GetLaunchQueryParam(string pchKey) { throw new NotImplementedException(); }
-        [Obsolete("Not implemented in this version.", true)] public void GetDlcDownloadProgress(UInt32 nAppId, ref UInt64 pnBytesDownloaded, ref UInt64 pnBytesTotal) { throw new NotImplementedException(); }
-        [Obsolete("Not implemented in this version.", true)] public UInt32 GetAppBuildId(UInt32 nAppId) { throw new NotImplementedException(); }
+        #region VTableIndex(20)
+        [VTableIndex(20), UnmanagedFunctionPointer(CallingConvention.ThisCall)]
+        private delegate UInt64 GetAppOwnerDelegate(IntPtr thisPtr);
+        #endregion
+        public UInt64 GetAppOwner(UInt32 nAppId) =>
+            GetDelegate<GetAppOwnerDelegate>()(InterfacePtr);
+
+        #region VTableIndex(21)
+        [VTableIndex(21), UnmanagedFunctionPointer(CallingConvention.ThisCall)]
+        private delegate IntPtr GetLaunchQueryParamDelegate(IntPtr thisPtr, IntPtr pchKey);
+        #endregion
+        public string GetLaunchQueryParam(string pchKey)
+        {
+            IntPtr keyUtf8 = Marshal.StringToCoTaskMemUTF8(pchKey);
+            try
+            {
+                return DecodeUtf8String(GetDelegate<GetLaunchQueryParamDelegate>()(InterfacePtr, keyUtf8));
+            }
+            finally
+            {
+                Marshal.ZeroFreeCoTaskMemUTF8(keyUtf8);
+            }
+        }
+
+        #region VTableIndex(22)
+        [VTableIndex(22), UnmanagedFunctionPointer(CallingConvention.ThisCall)]
+        private delegate void GetDlcDownloadProgressDelegate(IntPtr thisPtr, UInt32 nAppID, ref UInt64 pnBytesDownloaded, ref UInt64 pnBytesTotal);
+        #endregion
+        public void GetDlcDownloadProgress(UInt32 nAppId, ref UInt64 pnBytesDownloaded, ref UInt64 pnBytesTotal) =>
+            GetDelegate<GetDlcDownloadProgressDelegate>()(InterfacePtr, nAppId, ref pnBytesDownloaded, ref pnBytesTotal);
+
+        #region VTableIndex(23)
+        [VTableIndex(23), UnmanagedFunctionPointer(CallingConvention.ThisCall)]
+        private delegate UInt32 GetAppBuildIdDelegate(IntPtr thisPtr);
+        #endregion
+        public UInt32 GetAppBuildId(UInt32 nAppId) =>
+            GetDelegate<GetAppBuildIdDelegate>()(InterfacePtr);
+
         [Obsolete("Not implemented in this version.", true)] public void RequestAllProofOfPurchaseKeys() { throw new NotImplementedException(); }
+
         [Obsolete("Not implemented in this version.", true)] public UInt32 GetFileDetails(string pszFileName) { throw new NotImplementedException(); }
+
         [Obsolete("Not implemented in this version.", true)] public string GetLaunchCommandLine() { throw new NotImplementedException(); }
+
         [Obsolete("Not implemented in this version.", true)] public bool BIsSubscribedFromFamilySharing() { throw new NotImplementedException(); }
+
         [Obsolete("Not implemented in this version.", true)] public bool BIsTimedTrial(ref UInt32 punSecondsAllowed, ref UInt32 punSecondsPlayed) { throw new NotImplementedException(); }
+
         [Obsolete("Not implemented in this version.", true)] public bool SetDlcContext(UInt32 nAppId) { throw new NotImplementedException(); }
+
         [Obsolete("Not implemented in this version.", true)] public Int32 GetNumBetas(ref Int32 pnAvailable, ref Int32 pnPrivate) { throw new NotImplementedException(); }
 
         [Obsolete("Not implemented in this version.", true)] public bool GetBetaInfo(Int32 iBetaIndex, ref UInt32 punFlags, ref UInt32 punBuildID, StringBuilder pchBetaName, Int32 cchBetaName, StringBuilder pchDescription, Int32 cchDescription, ref UInt32 punLastUpdated) { throw new NotImplementedException(); }

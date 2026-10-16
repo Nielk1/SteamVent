@@ -55,10 +55,15 @@ namespace SteamVent.Steamworks.Native.Interfaces
             GetDelegate<GetQueryUGCResultDelegate>()(InterfacePtr, handle, index, ref pDetails);
 
         [Obsolete("Not implemented in this version.", true)] public bool GetQueryUGCPreviewURL(UGCQueryHandle_t handle, UInt32 index, ref string pchURL, UInt32 cchURLSize) { throw new NotImplementedException(); }
+
         [Obsolete("Not implemented in this version.", true)] public bool GetQueryUGCMetadata(UGCQueryHandle_t handle, UInt32 index, ref string pchMetadata, UInt32 cchMetadatasize) { throw new NotImplementedException(); }
+
         [Obsolete("Not implemented in this version.", true)] public bool GetQueryUGCChildren(UGCQueryHandle_t handle, UInt32 index, ref PublishedFileId_t pvecPublishedFileID, UInt32 cMaxEntries) { throw new NotImplementedException(); }
+
         [Obsolete("Not implemented in this version.", true)] public bool GetQueryUGCStatistic(UGCQueryHandle_t handle, UInt32 index, EItemStatistic eStatType, ref UInt32 pStatValue) { throw new NotImplementedException(); }
+
         [Obsolete("Not implemented in this version.", true)] public UInt32 GetQueryUGCNumAdditionalPreviews(UGCQueryHandle_t handle, UInt32 index) { throw new NotImplementedException(); }
+
         [Obsolete("Not implemented in this version.", true)] public bool GetQueryUGCAdditionalPreview(UGCQueryHandle_t handle, UInt32 index, UInt32 previewIndex, ref string pchURLOrVideoID, UInt32 cchURLSize, ref bool pbIsImage) { throw new NotImplementedException(); }
 
         #region VTableIndex(4)
@@ -90,7 +95,9 @@ namespace SteamVent.Steamworks.Native.Interfaces
             GetDelegate<SetReturnLongDescriptionDelegate>()(InterfacePtr, handle, bReturnLongDescription);
 
         [Obsolete("Not implemented in this version.", true)] public bool SetReturnMetadata(UGCQueryHandle_t handle, bool bReturnMetadata) { throw new NotImplementedException(); }
+
         [Obsolete("Not implemented in this version.", true)] public bool SetReturnChildren(UGCQueryHandle_t handle, bool bReturnChildren) { throw new NotImplementedException(); }
+
         [Obsolete("Not implemented in this version.", true)] public bool SetReturnAdditionalPreviews(UGCQueryHandle_t handle, bool bReturnAdditionalPreviews) { throw new NotImplementedException(); }
 
         #region VTableIndex(8)
@@ -136,31 +143,55 @@ namespace SteamVent.Steamworks.Native.Interfaces
             GetDelegate<RequestUGCDetailsDelegate>()(InterfacePtr, nPublishedFileID);
 
         [Obsolete("Not implemented in this version.", true)] public UInt64 RequestUGCDetails(UInt64 nPublishedFileID, UInt32 unMaxAgeSeconds) { throw new NotImplementedException(); }
+
         [Obsolete("Not implemented in this version.", true)] public UInt64 CreateItem(UInt32 nConsumerAppId, EWorkshopFileType eFileType) { throw new NotImplementedException(); }
+
         [Obsolete("Not implemented in this version.", true)] public UInt64 StartItemUpdate(UInt32 nConsumerAppId, UInt64 nPublishedFileID) { throw new NotImplementedException(); }
+
         [Obsolete("Not implemented in this version.", true)] public bool SetItemTitle(UInt64 handle, string pchTitle) { throw new NotImplementedException(); }
+
         [Obsolete("Not implemented in this version.", true)] public bool SetItemDescription(UInt64 handle, string pchDescription) { throw new NotImplementedException(); }
+
         [Obsolete("Not implemented in this version.", true)] public bool SetItemMetadata(UGCUpdateHandle_t handle, string pchMetaData) { throw new NotImplementedException(); }
+
         [Obsolete("Not implemented in this version.", true)] public bool SetItemVisibility(UInt64 handle, ERemoteStoragePublishedFileVisibility eVisibility) { throw new NotImplementedException(); }
+
         [Obsolete("Not implemented in this version.", true)] public bool SetItemTags(UInt64 updateHandle, ref SteamParamStringArray_t pTags) { throw new NotImplementedException(); }
+
         [Obsolete("Not implemented in this version.", true)] public bool SetItemContent(UInt64 handle, string pszContentFolder) { throw new NotImplementedException(); }
+
         [Obsolete("Not implemented in this version.", true)] public bool SetItemPreview(UInt64 handle, string pszPreviewFile) { throw new NotImplementedException(); }
+
         [Obsolete("Not implemented in this version.", true)] public UInt64 SubmitItemUpdate(UInt64 handle, string pchChangeNote) { throw new NotImplementedException(); }
+
         [Obsolete("Not implemented in this version.", true)] public EItemUpdateStatus GetItemUpdateProgress(UInt64 handle, ref UInt64 punBytesProcessed, ref UInt64 punBytesTotal) { throw new NotImplementedException(); }
+
         [Obsolete("Not implemented in this version.", true)] public UInt64 SubscribeItem(UInt64 nPublishedFileID) { throw new NotImplementedException(); }
+
         [Obsolete("Not implemented in this version.", true)] public UInt64 UnsubscribeItem(UInt64 nPublishedFileID) { throw new NotImplementedException(); }
+
         [Obsolete("Not implemented in this version.", true)] public UInt32 GetNumSubscribedItems() { throw new NotImplementedException(); }
+
         [Obsolete("Not implemented in this version.", true)] public UInt32 GetSubscribedItems(UInt64[] pvecPublishedFileID, UInt32 cMaxEntries) { throw new NotImplementedException(); }
+
         [Obsolete("Not implemented in this version.", true)] public EItemState GetItemState(UInt64 nPublishedFileID) { throw new NotImplementedException(); }
+
         [Obsolete("Not implemented in this version.", true)] public bool GetItemInstallInfo(UInt64 nPublishedFileID, ref UInt64 punSizeOnDisk, StringBuilder pchFolder, UInt32 cchFolderSize) { throw new NotImplementedException(); }
+
         [Obsolete("Not implemented in this version.", true)] public bool GetItemInstallInfo(UInt64 nPublishedFileID, ref UInt64 punSizeOnDisk, StringBuilder pchFolder, UInt32 cchFolderSize, ref bool pbLegacyItem) { throw new NotImplementedException(); }
+
         [Obsolete("Not implemented in this version.", true)] public bool GetItemInstallInfo(UInt64 nPublishedFileID, ref UInt64 punSizeOnDisk, StringBuilder pchFolder, UInt32 cchFolderSize, ref UInt32 punTimeStamp) { throw new NotImplementedException(); }
+
         [Obsolete("Not implemented in this version.", true)] public bool GetItemUpdateInfo(UInt64 nPublishedFileID, ref bool pbNeedsUpdate, ref bool pbIsDownloading, ref UInt64 punBytesDownloaded, ref UInt64 punBytesTotal) { throw new NotImplementedException(); }
+
         [Obsolete("Not implemented in this version.", true)] public bool GetItemDownloadInfo(PublishedFileId_t nPublishedFileID, ref UInt64 punBytesDownloaded, ref UInt64 punBytesTotal) { throw new NotImplementedException(); }
+
         [Obsolete("Not implemented in this version.", true)] public bool DownloadItem(UInt64 nPublishedFileID, bool bHighPriority) { throw new NotImplementedException(); }
 
         [Obsolete("Not implemented in this version.", true)] public UInt64 AddItemToFavorites(UInt32 nCreatorAppID, UInt64 nPublishedFileID) { throw new NotImplementedException(); }
+
         [Obsolete("Not implemented in this version.", true)] public UInt64 RemoveItemFromFavorites(UInt32 nCreatorAppID, UInt64 nPublishedFileID) { throw new NotImplementedException(); }
+
         [Obsolete("Not implemented in this version.", true)] public UInt32 GetQueryUGCNumTags(UGCQueryHandle_t handle, UInt32 index) { throw new NotImplementedException(); }
 
         [Obsolete("Not implemented in this version.", true)] public bool GetQueryUGCTag(UGCQueryHandle_t handle, UInt32 index, UInt32 indexTag, StringBuilder pchValue, UInt32 cchValueSize) { throw new NotImplementedException(); }

@@ -370,6 +370,7 @@ namespace SteamVent.Steamworks.Native.Interfaces
         #endregion
         public bool DownloadItem(UInt64 nPublishedFileID, bool bHighPriority) =>
             GetDelegate<DownloadItemDelegate>()(InterfacePtr, nPublishedFileID, bHighPriority);
+
         [Obsolete("Not implemented in this version.", true)] public UInt32 GetQueryUGCNumTags(UGCQueryHandle_t handle, UInt32 index) { throw new NotImplementedException(); }
 
         [Obsolete("Not implemented in this version.", true)] public bool GetQueryUGCTag(UGCQueryHandle_t handle, UInt32 index, UInt32 indexTag, StringBuilder pchValue, UInt32 cchValueSize) { throw new NotImplementedException(); }

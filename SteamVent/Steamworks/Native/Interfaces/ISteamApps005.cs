@@ -97,7 +97,12 @@ namespace SteamVent.Steamworks.Native.Interfaces
         public int GetDLCCount() =>
             GetDelegate<GetDLCCountDelegate>()(InterfacePtr);
 
-        //BGetDLCDataByIndex
+        #region VTableIndex(11)
+        [VTableIndex(11), UnmanagedFunctionPointer(CallingConvention.ThisCall)]
+        private delegate bool BGetDLCDataByIndexDelegate(IntPtr thisPtr, Int32 iDLC, ref UInt32 pAppID, ref bool pbAvailable, StringBuilder pchName, Int32 cchNameBufferSize);
+        #endregion
+        public bool BGetDLCDataByIndex(Int32 nDLCIndex, ref UInt32 pnAppID, StringBuilder pchName, Int32 cchNameBufferSize, ref bool pbAvailable) =>
+            GetDelegate<BGetDLCDataByIndexDelegate>()(InterfacePtr, nDLCIndex, ref pnAppID, ref pbAvailable, pchName, cchNameBufferSize);
 
         #region VTableIndex(12)
         [VTableIndex(12), UnmanagedFunctionPointer(CallingConvention.ThisCall)]
@@ -113,7 +118,13 @@ namespace SteamVent.Steamworks.Native.Interfaces
         public void UninstallDLC(UInt32 nAppId) =>
             GetDelegate<UninstallDLCDelegate>()(InterfacePtr, nAppId);
 
-        //RequestAppProofOfPurchaseKey
+        #region VTableIndex(14)
+        [VTableIndex(14), UnmanagedFunctionPointer(CallingConvention.ThisCall)]
+        private delegate void RequestAppProofOfPurchaseKeyDelegate(IntPtr thisPtr, UInt32 nAppID);
+        #endregion
+        public void RequestAppProofOfPurchaseKey(UInt32 nAppId) =>
+            GetDelegate<RequestAppProofOfPurchaseKeyDelegate>()(InterfacePtr, nAppId);
+
         //GetCurrentBetaName
         //MarkContentCorrupt
         //GetInstalledDepots
@@ -139,21 +150,32 @@ namespace SteamVent.Steamworks.Native.Interfaces
         public bool BIsAppInstalled(UInt32 nAppId) =>
             GetDelegate<GetIsAppInstalledDelegate>()(InterfacePtr, nAppId);
 
-        [Obsolete("Not implemented in this version.", true)] public bool BGetDLCDataByIndex(Int32 nDLCIndex, ref UInt32 pnAppID, StringBuilder pchName, Int32 cchNameBufferSize, ref bool pbAvailable) { throw new NotImplementedException(); }
-        [Obsolete("Not implemented in this version.", true)] public void RequestAppProofOfPurchaseKey(UInt32 nAppId) { throw new NotImplementedException(); }
         [Obsolete("Not implemented in this version.", true)] public string GetCurrentBetaName() { throw new NotImplementedException(); }
+
         [Obsolete("Not implemented in this version.", true)] public void MarkContentCorrupt(UInt32 nAppId) { throw new NotImplementedException(); }
+
         [Obsolete("Not implemented in this version.", true)] public void GetInstalledDepots(UInt32 nAppId, UInt64[] pvecDepots, ref Int32 pnCount) { throw new NotImplementedException(); }
+
         [Obsolete("Not implemented in this version.", true)] public UInt64 GetAppOwner(UInt32 nAppId) { throw new NotImplementedException(); }
+
         [Obsolete("Not implemented in this version.", true)] public string GetLaunchQueryParam(string pchKey) { throw new NotImplementedException(); }
+
         [Obsolete("Not implemented in this version.", true)] public void GetDlcDownloadProgress(UInt32 nAppId, ref UInt64 pnBytesDownloaded, ref UInt64 pnBytesTotal) { throw new NotImplementedException(); }
+
         [Obsolete("Not implemented in this version.", true)] public UInt32 GetAppBuildId(UInt32 nAppId) { throw new NotImplementedException(); }
+
         [Obsolete("Not implemented in this version.", true)] public void RequestAllProofOfPurchaseKeys() { throw new NotImplementedException(); }
+
         [Obsolete("Not implemented in this version.", true)] public UInt32 GetFileDetails(string pszFileName) { throw new NotImplementedException(); }
+
         [Obsolete("Not implemented in this version.", true)] public string GetLaunchCommandLine() { throw new NotImplementedException(); }
+
         [Obsolete("Not implemented in this version.", true)] public bool BIsSubscribedFromFamilySharing() { throw new NotImplementedException(); }
+
         [Obsolete("Not implemented in this version.", true)] public bool BIsTimedTrial(ref UInt32 punSecondsAllowed, ref UInt32 punSecondsPlayed) { throw new NotImplementedException(); }
+
         [Obsolete("Not implemented in this version.", true)] public bool SetDlcContext(UInt32 nAppId) { throw new NotImplementedException(); }
+
         [Obsolete("Not implemented in this version.", true)] public Int32 GetNumBetas(ref Int32 pnAvailable, ref Int32 pnPrivate) { throw new NotImplementedException(); }
 
         [Obsolete("Not implemented in this version.", true)] public bool GetBetaInfo(Int32 iBetaIndex, ref UInt32 punFlags, ref UInt32 punBuildID, StringBuilder pchBetaName, Int32 cchBetaName, StringBuilder pchDescription, Int32 cchDescription, ref UInt32 punLastUpdated) { throw new NotImplementedException(); }

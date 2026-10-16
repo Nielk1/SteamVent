@@ -60,7 +60,7 @@ namespace SteamVent.Steamworks.Native.Interfaces
         #endregion
         public TInterface GetISteamUser<TInterface>(Int32 hSteamUser, Int32 hSteamPipe) where TInterface : SteamInterfaceWrapper =>
             GetInterface<GetISteamUserDelegate, TInterface>(InterfacePtr, hSteamUser, hSteamPipe);
-        
+
         #region VTableIndex(9)
         [VTableIndex(9), UnmanagedFunctionPointer(CallingConvention.ThisCall)]
         private delegate IntPtr GetISteamUtilsDelegate(IntPtr thisPtr, Int32 hSteamPipe, IntPtr pchVersion);
@@ -81,7 +81,7 @@ namespace SteamVent.Steamworks.Native.Interfaces
         #endregion
         public TInterface GetISteamUGC<TInterface>(Int32 hSteamUser, Int32 hSteamPipe) where TInterface : SteamInterfaceWrapper =>
             GetInterface<GetISteamUGCDelegate, TInterface>(InterfacePtr, hSteamUser, hSteamPipe);
-        
+
         #region VTableIndex(7)
         [VTableIndex(7), UnmanagedFunctionPointer(CallingConvention.ThisCall)]
         private delegate void SetLocalIPBindingDelegate(IntPtr thisPtr, UInt32 unIP, UInt16 usPort);

@@ -165,7 +165,7 @@ namespace SteamVent.Steamworks
                 return InternalSteamClient != null;
             }
         }
-        
+
         /// <summary>
         /// Inilize Steamworks
         /// </summary>
@@ -224,7 +224,7 @@ namespace SteamVent.Steamworks
             }
             _contextStarted = true;
         }
-        
+
         /// <summary>
         /// Shutdown Steamworks if active. Idempotent and thread-safe.
         /// </summary>

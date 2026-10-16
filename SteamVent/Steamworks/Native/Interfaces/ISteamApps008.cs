@@ -99,10 +99,10 @@ namespace SteamVent.Steamworks.Native.Interfaces
 
         #region VTableIndex(11)
         [VTableIndex(11), UnmanagedFunctionPointer(CallingConvention.ThisCall)]
-        private delegate bool BGetDLCDataByIndexDelegate(IntPtr thisPtr, Int32 nDLCIndex, ref UInt32 pnAppID, StringBuilder pchName, Int32 cchNameBufferSize, ref bool pbAvailable);
+        private delegate bool BGetDLCDataByIndexDelegate(IntPtr thisPtr, Int32 iDLC, ref UInt32 pAppID, ref bool pbAvailable, StringBuilder pchName, Int32 cchNameBufferSize);
         #endregion
         public bool BGetDLCDataByIndex(Int32 nDLCIndex, ref UInt32 pnAppID, StringBuilder pchName, Int32 cchNameBufferSize, ref bool pbAvailable) =>
-            GetDelegate<BGetDLCDataByIndexDelegate>()(InterfacePtr, nDLCIndex, ref pnAppID, pchName, cchNameBufferSize, ref pbAvailable);
+            GetDelegate<BGetDLCDataByIndexDelegate>()(InterfacePtr, nDLCIndex, ref pnAppID, ref pbAvailable, pchName, cchNameBufferSize);
 
         #region VTableIndex(12)
         [VTableIndex(12), UnmanagedFunctionPointer(CallingConvention.ThisCall)]
@@ -291,6 +291,7 @@ namespace SteamVent.Steamworks.Native.Interfaces
         #endregion
         public bool SetDlcContext(UInt32 nAppId) =>
             GetDelegate<SetDlcContextDelegate>()(InterfacePtr, nAppId);
+
         [Obsolete("Not implemented in this version.", true)] public Int32 GetNumBetas(ref Int32 pnAvailable, ref Int32 pnPrivate) { throw new NotImplementedException(); }
 
         [Obsolete("Not implemented in this version.", true)] public bool GetBetaInfo(Int32 iBetaIndex, ref UInt32 punFlags, ref UInt32 punBuildID, StringBuilder pchBetaName, Int32 cchBetaName, StringBuilder pchDescription, Int32 cchDescription, ref UInt32 punLastUpdated) { throw new NotImplementedException(); }

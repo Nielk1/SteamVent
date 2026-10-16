@@ -116,7 +116,7 @@ Interface-version strings: `SteamClient007` … `SteamClient019`. The contract e
 
 ## ISteamApps
 
-Interface-version strings: `STEAMAPPS_INTERFACE_VERSION001` … `009`. The table below lists **every** vtable slot across all nine versions with the 0-based vtable index it occupies (`—` where a version predates that slot). A cell marked `N*` is a slot that exists in that version's vtable but the C# class for that version leaves as an `[Obsolete]` stub (e.g. `BGetDLCDataByIndex` and `RequestAppProofOfPurchaseKey` in `005`–`007`); an unmarked number is a real P/Invoke mapping. ISteamApps only ever *appends* members, so a given method keeps the same index from the version it first appears through `009`. The library ships `ISteamApps001`–`009`; `ISteamApps008` is the default. Note that `ISteamApps008` additionally maps the five `009` trailing slots (`GetFileDetails`–`SetDlcContext`, 25–29), and that the `009` vtable itself grew from 33 slots in SDK 1.64 to 35 in 1.65 (adding `SetGamePerformanceSetting`/`SetGameRenderResolution`).
+Interface-version strings: `STEAMAPPS_INTERFACE_VERSION001` … `009`. The table below lists **every** vtable slot across all nine versions with the 0-based vtable index it occupies (`—` where a version predates that slot). A cell marked `N*` is a slot that exists in that version's vtable but the C# class for that version leaves as an `[Obsolete]` stub; an unmarked number is a real P/Invoke mapping. ISteamApps only ever *appends* members, so a given method keeps the same index from the version it first appears through `009`. The library ships `ISteamApps001`–`009`; `ISteamApps008` is the default. Note that `ISteamApps008` additionally maps the five `009` trailing slots (`GetFileDetails`–`SetDlcContext`, 25–29), and that the `009` vtable itself grew from 33 slots in SDK 1.64 to 35 in 1.65 (adding `SetGamePerformanceSetting`/`SetGameRenderResolution`).
 
 | Method | 001 | 002 | 003 | 004 | 005 | 006 | 007 | 008 | 009 |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -132,19 +132,19 @@ Interface-version strings: `STEAMAPPS_INTERFACE_VERSION001` … `009`. The table
 | `GetEarliestPurchaseUnixTime` | — | — | — | 8 | 8 | 8 | 8 | 8 | 8 |
 | `BIsSubscribedFromFreeWeekend` | — | — | — | 9 | 9 | 9 | 9 | 9 | 9 |
 | `GetDLCCount` | — | — | — | — | 10 | 10 | 10 | 10 | 10 |
-| `BGetDLCDataByIndex` | — | — | — | — | 11* | 11* | 11* | 11 | 11 |
+| `BGetDLCDataByIndex` | — | — | — | — | 11 | 11 | 11 | 11 | 11 |
 | `InstallDLC` | — | — | — | — | 12 | 12 | 12 | 12 | 12 |
 | `UninstallDLC` | — | — | — | — | 13 | 13 | 13 | 13 | 13 |
-| `RequestAppProofOfPurchaseKey` | — | — | — | — | 14* | 14* | 14* | 14 | 14 |
-| `GetCurrentBetaName` | — | — | — | — | — | 15* | 15* | 15 | 15 |
-| `MarkContentCorrupt` | — | — | — | — | — | 16* | 16* | 16 | 16 |
-| `GetInstalledDepots` | — | — | — | — | — | 17* | 17* | 17 | 17 |
+| `RequestAppProofOfPurchaseKey` | — | — | — | — | 14 | 14 | 14 | 14 | 14 |
+| `GetCurrentBetaName` | — | — | — | — | — | 15 | 15 | 15 | 15 |
+| `MarkContentCorrupt` | — | — | — | — | — | 16 | 16 | 16 | 16 |
+| `GetInstalledDepots` | — | — | — | — | — | 17 | 17 | 17 | 17 |
 | `GetAppInstallDir` | — | — | — | — | — | 18 | 18 | 18 | 18 |
 | `BIsAppInstalled` | — | — | — | — | — | 19 | 19 | 19 | 19 |
-| `GetAppOwner` | — | — | — | — | — | 20* | 20* | 20 | 20 |
-| `GetLaunchQueryParam` | — | — | — | — | — | 21* | 21* | 21 | 21 |
-| `GetDlcDownloadProgress` | — | — | — | — | — | — | 22* | 22 | 22 |
-| `GetAppBuildId` | — | — | — | — | — | — | 23* | 23 | 23 |
+| `GetAppOwner` | — | — | — | — | — | 20 | 20 | 20 | 20 |
+| `GetLaunchQueryParam` | — | — | — | — | — | 21 | 21 | 21 | 21 |
+| `GetDlcDownloadProgress` | — | — | — | — | — | — | 22 | 22 | 22 |
+| `GetAppBuildId` | — | — | — | — | — | — | 23 | 23 | 23 |
 | `RequestAllProofOfPurchaseKeys` | — | — | — | — | — | — | — | 24 | 24 |
 | `GetFileDetails` | — | — | — | — | — | — | — | — | 25 |
 | `GetLaunchCommandLine` | — | — | — | — | — | — | — | — | 26 |
@@ -158,7 +158,7 @@ Interface-version strings: `STEAMAPPS_INTERFACE_VERSION001` … `009`. The table
 | `SetGameRenderResolution` | — | — | — | — | — | — | — | — | 34 |
 
 - **`GetAppData`** (index **0**) is the *only* slot of the legacy `ISteamApps001` surface. It **is** part of the `ISteamApps` interface and is a real P/Invoke delegate in `ISteamApps001` (hence the plain `0`); the official vtables from `002` on have no such slot, so those cells are `—`.
-- **`ISteamApps002`** … **`007`** bind most of the table that exists in each version; a cell marked `N*` is a slot the version's vtable has that the class still leaves as a `NotImplementedException` stub, and a `—` cell is a slot the version predates (also a stub in the class). **`ISteamApps008`** (the default) binds `BIsSubscribed` … `RequestAllProofOfPurchaseKeys` (indices **0–24**, the full official `008` vtable) *plus* the five `009` trailing slots `GetFileDetails` … `SetDlcContext` (indices **25–29**) — those five exist only in the `009` vtable, so `ISteamApps008` relies on the client returning the newer `009`-shaped vtable for them.
+- **`ISteamApps002`** … **`007`** bind the full surface their version's vtable exposes; a `—` cell is a slot the version predates (left as a `NotImplementedException` stub in the class). **`ISteamApps008`** (the default) binds `BIsSubscribed` … `RequestAllProofOfPurchaseKeys` (indices **0–24**, the full official `008` vtable) *plus* the five `009` trailing slots `GetFileDetails` … `SetDlcContext` (indices **25–29**) — those five exist only in the `009` vtable, so `ISteamApps008` relies on the client returning the newer `009`-shaped vtable for them.
 - **`ISteamApps009`** binds the full `009` surface, indices **0–34**: `BIsSubscribed` … `SetActiveBeta` (0–32) *plus* `SetGamePerformanceSetting` (33) and `SetGameRenderResolution` (34). The `009` vtable **grew** between SDK **1.64** (33 slots, ending at `SetActiveBeta`) and **1.65** (35 slots); the last two were added in 1.65 while still `STEAMAPPS_INTERFACE_VERSION009`, and the C# `009` bindings match the 1.65 layout.
 
 > Verified against the official `isteamapps.h`: the `008` (1.37) vtable ends at `RequestAllProofOfPurchaseKeys` (index **24**); `GetFileDetails` is `SteamAPICall_t GetFileDetails(const char*)` (size/SHA delivered via the `FileDetailsResult_t` call-result); and the `009` (1.65) vtable continues with `GetLaunchCommandLine`(26), `BIsSubscribedFromFamilySharing`(27), `BIsTimedTrial`(28), `SetDlcContext`(29), `GetNumBetas`(30), `GetBetaInfo`(31), `SetActiveBeta`(32), `SetGamePerformanceSetting`(33), `SetGameRenderResolution`(34).

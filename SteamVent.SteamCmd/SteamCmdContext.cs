@@ -1128,7 +1128,7 @@ namespace SteamVent.SteamCmd
             if (PublishedFileId < 100000)
                 //throw new SteamCmdWorkshopDownloadException("Invalid ID");
                 return null;
-            
+
             string statusMessage = null;
             string statusType = null;
             string FullOutput = await StartProcWithRetryAsync($"+login anonymous +workshop_download_item {AppId} {PublishedFileId} +quit");
@@ -1542,7 +1542,7 @@ namespace SteamVent.SteamCmd
             // EnsureReadyAsync()/DownloadAsync() performs a fresh download.
             ResetReadiness();
         }
-    
+
         public async Task CleanJunkDataAsync()
         {
             // for an existing install rather than our managed one, just don't do cleanup for now
@@ -1592,7 +1592,7 @@ namespace SteamVent.SteamCmd
                         if (!Directory.Exists(configPath))
                         {
                             Console.WriteLine($"Purging anonymous session folder: {folderName}");
-                            
+
                             // Run IO-heavy deletion on a background thread to keep UI/Management loop responsive
                             await Task.Run(() => Directory.Delete(dirPath, recursive: true));
                         }
