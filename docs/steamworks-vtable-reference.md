@@ -61,8 +61,8 @@ Interface-version strings: `SteamClient007` … `SteamClient019`. The contract e
 | `CreateSteamPipe` | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
 | `BReleaseSteamPipe` | 1 | 1 | 1 | 1 | 1 | 1 | 1 | 1 | 1 | 1 | 1 | 1 | 1 |
 | `ConnectToGlobalUser` | 2 | 2 | 2 | 2 | 2 | 2 | 2 | 2 | 2 | 2 | 2 | 2 | 2 |
-| `CreateLocalUser` (1 arg) | 3 | — | — | — | — | — | — | — | — | — | — | — | — |
-| `CreateLocalUser` (2 arg) | — | 3 | 3 | 3 | 3 | 3 | 3 | 3 | 3 | 3 | 3 | 3 | 3 |
+| `CreateLocalUser` (CreateLocalUserLegacy) | 3 | — | — | — | — | — | — | — | — | — | — | — | — |
+| `CreateLocalUser` | — | 3 | 3 | 3 | 3 | 3 | 3 | 3 | 3 | 3 | 3 | 3 | 3 |
 | `ReleaseUser` | 4 | 4 | 4 | 4 | 4 | 4 | 4 | 4 | 4 | 4 | 4 | 4 | 4 |
 | `GetISteamUser` | 5 | 5 | 5 | 5 | 5 | 5 | 5 | 5 | 5 | 5 | 5 | 5 | 5 |
 | `GetISteamGameServer` | 6* | 6* | 6* | 6* | 6* | 6* | 6* | 6* | 6* | 6* | 6* | 6* | 6* |
@@ -213,8 +213,8 @@ Interface-version strings: `STEAMUGC_INTERFACE_VERSION001` … `016`. (`011` is 
 | Method | 001 | 002 | 003 | 004 | 005 | 006 | 007 | 008 | 009 | 010‡ | 012 | 013 | 014 | 015 | 016 |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | `CreateQueryUserUGCRequest` | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
-| `CreateQueryAllUGCRequest` (page) | 1 | 1 | 1 | 1 | 1 | 1 | 1 | 1 | 1 | 1 | 1 | 1 | 1 | 1 | 1 |
-| `CreateQueryAllUGCRequest` (cursor) | — | — | — | — | — | — | — | — | — | — | 2 | 2 | 2 | 2 | 2 |
+| `CreateQueryAllUGCRequest` (CreateQueryAllUGCRequestPage) | 1 | 1 | 1 | 1 | 1 | 1 | 1 | 1 | 1 | 1 | 1 | 1 | 1 | 1 | 1 |
+| `CreateQueryAllUGCRequest` (CreateQueryAllUGCRequestCursor) | — | — | — | — | — | — | — | — | — | — | 2 | 2 | 2 | 2 | 2 |
 | `CreateQueryUGCDetailsRequest` | — | — | — | — | 2 | 2 | 2 | 2 | 2 | 2 | 3 | 3 | 3 | 3 | 3 |
 | `SendQueryUGCRequest` | 2 | 2 | 2 | 2 | 3 | 3 | 3 | 3 | 3 | 3 | 4 | 4 | 4 | 4 | 4 |
 | `GetQueryUGCResult` | 3 | 3 | 3 | 3 | 4 | 4 | 4 | 4 | 4 | 4 | 5 | 5 | 5 | 5 | 5 |
@@ -226,11 +226,11 @@ Interface-version strings: `STEAMUGC_INTERFACE_VERSION001` … `016`. (`011` is 
 | `GetQueryUGCChildren` | — | — | — | — | 7 | 7 | 7 | 7 | 7 | 7 | 8 | 8 | 8 | 11 | 11 |
 | `GetQueryUGCStatistic` | — | — | — | — | 8 | 8 | 8 | 8 | 8 | 8 | 9 | 9 | 9 | 12 | 12 |
 | `GetQueryUGCNumAdditionalPreviews` | — | — | — | — | 9 | 9 | 9 | 9 | 9 | 9 | 10 | 10 | 10 | 13 | 13 |
-| `GetQueryUGCAdditionalPreview` (isImage flag) | — | — | — | — | 10 | 10 | 10 | — | — | — | — | — | — | — | — |
-| `GetQueryUGCAdditionalPreview` (file name + type) | — | — | — | — | — | — | — | 10 | 10 | 10 | 11 | 11 | 11 | 14 | 14 |
+| `GetQueryUGCAdditionalPreview` | — | — | — | — | 10 | 10 | 10 | — | — | — | — | — | — | — | — |
+| `GetQueryUGCAdditionalPreview` (GetQueryUGCAdditionalPreviewTyped) | — | — | — | — | — | — | — | 10 | 10 | 10 | 11 | 11 | 11 | 14 | 14 |
 | `GetQueryUGCNumKeyValueTags` | — | — | — | — | — | — | 11 | 11 | 11 | 11 | 12 | 12 | 12 | 15 | 15 |
-| `GetQueryUGCKeyValueTag` (index) | — | — | — | — | — | — | 12 | 12 | 12 | 12 | 13 | 13 | 13 | 16 | 16 |
-| `GetQueryUGCKeyValueTag` (first) | — | — | — | — | — | — | — | — | — | — | — | 14 | 14 | 17 | 17 |
+| `GetQueryUGCKeyValueTag` | — | — | — | — | — | — | 12 | 12 | 12 | 12 | 13 | 13 | 13 | 16 | 16 |
+| `GetQueryUGCKeyValueTag` (GetQueryFirstUGCKeyValueTag) | — | — | — | — | — | — | — | — | — | — | — | 14 | 14 | 17 | 17 |
 | `ReleaseQueryUGCRequest` | 4 | 4 | 4 | 4 | 11 | 11 | 13 | 13 | 13 | 13 | 14 | 15 | 15 | 18 | 18 |
 | `AddRequiredTag` | 5 | 5 | 5 | 5 | 12 | 12 | 14 | 14 | 14 | 14 | 15 | 16 | 16 | 19 | 19 |
 | `AddRequiredTagGroup` | — | — | — | — | — | — | — | — | — | — | — | — | 17 | 20 | 20 |
@@ -252,8 +252,8 @@ Interface-version strings: `STEAMUGC_INTERFACE_VERSION001` … `016`. (`011` is 
 | `SetTimeCreatedDateRange` | — | — | — | — | — | — | — | — | — | — | — | — | — | — | 36 |
 | `SetTimeUpdatedDateRange` | — | — | — | — | — | — | — | — | — | — | — | — | — | — | 37 |
 | `AddRequiredKeyValueTag` | — | — | — | — | — | — | 28 | 28 | 29 | 30 | 31 | 32 | 33 | 36 | 38 |
-| `RequestUGCDetails` (1 arg) | 13 | — | — | — | — | — | — | — | — | — | — | — | — | — | — |
-| `RequestUGCDetails` (2 args) | — | 14 | 14 | 14 | 24 | 25 | 29 | 29 | 30 | 31 | 32 | 33 | 34 | 37 | 39 |
+| `RequestUGCDetails` | 13 | — | — | — | — | — | — | — | — | — | — | — | — | — | — |
+| `RequestUGCDetails` (RequestUGCDetailsAge) | — | 14 | 14 | 14 | 24 | 25 | 29 | 29 | 30 | 31 | 32 | 33 | 34 | 37 | 39 |
 | `CreateItem` | — | 15 | 15 | 15 | 25 | 26 | 30 | 30 | 31 | 32 | 33 | 34 | 35 | 38 | 40 |
 | `StartItemUpdate` | — | 16 | 16 | 16 | 26 | 27 | 31 | 31 | 32 | 33 | 34 | 35 | 36 | 39 | 41 |
 | `SetItemTitle` | — | 17 | 17 | 17 | 27 | 28 | 32 | 32 | 33 | 34 | 35 | 36 | 37 | 40 | 42 |
@@ -284,9 +284,9 @@ Interface-version strings: `STEAMUGC_INTERFACE_VERSION001` … `016`. (`011` is 
 | `GetNumSubscribedItems` | — | 27 | 27 | 27 | 40 | 44 | 50 | 55 | 56 | 57 | 59 | 61 | 62 | 65 | 67 |
 | `GetSubscribedItems` | — | 28 | 28 | 28 | 41 | 45 | 51 | 56 | 57 | 58 | 60 | 62 | 63 | 66 | 68 |
 | `GetItemState` | — | — | — | 29 | 42 | 46 | 52 | 57 | 58 | 59 | 61 | 63 | 64 | 67 | 69 |
-| `GetItemInstallInfo` (no flag) | — | 29 | — | — | — | — | — | — | — | — | — | — | — | — | — |
-| `GetItemInstallInfo` (bool legacy) | — | — | 29 | — | — | — | — | — | — | — | — | — | — | — | — |
-| `GetItemInstallInfo` (uint32 timestamp) | — | — | — | 30 | 43 | 47 | 53 | 58 | 59 | 60 | 62 | 64 | 65 | 68 | 70 |
+| `GetItemInstallInfo` | — | 29 | — | — | — | — | — | — | — | — | — | — | — | — | — |
+| `GetItemInstallInfo` (GetItemInstallInfoLegacy) | — | — | 29 | — | — | — | — | — | — | — | — | — | — | — | — |
+| `GetItemInstallInfo` (GetItemInstallInfoTimeStamp) | — | — | — | 30 | 43 | 47 | 53 | 58 | 59 | 60 | 62 | 64 | 65 | 68 | 70 |
 | `GetItemUpdateInfo` (out-params) | — | 30 | 30 | — | — | — | — | — | — | — | — | — | — | — | — |
 | `GetItemDownloadInfo` | — | — | — | 31 | 44 | 48 | 54 | 59 | 60 | 61 | 63 | 65 | 66 | 69 | 71 |
 | `DownloadItem` | — | — | — | 32 | 45 | 49 | 55 | 60 | 61 | 62 | 64 | 66 | 67 | 70 | 72 |

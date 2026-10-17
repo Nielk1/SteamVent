@@ -23,7 +23,9 @@ namespace SteamVent.Steamworks.Native.Interfaces
         /// before it starts).
         /// </summary>
         UInt32 GetAppID();
+        FunctionImplemented GetAppIDSupport { get; }
 
         bool IsAPICallCompleted(UInt64 hSteamAPICall, ref bool pbFailed);
+        FunctionImplemented IsAPICallCompletedSupport { get; }
     }
 }

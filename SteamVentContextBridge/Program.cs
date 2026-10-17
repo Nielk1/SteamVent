@@ -278,7 +278,7 @@ internal static class Program
             {
                 UInt64 sizeOnDisk = 0;
                 UInt32 timeStamp = 0;
-                if (SteamUGC.GetItemInstallInfo(publishedFileId, ref sizeOnDisk, folder, (UInt32)folder.Capacity, ref timeStamp))
+                if (SteamUGC.GetItemInstallInfoTimeStamp(publishedFileId, ref sizeOnDisk, folder, (UInt32)folder.Capacity, ref timeStamp))
                 {
                     item.SizeOnDisk = sizeOnDisk;
                     item.Folder = folder.ToString();
@@ -363,7 +363,7 @@ internal static class Program
         UInt64 sizeOnDisk = 0;
         UInt32 timeStamp = 0;
         StringBuilder folder = new(1024);
-        if (SteamUGC.GetItemInstallInfo(publishedFileId, ref sizeOnDisk, folder, (UInt32)folder.Capacity, ref timeStamp))
+        if (SteamUGC.GetItemInstallInfoTimeStamp(publishedFileId, ref sizeOnDisk, folder, (UInt32)folder.Capacity, ref timeStamp))
             info.Append($", onDisk={sizeOnDisk} bytes, folder=\"{folder}\"");
 
         return info.ToString();

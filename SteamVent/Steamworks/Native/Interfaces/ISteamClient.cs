@@ -37,17 +37,44 @@ namespace SteamVent.Steamworks.Native.Interfaces
         };
 
         Int32 CreateSteamPipe();
+        FunctionImplemented CreateSteamPipeSupport { get; }
+
         bool BReleaseSteamPipe(Int32 hSteamPipe);
+        FunctionImplemented BReleaseSteamPipeSupport { get; }
+
         Int32 ConnectToGlobalUser(Int32 hSteamPipe);
+        FunctionImplemented ConnectToGlobalUserSupport { get; }
+
+        void CreateLocalUserLegacy(ref Int32 phSteamPipe);
+        FunctionImplemented CreateLocalUserLegacySupport { get; }
         void CreateLocalUser(ref Int32 phSteamPipe, EAccountType eAccountType);
+        FunctionImplemented CreateLocalUserSupport { get; }
+
         void ReleaseUser(Int32 hSteamPipe, Int32 hUser);
+        FunctionImplemented ReleaseUserSupport { get; }
+
         TInterface GetISteamUser<TInterface>(Int32 hSteamUser, Int32 hSteamPipe) where TInterface : SteamInterfaceWrapper;
+        FunctionImplemented GetISteamUserSupport { get; }
+
         TInterface GetISteamUtils<TInterface>(Int32 hSteamPipe) where TInterface : SteamInterfaceWrapper;
+        FunctionImplemented GetISteamUtilsSupport { get; }
+
         TInterface GetISteamApps<TInterface>(Int32 hSteamUser, Int32 hSteamPipe) where TInterface : SteamInterfaceWrapper;
+        FunctionImplemented GetISteamAppsSupport { get; }
+
         TInterface GetISteamUGC<TInterface>(Int32 hSteamUser, Int32 hSteamPipe) where TInterface : SteamInterfaceWrapper;
+        FunctionImplemented GetISteamUGCSupport { get; }
+
         void SetLocalIPBinding(UInt32 unIP, UInt16 usPort);
+        FunctionImplemented SetLocalIPBindingSupport { get; }
+
         void RunFrame();
+        FunctionImplemented RunFrameSupport { get; }
+
         void SetWarningMessageHook(SteamAPIWarningMessageHook_t pFunction);
+        FunctionImplemented SetWarningMessageHookSupport { get; }
+
         bool BShutdownIfAllPipesClosed();
+        FunctionImplemented BShutdownIfAllPipesClosedSupport { get; }
     }
 }

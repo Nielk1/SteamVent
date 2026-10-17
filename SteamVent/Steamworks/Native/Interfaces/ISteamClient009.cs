@@ -20,85 +20,69 @@ namespace SteamVent.Steamworks.Native.Interfaces
     {
         public ISteamClient009(IntPtr interfacePtr) : base(interfacePtr) { }
 
-        #region VTableIndex(0)
         [VTableIndex(0), UnmanagedFunctionPointer(CallingConvention.ThisCall)]
         private delegate Int32 CreateSteamPipeDelegate(IntPtr thisPtr);
-        #endregion
-        public Int32 CreateSteamPipe() =>
-            GetDelegate<CreateSteamPipeDelegate>()(InterfacePtr);
+        public Int32 CreateSteamPipe() => GetDelegate<CreateSteamPipeDelegate>()(InterfacePtr);
+        public FunctionImplemented CreateSteamPipeSupport => FunctionImplemented.Implemented;
 
-        #region VTableIndex(1)
         [VTableIndex(1), UnmanagedFunctionPointer(CallingConvention.ThisCall)]
         private delegate bool BReleaseSteamPipeDelegate(IntPtr thisPtr, Int32 hSteamPipe);
-        #endregion
-        public bool BReleaseSteamPipe(Int32 hSteamPipe) =>
-            GetDelegate<BReleaseSteamPipeDelegate>()(InterfacePtr, hSteamPipe);
+        public bool BReleaseSteamPipe(Int32 hSteamPipe) => GetDelegate<BReleaseSteamPipeDelegate>()(InterfacePtr, hSteamPipe);
+        public FunctionImplemented BReleaseSteamPipeSupport => FunctionImplemented.Implemented;
 
-        #region VTableIndex(2)
         [VTableIndex(2), UnmanagedFunctionPointer(CallingConvention.ThisCall)]
         private delegate Int32 ConnectToGlobalUserDelegate(IntPtr thisPtr, Int32 hSteamPipe);
-        #endregion
-        public Int32 ConnectToGlobalUser(Int32 hSteamPipe) =>
-            GetDelegate<ConnectToGlobalUserDelegate>()(InterfacePtr, hSteamPipe);
+        public Int32 ConnectToGlobalUser(Int32 hSteamPipe) => GetDelegate<ConnectToGlobalUserDelegate>()(InterfacePtr, hSteamPipe);
+        public FunctionImplemented ConnectToGlobalUserSupport => FunctionImplemented.Implemented;
 
-        #region VTableIndex(3)
+
         [VTableIndex(3), UnmanagedFunctionPointer(CallingConvention.ThisCall)]
         private delegate void CreateLocalUserDelegate(IntPtr thisPtr, ref Int32 phSteamPipe, EAccountType eAccountType);
-        #endregion
-        public void CreateLocalUser(ref Int32 phSteamPipe, EAccountType eAccountType) =>
-            GetDelegate<CreateLocalUserDelegate>()(InterfacePtr, ref phSteamPipe, eAccountType);
+        public void CreateLocalUser(ref Int32 phSteamPipe, EAccountType eAccountType) => GetDelegate<CreateLocalUserDelegate>()(InterfacePtr, ref phSteamPipe, eAccountType);
+        public FunctionImplemented CreateLocalUserSupport => FunctionImplemented.Implemented;
+        public void CreateLocalUserLegacy(ref Int32 phSteamPipe) => CreateLocalUser(ref phSteamPipe, EAccountType.k_EAccountTypeIndividual);
+        public FunctionImplemented CreateLocalUserLegacySupport => FunctionImplemented.Adapter;
 
-        #region VTableIndex(4)
+
         [VTableIndex(4), UnmanagedFunctionPointer(CallingConvention.ThisCall)]
         private delegate void ReleaseUserDelegate(IntPtr thisPtr, Int32 hSteamPipe, Int32 hUser);
-        #endregion
-        public void ReleaseUser(Int32 hSteamPipe, Int32 hUser) =>
-            GetDelegate<ReleaseUserDelegate>()(InterfacePtr, hSteamPipe, hUser);
+        public void ReleaseUser(Int32 hSteamPipe, Int32 hUser) => GetDelegate<ReleaseUserDelegate>()(InterfacePtr, hSteamPipe, hUser);
+        public FunctionImplemented ReleaseUserSupport => FunctionImplemented.Implemented;
 
-        #region VTableIndex(5)
         [VTableIndex(5), UnmanagedFunctionPointer(CallingConvention.ThisCall)]
         private delegate IntPtr GetISteamUserDelegate(IntPtr thisPtr, Int32 hSteamUser, Int32 hSteamPipe, IntPtr pchVersion);
-        #endregion
-        public TInterface GetISteamUser<TInterface>(Int32 hSteamUser, Int32 hSteamPipe) where TInterface : SteamInterfaceWrapper =>
-            GetInterface<GetISteamUserDelegate, TInterface>(InterfacePtr, hSteamUser, hSteamPipe);
+        public TInterface GetISteamUser<TInterface>(Int32 hSteamUser, Int32 hSteamPipe) where TInterface : SteamInterfaceWrapper => GetInterface<GetISteamUserDelegate, TInterface>(InterfacePtr, hSteamUser, hSteamPipe);
+        public FunctionImplemented GetISteamUserSupport => FunctionImplemented.Implemented;
 
-        #region VTableIndex(9)
         [VTableIndex(9), UnmanagedFunctionPointer(CallingConvention.ThisCall)]
         private delegate IntPtr GetISteamUtilsDelegate(IntPtr thisPtr, Int32 hSteamPipe, IntPtr pchVersion);
-        #endregion
-        public TInterface GetISteamUtils<TInterface>(Int32 hSteamPipe) where TInterface : SteamInterfaceWrapper =>
-            GetInterface<GetISteamUtilsDelegate, TInterface>(InterfacePtr, hSteamPipe);
+        public TInterface GetISteamUtils<TInterface>(Int32 hSteamPipe) where TInterface : SteamInterfaceWrapper => GetInterface<GetISteamUtilsDelegate, TInterface>(InterfacePtr, hSteamPipe);
+        public FunctionImplemented GetISteamUtilsSupport => FunctionImplemented.Implemented;
 
-        #region VTableIndex(16)
         [VTableIndex(16), UnmanagedFunctionPointer(CallingConvention.ThisCall)]
         private delegate IntPtr GetISteamAppsDelegate(IntPtr thisPtr, Int32 hSteamUser, Int32 hSteamPipe, IntPtr pchVersion);
-        #endregion
-        public TInterface GetISteamApps<TInterface>(Int32 hSteamUser, Int32 hSteamPipe) where TInterface : SteamInterfaceWrapper =>
-            GetInterface<GetISteamAppsDelegate, TInterface>(InterfacePtr, hSteamUser, hSteamPipe);
+        public TInterface GetISteamApps<TInterface>(Int32 hSteamUser, Int32 hSteamPipe) where TInterface : SteamInterfaceWrapper => GetInterface<GetISteamAppsDelegate, TInterface>(InterfacePtr, hSteamUser, hSteamPipe);
+        public FunctionImplemented GetISteamAppsSupport => FunctionImplemented.Implemented;
 
         [Obsolete("Not implemented in this version.", true)] public TInterface GetISteamUGC<TInterface>(Int32 hSteamUser, Int32 hSteamPipe) where TInterface : SteamInterfaceWrapper { throw new NotImplementedException(); }
+        public FunctionImplemented GetISteamUGCSupport => FunctionImplemented.NotImplemented;
 
-        #region VTableIndex(7)
         [VTableIndex(7), UnmanagedFunctionPointer(CallingConvention.ThisCall)]
         private delegate void SetLocalIPBindingDelegate(IntPtr thisPtr, UInt32 unIP, UInt16 usPort);
-        #endregion
-        public void SetLocalIPBinding(UInt32 unIP, UInt16 usPort) =>
-            GetDelegate<SetLocalIPBindingDelegate>()(InterfacePtr, unIP, usPort);
+        public void SetLocalIPBinding(UInt32 unIP, UInt16 usPort) => GetDelegate<SetLocalIPBindingDelegate>()(InterfacePtr, unIP, usPort);
+        public FunctionImplemented SetLocalIPBindingSupport => FunctionImplemented.Implemented;
 
-        #region VTableIndex(19)
         [VTableIndex(19), UnmanagedFunctionPointer(CallingConvention.ThisCall)]
         private delegate void RunFrameDelegate(IntPtr thisPtr);
-        #endregion
-        public void RunFrame() =>
-            GetDelegate<RunFrameDelegate>()(InterfacePtr);
+        public void RunFrame() => GetDelegate<RunFrameDelegate>()(InterfacePtr);
+        public FunctionImplemented RunFrameSupport => FunctionImplemented.Implemented;
 
-        #region VTableIndex(21)
         [VTableIndex(21), UnmanagedFunctionPointer(CallingConvention.ThisCall)]
         private delegate void SetWarningMessageHookDelegate(IntPtr thisPtr, IntPtr pFunction);
-        #endregion
-        public void SetWarningMessageHook(SteamAPIWarningMessageHook_t pFunction) =>
-            GetDelegate<SetWarningMessageHookDelegate>()(InterfacePtr, Marshal.GetFunctionPointerForDelegate(pFunction));
+        public void SetWarningMessageHook(SteamAPIWarningMessageHook_t pFunction) => GetDelegate<SetWarningMessageHookDelegate>()(InterfacePtr, Marshal.GetFunctionPointerForDelegate(pFunction));
+        public FunctionImplemented SetWarningMessageHookSupport => FunctionImplemented.Implemented;
 
         [Obsolete("Not implemented in this version.", true)] public bool BShutdownIfAllPipesClosed() { throw new NotImplementedException(); }
+        public FunctionImplemented BShutdownIfAllPipesClosedSupport => FunctionImplemented.NotImplemented;
     }
 }

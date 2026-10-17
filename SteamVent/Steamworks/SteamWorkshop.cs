@@ -164,7 +164,7 @@ namespace SteamVent.Steamworks
                     UInt64 sizeOnDisk = 0;
                     UInt32 timeStamp = 0;
                     var folder = new StringBuilder(260);
-                    if (ugc.GetItemInstallInfo(id, ref sizeOnDisk, folder, (UInt32)folder.Capacity, ref timeStamp))
+                    if (ugc.GetItemInstallInfoTimeStamp(id, ref sizeOnDisk, folder, (UInt32)folder.Capacity, ref timeStamp))
                     {
                         item.SizeOnDisk = sizeOnDisk;
                         item.Folder = folder.ToString();
@@ -252,7 +252,7 @@ namespace SteamVent.Steamworks
             UInt64 sizeOnDisk = 0;
             UInt32 timeStamp = 0;
             StringBuilder folder = new(1024);
-            if (ugc.GetItemInstallInfo(publishedFileId, ref sizeOnDisk, folder, (UInt32)folder.Capacity, ref timeStamp))
+            if (ugc.GetItemInstallInfoTimeStamp(publishedFileId, ref sizeOnDisk, folder, (UInt32)folder.Capacity, ref timeStamp))
                 info.Append($", onDisk={sizeOnDisk} bytes, folder=\"{folder}\"");
 
             return info.ToString();
